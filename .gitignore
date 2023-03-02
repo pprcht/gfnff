@@ -1,0 +1,13 @@
+*.o
+*.mod
+*.a
+*.tgz
+github_bin/
+build_majestix
+build_commands
+_build*
+src/gfn0
+bin/
+testprog/gfn0
+testprog/coord
+ff/
