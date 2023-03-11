@@ -19,7 +19,7 @@
 module gfnff_interface
   use iso_fortran_env,only:wp => real64,stdout => output_unit
   use gfnff_data_types
-  use gfnff_engrad
+  use gfnff_engrad_module
   use gfnff_gbsa
   use gfnff_param
   implicit none
@@ -96,10 +96,10 @@ contains  !> MODULE PROCEDURES START HERE
   end subroutine gfnff_singlepoint
 !========================================================================================!
 
-  subroutine print_gfnff_results(iunit,res_gff,pr,lsolv)
+  subroutine print_gfnff_results(iunit,res_gff,lsolv)
     integer,intent(in) :: iunit ! file handle (usually output_unit=6)
     type(gfnff_results),intent(in) :: res_gff
-    logical,intent(in) :: pr,lsolv
+    logical,intent(in) :: lsolv
     character(len=*),parameter :: outfmt = &
                                   '(2x,a,f23.12,1x,a)'
     write (iunit,outfmt) "total energy      ",res_gff%e_total,"Eh   "

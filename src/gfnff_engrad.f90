@@ -20,7 +20,7 @@
 !> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
-module gfnff_engrad
+module gfnff_engrad_module
   use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
   use gfnff_ini2
   use gfnff_data_types,only:TGFFData,TGFFNeighbourList,new,TGFFTopology
@@ -3105,4 +3105,4 @@ contains  !> MODULE PROCEDURES START HERE
   end subroutine batmgfnff_eg
 
 !========================================================================================!
-end module gfnff_engrad
+end module gfnff_engrad_module

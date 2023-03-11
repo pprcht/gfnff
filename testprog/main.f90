@@ -86,7 +86,7 @@ program gfnff_main_tester
 !>--- And printout of the results from DAT%res
     write(*,*) 
     write(*,*) 'GFN-FF results'
-    call print_gfnff_results(stdout, DAT%res, pr, allocated(DAT%solvation))
+    call print_gfnff_results(stdout, DAT%res, allocated(DAT%solvation))
 
     call DAT%deallocate()
 
@@ -123,7 +123,7 @@ program gfnff_main_tester
 !>--- And printout of the results from DAT%res
     write(*,*)
     write(*,*) 'GFN-FF results'
-    call print_gfnff_results(stdout, DAT%res, pr, allocated(DAT%solvation))
+    call print_gfnff_results(stdout, DAT%res, allocated(DAT%solvation))
 
     write(*,*)
     write(*,*) '========================== END =================================='
