@@ -27,7 +27,7 @@ module gfnff_engrad_module
   use gfnff_gbsa,only:TBorn
   use gfnff_param,only:sqrtZr4r2
   use gfnff_helpers
-  use math_wrapper
+  use gfnff_math_wrapper
   implicit none
   private
   public :: gfnff_eg,gfnff_results
@@ -362,7 +362,6 @@ contains  !> MODULE PROCEDURES START HERE
       qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
     end do
 
-    !call mctc_gemv(dcn, qtmp, g, alpha=-1.0_wp, beta=1.0_wp)
     call gemv(dcn,qtmp,g,alpha=-1.0_wp,beta=1.0_wp)
 !      if (pr) call timer%measure(6)
 
@@ -2803,7 +2802,6 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
     !Calculate etors
-    !write(*,*)'torsion atoms       nrot      phi0   phi      FC'
     do i = 1,ntors
       ii = tlist(1,i)
       jj = tlist(2,i)

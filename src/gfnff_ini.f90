@@ -116,6 +116,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),parameter :: pi=3.1415926535897932385_wp
 
     io = 0
+    exitRun = .false.
 
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 
@@ -177,7 +178,6 @@ contains  !> MODULE PROCEDURES START HERE
 
     dum = sqrt(sum(efield**2))
     write (stdout,'(10x,"electric field strengths (au):",f6.3)') dum
-!     alp = alp *(1.+0.0*dum)
 
     write (stdout,*)
     write (stdout,'(10x," ------------------------------------------------- ")')
@@ -212,13 +212,12 @@ contains  !> MODULE PROCEDURES START HERE
       end do
     end do
 
-    !call env%check(exitRun)
     if (exitRun) then
       io = -1 
       return
     end if
 
-!     Calculate CN and derivative
+!>-- Calculate CN and derivative
     allocate (dcn(3,nat,nat),source=0.0d0)
     call gfnff_dlogcoord(nat,at,xyz,rab,cn,dcn,cnthr,param) ! dcn needed
     do i = 1,nat

@@ -24,7 +24,7 @@
 !> Implementation for generalized Born and related solvation models
 module solvation_solv_gbsa
    use iso_fortran_env, only : wp => real64
-   use math_wrapper, only : matDet3x3, dot, gemv, symv
+   use gfnff_math_wrapper, only : matDet3x3, dot, gemv, symv
 
    use solvation_solv_search, only : bisectSearch
    use solvation_solv_born, only : compute_bornr

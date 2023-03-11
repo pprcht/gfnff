@@ -578,8 +578,6 @@ contains  !> MODULE PROCEDURES START HERE
     self%a2 = 4.6000000_wp
     self%s8 = 2.8500000_wp
 
-!   call newD4Model(self,self%g_a,self%g_c,p_refq_goedecker)
-
   end subroutine initGFFDispersion
 
 !========================================================================================!

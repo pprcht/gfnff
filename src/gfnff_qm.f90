@@ -277,7 +277,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> density matrix
     !> C: MO coefficient
     !> P  dmat
-    use math_wrapper,only:gemm
+    use gfnff_math_wrapper,only:gemm
     integer,intent(in)  :: ndim
     real(wp),intent(in)  :: focc(:)
     real(wp),intent(in)  :: C(:,:)

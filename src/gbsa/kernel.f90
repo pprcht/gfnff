@@ -24,7 +24,7 @@
 !> Generalized Born interaction kernels
 module solvation_solv_kernel
    use iso_fortran_env, only : wp => real64
-   use math_wrapper, only: dot, gemv, symv
+   use gfnff_math_wrapper, only: dot, gemv, symv
    implicit none
    private
 

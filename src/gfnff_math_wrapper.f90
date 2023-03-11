@@ -16,8 +16,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with gfnff.  If not, see <https://www.gnu.org/licenses/>.
 !================================================================================!
-module math_wrapper
-!> module math_wrapper
+module gfnff_math_wrapper
+!> module gfnff_math_wrapper
 !> contains some interfaces to LAPACK and BLAS routines
 !> which must be included via a suitable library.
   use iso_fortran_env,only:wp => real64,sp => real32,stderr => error_unit
@@ -878,4 +878,4 @@ contains
   end subroutine dsygvd_wrap
 
 !=======================================================================================!
-end module math_wrapper
+end module gfnff_math_wrapper

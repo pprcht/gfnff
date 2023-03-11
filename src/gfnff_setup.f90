@@ -67,11 +67,6 @@ contains   !> MODULE PROCEDURES START HERE
 
     newichrg = ichrg
     call gfnff_input(nat,at,xyz,newichrg,topo)
-    !call env%check(exitRun)
-    !if (exitRun) then
-    !   call env%error("Failed to prepare topology from geometry input", source)
-    !   return
-    !end if
 
     call gfnff_set_param(nat,gen,param)
     param%dispscale = 1.0_wp
@@ -92,17 +87,9 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-!  call gfnff_ini(verbose,ini,mol,ichrg,gen,param,topo,accuracy)
-!
-!  call env%check(exitRun)
-!  if (exitRun) then
-!     call env%error("Failed to generate topology", source)
-!     return
-!  end if
-
     call gfnff_ini(verbose,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io)
     if (io /= 0) then
-      write (stdout,'("Failed to generate topology",a)') source
+      write (stdout,'("Failed to generate topology ",a)') source
       return
     end if
 

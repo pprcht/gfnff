@@ -4,7 +4,7 @@ subdir('gbsa')
 endif
 
 srcs += files(
-   'math_wrapper.f90',
+   'gfnff_math_wrapper.f90',
    'gfnff_data_types.f90',
    'gfnff_param.f90',
    'dftd3param.f90',

@@ -1133,7 +1133,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine goedeckera(n,at,nb,pair,q,es,topo,io)
     !use xtb_mctc_lapack,only:mctc_sytrf,mctc_sytrs
-    use math_wrapper, only: sytrf_wrap, sytrs_wrap
+    use gfnff_math_wrapper, only: sytrf_wrap, sytrs_wrap
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
     !type(TEnvironment),intent(inout) :: env
