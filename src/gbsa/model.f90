@@ -596,7 +596,9 @@ subroutine info(self, unit)
    !> Unit for IO
    integer, intent(in) :: unit
 
-   write(unit, '(6x, "*", 1x, a, ":", t40)', advance='no') "Solvation model"
+   
+   write(unit, '(8x, a )') repeat('-',50)
+   write(unit, '(8x, a, ":", t40)', advance='no') "Solvation model"
 !   if (self%cosmo) then
 !      write(unit, '(a)') "COSMO"
 !   else
@@ -606,6 +608,7 @@ subroutine info(self, unit)
          write(unit, '(a)') "GBSA"
       end if
 !   end if
+   write(unit, '(8x, a )') repeat('-',50)
 
    write(unit, '(8x, a, t40, a)') "Solvent", self%solvent
    write(unit, '(8x, a, t40, a)') "Parameter file", self%paramFile

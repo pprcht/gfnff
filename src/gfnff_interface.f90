@@ -66,13 +66,13 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,pr,iostat)
+  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,verbose,iostat)
     implicit none
     !> INPUT
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in)  :: pr         !> printout activation
+    logical,intent(in),optional    :: verbose  !> printout activation 
     type(gfnff_data),intent(inout) :: dat  !> collection of gfnff datatypes and settings
     !> OUTPUT
     real(wp),intent(out) :: energy
@@ -80,6 +80,14 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(out),optional  :: iostat
     !> LOCAL
     integer :: io
+    logical :: pr
+
+    !> printout activation via verbosity
+    if(present(verbose))then
+      pr = verbose
+    else
+      pr =.false. !> (there is close to no printout anyways)
+    endif
 
     energy = 0.0_wp
     gradient(:,:) = 0.0_wp
@@ -123,10 +131,12 @@ contains  !> MODULE PROCEDURES START HERE
       write (iunit,outfmt) "   -> Ghb         ",res_gff%g_hb,"Eh   "
       write (iunit,outfmt) "   -> Gshift      ",res_gff%g_shift,"Eh   "
     end if
+    write (iunit,'(a)') repeat('-',50)
   end subroutine print_gfnff_results
 !========================================================================================!
 
-  subroutine gfnff_initialize(nat,at,xyz,dat,fname,restart,pr,version,iostat,ichrg)
+  subroutine gfnff_initialize(nat,at,xyz,dat,fname,restart, &
+  &                 print,verbose,iunit,version,iostat,ichrg)
     use gfnff_param
     use gfnff_setup_mod,only:gfnff_setup
     use gfnff_gdisp0,only:newD3Model
@@ -138,24 +148,44 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,nat)
     character(len=*),intent(in) :: fname
     logical,intent(in) :: restart
-    logical,intent(in) :: pr
+    logical,intent(in),optional  :: print
+    logical,intent(in),optional  :: verbose
+    integer,intent(in),optional  :: iunit
     integer,intent(in),optional  :: version
     integer,intent(out),optional :: iostat
     integer,intent(in),optional  :: ichrg 
     !> OUTPUT
     type(gfnff_data),intent(inout) :: dat
     !> LOCAL
-    integer :: ich,io
-    logical :: ex,okbas
+    integer :: ich,io,myunit
+    logical :: ex,okbas,pr,pr2
     logical :: exitRun
 
-    !> Reset datatypes
+!> mapping of optional instuctions
+    if(present(print))then
+      pr = print
+    else
+      pr = .false.
+    endif
+    if(present(verbose))then
+      pr2 = verbose
+    else
+      pr2 = .false.
+    endif
+    if(pr2) pr = pr2    
+    if(present(iunit))then
+      myunit = iunit
+    else
+      myunit = stdout
+    endif
+
+!> Reset datatypes
     call dat%type_init()
     if(present(ichrg))then
       dat%ichrg = ichrg
     endif
 
-    !> Parametrisation version
+!> Parametrisation version
     if (present(version)) then
       dat%version = version
     else
@@ -164,13 +194,13 @@ contains  !> MODULE PROCEDURES START HERE
 
     call dat%topo%zero
     dat%update = .true.
-    !> global accuracy factor similar to acc in xtb used in SCF
+!> global accuracy factor similar to acc in xtb used in SCF
     dat%accuracy = 0.1_wp
     if (nat > 10000) then
       dat%accuracy = 2.0_wp
     end if
 
-    !> Obtain the parameter file or load internal
+!> Obtain the parameter file or load internal
     inquire (file=fname,exist=ex)
     if (ex) then
       open (newunit=ich,file=fname)
@@ -178,8 +208,8 @@ contains  !> MODULE PROCEDURES START HERE
       close (ich)
     else !> no parameter file, try to load internal version
       call gfnff_load_param(dat%version,dat%param,ex)
-      if (.not.ex) then
-        write (stdout,'("Parameter file ",a," not found!",a)') fname,source
+      if (.not.ex.and.pr) then
+        write (myunit,'("Parameter file ",a," not found!",a)') fname,source
         return
       end if
     end if
@@ -187,17 +217,21 @@ contains  !> MODULE PROCEDURES START HERE
     call newD3Model(dat%topo%dispm,nat,at)
 
     call gfnff_setup(nat,at,xyz,dat%ichrg,pr,restart,dat%write_topo, &
-    &         dat%gen,dat%param,dat%topo,dat%accuracy,dat%version,io)
+    &        dat%gen,dat%param,dat%topo,dat%accuracy,dat%version,io, &
+    &        verbose=verbose, iunit=myunit)
 
     !> Optional, ALPB solvation
     if (allocated(dat%solvent)) then
       if (.not. (allocated(dat%solvation))) allocate (dat%solvation)
       call gfnff_gbsa_init(nat,at,dat%solvent,dat%solvation)
-      if (pr) call gfnff_gbsa_print(dat%solvation,stdout)
+      if (pr)then
+        write(myunit,*)
+        call gfnff_gbsa_print(dat%solvation,myunit)
+      endif
     end if
 
     if ((io /= 0).and.pr) then
-      write (stdout,'("Could not create force field calculator ",a)') source
+      write (myunit,'("Could not create force field calculator ",a)') source
     end if
     if (present(iostat)) then
       iostat = io

@@ -21,7 +21,7 @@
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
 module gfnff_qm_setup
-  use iso_fortran_env,only:wp => real64,sp => real64
+  use iso_fortran_env,only:wp => real64,sp => real64, stdout=>output_unit
   use gfnff_data_types,only:TGFFData,init,TGFFGenerator,TGFFTopology
   implicit none
   private
@@ -36,8 +36,9 @@ contains  !> MODULE PROCEDURES START HERE
 ! solve QM Hamiltonian A in overlap basis S (if ovlp=.true., ZDO otherwise)
 ! and return density matrix in A (and energy weighted density in S if ovlp=.true.)
 ! ndim is the dimension of the problem for nel electrons with nopen more alpha than beta
-  subroutine gfnffqmsolve(pr,A,S,ovlp,et,ndim,nopen,nel,eel,focc,e)
+  subroutine gfnffqmsolve(pr,A,S,ovlp,et,ndim,nopen,nel,eel,focc,e,io)
     implicit none
+    character(len=*),parameter :: source = 'gfnffqmsolve()'
     integer :: ndim      ! # basis
     integer :: nopen     ! # of open shells
     integer :: nel       ! # of electrons
@@ -49,7 +50,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: e(ndim)  ! eigenvalues
     real(wp) :: A(ndim,ndim)
     real(wp) :: S(ndim,ndim)
-
+    integer,intent(out) :: io ! output status
     integer  :: ihomoa,ihomob,i,liwork,info,lwork
     real(wp) :: ga,gb,efa,efb,nfoda,nfodb
     real(wp),allocatable :: X(:,:)
@@ -57,6 +58,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,allocatable  :: iwork(:),ifail(:)
     !> LAPACK
     external :: dsyev,dsygvd
+
+    io = 0
 
     allocate (focca(ndim),foccb(ndim))
 
@@ -95,8 +98,8 @@ contains  !> MODULE PROCEDURES START HERE
     e = e*0.1_wp*27.2113957_wp
 
     if (info .ne. 0) then
-      write (*,*) 'INFO',info
-      stop 'diag error'
+      write (stdout,*) 'diag error in ',source
+      io = info 
     end if
 
     if (et .gt. 1.d-3) then
@@ -119,8 +122,10 @@ contains  !> MODULE PROCEDURES START HERE
           do i = 1,nel/2
             focc(i) = 2.0d0
           end do
-          write (*,*) 'perfect biradical detected at FT-HMO level. Breaking the symmetry'
-          write (*,*) 'because its assumed to be an anit-aromatic system like COT or CB.'
+          if(pr)then
+          write (stdout,*) 'perfect biradical detected at FT-HMO level. Breaking the symmetry'
+          write (stdout,*) 'because its assumed to be an anit-aromatic system like COT or CB.'
+          endif
         end if
       end if
     else

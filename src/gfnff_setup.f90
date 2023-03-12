@@ -34,8 +34,8 @@ contains   !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_setup(nat,at,xyz,ichrg,verbose,restart,write_topo, &
-  &                      gen,param,topo,accuracy,version,io)
+  subroutine gfnff_setup(nat,at,xyz,ichrg,pr,restart,write_topo, &
+  &                      gen,param,topo,accuracy,version,io,verbose,iunit)
     use gfnff_restart
     use gfnff_param,only:ini,gfnff_set_param
     implicit none
@@ -46,24 +46,33 @@ contains   !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,nat)
     integer,intent(in)  :: ichrg
 
-    !integer,intent(in) :: ich
     type(TGFFTopology),intent(inout) :: topo
     type(TGFFGenerator),intent(inout) :: gen
     type(TGFFData),intent(inout) :: param
     integer,intent(in) :: version
     logical,intent(in) :: restart
-    logical,intent(in) :: verbose
+    logical,intent(in) :: pr          !> printout flag
     logical,intent(in) :: write_topo
     real(wp),intent(in) :: accuracy
     integer,intent(out) :: io
+    logical,intent(in),optional :: verbose !> extended prinout
+    integer,intent(in),optional :: iunit
 
 ! Stack
     integer :: newichrg
+    integer :: myunit
     logical :: ex
     logical :: success
     logical :: exitRun
 
+
+!> initialize
     io = 0
+    if(present(iunit))then
+      myunit = iunit
+    else
+      myunit = stdout
+    endif
 
     newichrg = ichrg
     call gfnff_input(nat,at,xyz,newichrg,topo)
@@ -75,10 +84,10 @@ contains   !> MODULE PROCEDURES START HERE
       if (ex) then
         call read_restart_gff('gfnff_topo',nat,version,success,.true.,topo)
         if (success) then
-          write (stdout,'(10x,"GFN-FF topology read from file successfully!")')
+          write (myunit,'(10x,"GFN-FF topology read from file successfully!")')
           return
         else
-          write (stdout,'("Could not read topology file.",a)') source
+          write (myunit,'("Could not read topology file.",a)') source
           exitRun = .true.
           if (exitRun) then
             return
@@ -87,9 +96,9 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-    call gfnff_ini(verbose,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io)
+    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io,verbose=verbose, iunit=myunit)
     if (io /= 0) then
-      write (stdout,'("Failed to generate topology ",a)') source
+      write (myunit,'("Failed to generate topology ",a)') source
       return
     end if
 

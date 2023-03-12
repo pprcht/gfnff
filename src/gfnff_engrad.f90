@@ -63,31 +63,31 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
 !---------------------------------------------------
-! GFN-FF
-! energy and analytical gradient for given xyz and
-! charge ichrg
-! requires D3 ini (rcov,r2r4,copyc6) as well as
-! gfnff_ini call
-!
-! the total energy is
-! ees + edisp + erep + ebond + eangl + etors + ehb + exb + ebatm + eext
-!
-! uses EEQ charge and D3 routines
-! basic trigonometry for bending and torsion angles
-! taken slightly modified from QMDFF code
-! repulsion and rabguess from xtb GFN0 part
-!
-! requires setup of
-!     integer,allocatable :: blist(:,:)
-!     integer,allocatable :: alist(:,:)
-!     integer,allocatable :: tlist(:,:)
-!     integer,allocatable ::b3list(:,:)
-!     real(wp),allocatable:: vbond(:,:)
-!     real(wp),allocatable:: vangl(:,:)
-!     real(wp),allocatable:: vtors(:,:)
-!     chi,gam,alp,cnf
-!     repa,repz,alphanb
-!
+!> GFN-FF
+!> energy and analytical gradient for given xyz and
+!> charge ichrg
+!> requires D3 ini (rcov,r2r4,copyc6) as well as
+!> gfnff_ini call
+!>
+!> the total energy is
+!> ees + edisp + erep + ebond + eangl + etors + ehb + exb + ebatm + eext
+!>
+!> uses EEQ charge and D3 routines
+!> basic trigonometry for bending and torsion angles
+!> taken slightly modified from QMDFF code
+!> repulsion and rabguess from xtb GFN0 part
+!>
+!> requires setup of
+!>     integer,allocatable :: blist(:,:)
+!>     integer,allocatable :: alist(:,:)
+!>     integer,allocatable :: tlist(:,:)
+!>     integer,allocatable ::b3list(:,:)
+!>     real(wp),allocatable:: vbond(:,:)
+!>     real(wp),allocatable:: vangl(:,:)
+!>     real(wp),allocatable:: vtors(:,:)
+!>     chi,gam,alp,cnf
+!>     repa,repz,alphanb
+!> 
 !---------------------------------------------------
   subroutine gfnff_eg(pr,n,ichrg,at,xyz,makeq,g,etot,res_gff, &
   &          param,topo,nlist,solvation,update,version,accuracy,io)
@@ -121,12 +121,12 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: edisp,ees,ebond,eangl,etors,erep,ehb,exb,ebatm,eext
     real(wp) :: gsolv,gborn,ghb,gsasa,gshift
 
-    integer i,j,k,l,m,ij,nd3
-    integer ati,atj,iat,jat
-    integer hbA,hbB
-    integer lin
-    logical ex,require_update
-    integer nhb1,nhb2,nxb
+    integer  :: i,j,k,l,m,ij,nd3
+    integer  :: ati,atj,iat,jat
+    integer  :: hbA,hbB
+    integer  :: lin
+    logical  :: ex,require_update
+    integer  :: nhb1,nhb2,nxb
     real(wp) ::  r2,rab,qq0,erff,dd,dum1,r3(3),t8,dum,t22,t39
     real(wp) ::  dx,dy,dz,yy,t4,t5,t6,alpha,t20
     real(wp) ::  repab,t16,t19,t26,t27,xa,ya,za,cosa,de,t28
@@ -187,9 +187,9 @@ contains  !> MODULE PROCEDURES START HERE
         end if
         srab(k) = sqrt(sqrab(k))
       end do
-! The loop above only runs over the off diagonal elements
-! This initializes the unitialized diagonal to zero but does not
-! add it to the dispersion list.
+!> The loop above only runs over the off diagonal elements
+!> This initializes the unitialized diagonal to zero but does not
+!> add it to the dispersion list.
       sqrab(ij+i) = 0.0d0
       srab(ij+i) = 0.0d0
     end do
@@ -270,7 +270,6 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     if (version == gffVersion%harmonic2020) then
-      write (*,*) 'I ENTERED THIS'
       ebond = 0
       !$omp parallel do default(none) reduction(+:ebond, g) &
       !$omp shared(topo, param, xyz, at) private(i, iat, jat, rab, r2, r3, rn, dum)
@@ -739,7 +738,7 @@ contains  !> MODULE PROCEDURES START HERE
       hbH = jat
       hbA = iat
     else
-      write (*,'(10x,"No H-atom found in this bond ",i0,1x,i0)') iat,jat
+!      write (stdout,'(10x,"No H-atom found in this bond ",i0,1x,i0)') iat,jat
       return
     end if
 
@@ -1259,42 +1258,42 @@ contains  !> MODULE PROCEDURES START HERE
     character(len=*),parameter :: source = 'gfnff_eg_goed'
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
-    logical,intent(in)  :: single     ! real*4 flag for solver
-    integer,intent(in)  :: n          ! number of atoms
-    integer,intent(in)  :: at(n)      ! ordinal numbers
-    real(wp),intent(in)  :: sqrab(n*(n+1)/2)   ! squared dist
-    real(wp),intent(in)  :: r(n*(n+1)/2)       ! dist
-    real(wp),intent(in)  :: chrg       ! total charge on system
-    real(wp),intent(in)  :: cn(n)      ! CN
-    real(wp),intent(out) :: q(n)       ! output charges
-    real(wp),intent(out) :: es         ! ES energy
-    real(wp),intent(out) :: eeqtmp(2,n*(n+1)/2)    ! intermediates
-    type(TBorn),allocatable,intent(in) :: gbsa
-    integer,intent(out) :: io
-
-!  local variables
-    integer  :: m,i,j,k,ii,ij
+    logical,intent(in)  :: single     !> real*4 flag for solver
+    integer,intent(in)  :: n          !> number of atoms
+    integer,intent(in)  :: at(n)      !> ordinal numbers
+    real(wp),intent(in)  :: sqrab(n*(n+1)/2)   !> squared dist
+    real(wp),intent(in)  :: r(n*(n+1)/2)       !> dist
+    real(wp),intent(in)  :: chrg       !> total charge on system
+    real(wp),intent(in)  :: cn(n)      !> CN
+    real(wp),intent(out) :: q(n)       !> output charges
+    real(wp),intent(out) :: es         !> ES energy
+    real(wp),intent(out) :: eeqtmp(2,n*(n+1)/2)   !> intermediates
+    type(TBorn),allocatable,intent(in) :: gbsa    !> solvation object
+    integer,intent(out) :: io   !> return status
+    !> LOCAL
+    integer :: m,i,j,k,ii,ij
     integer :: io1,io2
     integer,allocatable :: ipiv(:)
     real(wp) :: gammij,tsqrt2pi,r2,tmp
     real(wp),allocatable :: A(:,:),x(:)
     real(sp),allocatable :: A4(:,:),x4(:)
-!  parameter
+!>  parameter
     parameter(tsqrt2pi=0.797884560802866_wp)
     logical :: exitRun
 
     io = 0  !> return status
 
-    m = n+topo%nfrag ! # atoms + chrg constrain + frag constrain
+!> # atoms + chrg constrain + frag constrain
+    m = n+topo%nfrag
 
     allocate (A(m,m),x(m))
-!  setup RHS
+!>  setup RHS
     do i = 1,n
       x(i) = topo%chieeq(i)+param%cnf(at(i))*sqrt(cn(i))
     end do
 
     A = 0
-!  setup A matrix
+!> setup A matrix
     !$omp parallel default(none) &
     !$omp shared(topo,n,sqrab,r,eeqtmp,A,at) &
     !$omp private(i,j,k,ij,gammij,tmp)
@@ -1315,7 +1314,7 @@ contains  !> MODULE PROCEDURES START HERE
     !$omp enddo
     !$omp end parallel
 
-!  fragment charge constrain
+!> fragment charge constrain
     do i = 1,topo%nfrag
       x(n+i) = topo%qfrag(i)
       do j = 1,n
@@ -1330,7 +1329,6 @@ contains  !> MODULE PROCEDURES START HERE
       A(:n,:n) = A(:n,:n)+gbsa%bornMat(:,:)
     end if
 
-!     call prmat(6,A,m,m,'A eg')
     allocate (ipiv(m))
 
     if (single) then
@@ -1349,17 +1347,15 @@ contains  !> MODULE PROCEDURES START HERE
       deallocate (A,x)
     end if
 
-    !call env%check(exitRun)
     exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      !call env%error('Solving linear equations failed', source)
       write (stdout,'("Solving linear equations failed ",a)') source
       return
     end if
 
     if (n .eq. 1) q(1) = chrg
 
-!  energy
+!> energy
     es = 0.0_wp
     do i = 1,n
       ii = i*(i-1)/2
@@ -1372,19 +1368,13 @@ contains  !> MODULE PROCEDURES START HERE
      &        +q(i)*q(i)*0.5d0*(topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i)))
     end do
 
-    !work = x
-    !call dsymv('u', n, 0.5d0, A, m, q, 1, -1.0_wp, work, 1)
-    !es = ddot(n, q, 1, work, 1)
-
-!     deallocate(cn)
-
   end subroutine goed_gfnff
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ! HB energy and analytical gradient
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-!subroutine for case 1: A...H...B
+!> subroutine for case 1: A...H...B
   subroutine abhgfnff_eg1(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
     implicit none
     type(TGFFData),intent(in) :: param
@@ -1782,7 +1772,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine abhgfnff_eg2new
 
-!subroutine for case 2: A-H...B including LP position
+!> subroutine for case 2: A-H...B including LP position
   subroutine abhgfnff_eg2_rnr(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
     implicit none
     type(TGFFData),intent(in) :: param
@@ -1790,8 +1780,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer A,B,H,n,at(n)
     real(wp) :: xyz(3,n),energy,gdr(3,n)
     real(wp) :: q(n)
-    real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
-    real(wp) :: srab(n*(n+1)/2)    ! dist
+    real(wp) :: sqrab(n*(n+1)/2)   !> squared dist
+    real(wp) :: srab(n*(n+1)/2)    !> dist
 
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
@@ -1820,15 +1810,15 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: gii(3,3)
     real(wp) :: unit_vec(3)
     real(wp) :: drnb(3,topo%nb(20,B))
-    real(wp) :: lp(3)   !lonepair position
-    real(wp) :: lp_dist !distance parameter between B and lonepair
+    real(wp) :: lp(3)   !> lonepair position
+    real(wp) :: lp_dist !> distance parameter between B and lonepair
     real(wp) :: ralp,ralp2,rblp,rblp2,ralpprblp
     logical mask_nb(topo%nb(20,B))
 
-!     proportion between Rbh und Rab distance dependencies
+!> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
-!     lone-pair out-of-line damping
+!> lone-pair out-of-line damping
     real(wp) :: hblpcut
 
     integer i,j,ij,lina,nbb
@@ -1846,27 +1836,27 @@ contains  !> MODULE PROCEDURES START HERE
     call hbonds(A,B,ca,cb,param,topo)
 
     nbb = topo%nb(20,B)
-!     Neighbours of B
+!> Neighbours of B
     do i = 1,nbb
-!        compute distances
+!> compute distances
       dranb(1:3,i) = xyz(1:3,A)-xyz(1:3,topo%nb(i,B))
       drbnb(1:3,i) = xyz(1:3,B)-xyz(1:3,topo%nb(i,B))
-!        A-nb(B) distance
+!> A-nb(B) distance
       ranb2(i) = sum(dranb(1:3,i)**2)
       ranb(i) = sqrt(ranb2(i))
-!        B-nb(B) distance
+!> B-nb(B) distance
       rbnb2(i) = sum(drbnb(1:3,i)**2)
       rbnb(i) = sqrt(rbnb2(i))
     end do
 
-!     Neighbours of B
+!> Neighbours of B
     do i = 1,nbb
       drnb(1:3,i) = xyz(1:3,topo%nb(i,B))-xyz(1:3,B)
       vector = vector+drnb(1:3,i)
     end do
 
     vnorm = norm2(vector)
-!     lonepair coordinates
+!> lonepair coordinates
     if (vnorm .gt. 1.d-10) then
       lp = xyz(1:3,B)-lp_dist*(vector/vnorm)
     else
@@ -1874,17 +1864,17 @@ contains  !> MODULE PROCEDURES START HERE
       nbb = 0
     end if
 
-!     A-B distance
+!> A-B distance
     ij = lina(A,B)
     rab2 = sqrab(ij)
     rab = srab(ij)
 
-!     A-H distance
+!> A-H distance
     ij = lina(A,H)
     rah2 = sqrab(ij)
     rah = srab(ij)
 
-!     B-H distance
+!> B-H distance
     ij = lina(B,H)
     rbh2 = sqrab(ij)
     rbh = srab(ij)
@@ -1892,13 +1882,13 @@ contains  !> MODULE PROCEDURES START HERE
     rahprbh = rah+rbh+1.d-12
     radab = param%rad(at(A))+param%rad(at(B))
 
-!     out-of-line damp: A-H...B
+!> out-of-line damp: A-H...B
     expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
     if (expo .gt. 15.0d0) return ! avoid overflow
     ratio2 = exp(expo)
     outl = 2.d0/(1.d0+ratio2)
 
-!     out-of-line damp: A...LP-B
+!> out-of-line damp: A...LP-B
     rblp2 = sum((xyz(1:3,B)-lp(1:3))**2)
     rblp = sqrt(rblp2)
     ralp2 = sum((xyz(1:3,A)-lp(1:3))**2)
@@ -1908,7 +1898,7 @@ contains  !> MODULE PROCEDURES START HERE
     ratio2_lp = exp(expo_lp)
     outl_lp = 2.d0/(1.d0+ratio2_lp)
 
-!     out-of-line damp: A...nb(B)-B
+!> out-of-line damp: A...nb(B)-B
     do i = 1,nbb
       ranbprbnb(i) = ranb(i)+rbnb(i)+1.d-12
       expo_nb(i) = (param%hbnbcut/radab)*(ranbprbnb(i)/rab-1.d0)
@@ -1917,11 +1907,11 @@ contains  !> MODULE PROCEDURES START HERE
     end do
     outl_nb_tot = product(outl_nb)
 
-!     long damping
+!> long range damping
     ratio1 = (rab2/param%hblongcut)**param%hbalp
     dampl = 1.d0/(1.d0+ratio1)
 
-!     short damping
+!> short range damping
     shortcut = param%hbscut*radab
     ratio3 = (shortcut/rab2)**param%hbalp
     damps = 1.d0/(1.d0+ratio3)
@@ -1932,30 +1922,30 @@ contains  !> MODULE PROCEDURES START HERE
     rabdamp = damp*((p_ab/rab2/rab))
     rdamp = rbhdamp+rabdamp
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1h = exp(param%hbst*q(H))
     ex2h = ex1h+param%hbsf
     qh = ex1h/ex2h
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1a = exp(-param%hbst*q(A))
     ex2a = ex1a+param%hbsf
     qa = ex1a/ex2a
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1b = exp(-param%hbst*q(B))
     ex2b = ex1b+param%hbsf
     qb = ex1b/ex2b
 
     qhoutl = qh*outl*outl_nb_tot*outl_lp
 
-!     constant values, no gradient
+!> constant values, no gradient
     const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
 
-!     energy
+!> energy
     energy = -rdamp*qhoutl*const
 
-!     gradient
+!> gradient
     drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
     drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
     drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
@@ -1968,7 +1958,7 @@ contains  !> MODULE PROCEDURES START HERE
     dterm = -qhoutl*const
 
 !------------------------------------------------------------------------------
-!     damping part: rab
+!> damping part: rab
     gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
     gi = gi*dterm
     dg(1:3) = gi*drab(1:3)
@@ -1976,7 +1966,7 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     damping part: rbh
+!> damping part: rbh
     gi = -3.d0*rbhdamp/rbh2
     gi = gi*dterm
     dg(1:3) = gi*drbh(1:3)
@@ -1984,16 +1974,16 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     angular A-H...B term
+!> angular A-H...B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
     gi = -tmp1*rahprbh/rab2
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = ga(1:3)+dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: rah,rbh
+!> out of line term: rah,rbh
     gi = tmp1/rah
     dga(1:3) = gi*drah(1:3)
     ga(1:3) = ga(1:3)+dga(1:3)
@@ -2003,17 +1993,17 @@ contains  !> MODULE PROCEDURES START HERE
     dgh(1:3) = -dga(1:3)-dgb(1:3)
     gh(1:3) = gh(1:3)+dgh(1:3)
 
-!!------------------------------------------------------------------------------
-!!     angular A...LP-B term
-!!------------------------------------------------------------------------------
-!     out of line term: rab
+!------------------------------------------------------------------------------
+!> angular A...LP-B term
+!------------------------------------------------------------------------------
+!> out of line term: rab
     tmp3 = -2.d0*lpterm*ratio2_lp*expo_lp/(1+ratio2_lp)**2/(ralpprblp-rab)
     gi = -tmp3*ralpprblp/rab2
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = ga(1:3)+dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: ralp,rblp
+!> out of line term: ralp,rblp
     gi = tmp3/ralp
     dga(1:3) = gi*dralp(1:3)
     ga(1:3) = ga(1:3)+dga(1:3)
@@ -2022,7 +2012,7 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = gb(1:3)-dga(1:3)
     glp(1:3) = -dga(1:3)!-dgb(1:3)
 
-!     neighbor part: LP
+!> neighbor part: LP
     unit_vec = 0
     do i = 1,3
       unit_vec(i) = -1
@@ -2032,9 +2022,9 @@ contains  !> MODULE PROCEDURES START HERE
     gnb_lp = matmul(gii,glp)
 
 !------------------------------------------------------------------------------
-!     angular A...nb(B)-B term
+!> angular A...nb(B)-B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     mask_nb = .true.
     do i = 1,nbb
       mask_nb(i) = .false.
@@ -2047,7 +2037,7 @@ contains  !> MODULE PROCEDURES START HERE
       mask_nb = .true.
     end do
 
-!     out of line term: ranb,rbnb
+!> out of line term: ranb,rbnb
     do i = 1,nbb
       gi_nb(i) = tmp2(i)/ranb(i)
       dga(1:3) = gi_nb(i)*dranb(1:3,i)
@@ -2068,7 +2058,7 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 !------------------------------------------------------------------------------
-!     move gradients into place
+!> move gradients into place
     gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
     gdr(1:3,B) = gdr(1:3,B)+gb(1:3)+gnb_lp(1:3)
     gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
@@ -2078,9 +2068,9 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine abhgfnff_eg2_rnr
 
-!subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
-!this is the multiplicative version of incorporationg etors and ebend
-!equal to abhgfnff_eg2_new multiplied by etors and eangl
+!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
+!> this is the multiplicative version of incorporationg etors and ebend
+!> equal to abhgfnff_eg2_new multiplied by etors and eangl
   subroutine abhgfnff_eg3(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
     implicit none
     type(TGFFData),intent(in) :: param
@@ -2121,7 +2111,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: outl_nb(topo%nb(20,B)),outl_nb_tot
     logical mask_nb(topo%nb(20,B)),t_mask(20)
 
-!     proportion between Rbh und Rab distance dependencies
+!> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
 
@@ -2144,47 +2134,47 @@ contains  !> MODULE PROCEDURES START HERE
 
     call hbonds(A,B,ca,cb,param,topo)
 
-    !Determine all neighbors for torsion term
-    !  A
-    !   \         tors:
-    !    H        ll
-    !     :        \
-    !      O        jj
-    !      ||       |
-    !      C        kk
-    !     / \       \
-    !    R1  R2      ii
-    !------------------------------------------
+!> Determine all neighbors for torsion term
+!>   A
+!>    \         tors:
+!>     H        ll
+!>      :        \
+!>       O        jj
+!>       ||       |
+!>       C        kk
+!>      / \       \
+!>     R1  R2      ii
+!------------------------------------------
     nbb = topo%nb(20,B)
     C = topo%nb(nbb,B)
     nbc = topo%nb(20,C)
     ntors = nbc-nbb
 
     nbb = topo%nb(20,B)
-!     Neighbours of B
+!> Neighbours of B
     do i = 1,nbb
-!        compute distances
+!> compute distances
       dranb(1:3,i) = xyz(1:3,A)-xyz(1:3,topo%nb(i,B))
       drbnb(1:3,i) = xyz(1:3,B)-xyz(1:3,topo%nb(i,B))
-!        A-nb(B) distance
+!> A-nb(B) distance
       ranb2(i) = sum(dranb(1:3,i)**2)
       ranb(i) = sqrt(ranb2(i))
-!        B-nb(B) distance
+!> B-nb(B) distance
       rbnb2(i) = sum(drbnb(1:3,i)**2)
       rbnb(i) = sqrt(rbnb2(i))
     end do
 
-!     A-B distance
+!> A-B distance
     ij = lina(A,B)
     rab2 = sqrab(ij)
     rab = srab(ij)
 
-!     A-H distance
+!> A-H distance
     ij = lina(A,H)
     rah2 = sqrab(ij)
     rah = srab(ij)
 
-!     B-H distance
+!> B-H distance
     ij = lina(B,H)
     rbh2 = sqrab(ij)
     rbh = srab(ij)
@@ -2192,13 +2182,13 @@ contains  !> MODULE PROCEDURES START HERE
     rahprbh = rah+rbh+1.d-12
     radab = param%rad(at(A))+param%rad(at(B))
 
-!     out-of-line damp: A-H...B
+!> out-of-line damp: A-H...B
     expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
     if (expo .gt. 15.0d0) return ! avoid overflow
     ratio2 = exp(expo)
     outl = 2.d0/(1.d0+ratio2)
 
-!     out-of-line damp: A...nb(B)-B
+!> out-of-line damp: A...nb(B)-B
     do i = 1,nbb
       ranbprbnb(i) = ranb(i)+rbnb(i)+1.d-12
       expo_nb(i) = (param%hbnbcut/radab)*(ranbprbnb(i)/rab-1.d0)
@@ -2207,11 +2197,11 @@ contains  !> MODULE PROCEDURES START HERE
     end do
     outl_nb_tot = product(outl_nb)
 
-!     long damping
+!> long range damping
     ratio1 = (rab2/param%hblongcut)**param%hbalp
     dampl = 1.d0/(1.d0+ratio1)
 
-!     short damping
+!> short range damping
     shortcut = param%hbscut*radab
     ratio3 = (shortcut/rab2)**6
     damps = 1.d0/(1.d0+ratio3)
@@ -2222,7 +2212,7 @@ contains  !> MODULE PROCEDURES START HERE
     rabdamp = damp*((p_ab/rab2/rab))
     rdamp = rbhdamp+rabdamp
 
-    !Set up torsion paramter
+!> Set up torsion paramter
     j = 0
     do i = 1,nbc
       if (topo%nb(i,C) == B) cycle
@@ -2238,7 +2228,7 @@ contains  !> MODULE PROCEDURES START HERE
       vtors(2,j) = param%tors_hb
     end do
 
-    !Calculate etors
+!> Calculate etors
     do i = 1,ntors
       ii = tlist(1,i)
       jj = tlist(2,i)
@@ -2251,7 +2241,8 @@ contains  !> MODULE PROCEDURES START HERE
       call egtors_nci_mul(ii,jj,kk,ll,rn,phi0,tshift,n,at,xyz,etmp(i),g4tmp(:,:,i))
     end do
     etors = product(etmp(1:ntors))
-    !Calculate gtors
+
+!> Calculate gtors
     t_mask = .true.
     do i = 1,ntors
       t_mask(i) = .false.
@@ -2266,7 +2257,7 @@ contains  !> MODULE PROCEDURES START HERE
       t_mask = .true.
     end do
 
-    !Calculate eangl + gangl
+!> Calculate eangl + gangl
     r0 = 120
     phi0 = r0*pi/180.
     bshift = param%bend_hb
@@ -2277,30 +2268,30 @@ contains  !> MODULE PROCEDURES START HERE
     gangl(1:3,kk) = gangl(1:3,kk)+g3tmp(1:3,2)
     gangl(1:3,ll) = gangl(1:3,ll)+g3tmp(1:3,3)
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1h = exp(param%hbst*q(H))
     ex2h = ex1h+param%hbsf
     qh = ex1h/ex2h
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1a = exp(-param%hbst*q(A))
     ex2a = ex1a+param%hbsf
     qa = ex1a/ex2a
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1b = exp(-param%hbst*q(B))
     ex2b = ex1b+param%hbsf
     qb = ex1b/ex2b
 
     qhoutl = qh*outl*outl_nb_tot
 
-!     constant values, no gradient
+!> constant values, no gradient
     const = ca(2)*qa*cb(1)*qb*param%xhaci_coh
 
-!     energy
+!> energy
     energy = -rdamp*qhoutl*eangl*etors*const
 
-!     gradient
+!> gradient
     drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
     drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
     drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
@@ -2312,7 +2303,7 @@ contains  !> MODULE PROCEDURES START HERE
     bterm = -rdamp*qhoutl*etors*const
 
 !------------------------------------------------------------------------------
-!     damping part: rab
+!> damping part: rab
     gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
     gi = gi*dterm
     dg(1:3) = gi*drab(1:3)
@@ -2320,7 +2311,7 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     damping part: rbh
+!> damping part: rbh
     gi = -3.d0*rbhdamp/rbh2
     gi = gi*dterm
     dg(1:3) = gi*drbh(1:3)
@@ -2328,16 +2319,16 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     angular A-H...B term
+!> angular A-H...B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
     gi = -tmp1*rahprbh/rab2
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = ga(1:3)+dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: rah,rbh
+!> out of line term: rah,rbh
     gi = tmp1/rah
     dga(1:3) = gi*drah(1:3)
     ga(1:3) = ga(1:3)+dga(1:3)
@@ -2348,9 +2339,9 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = gh(1:3)+dgh(1:3)
 
 !------------------------------------------------------------------------------
-!     angular A...nb(B)-B term
+!> angular A...nb(B)-B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     mask_nb = .true.
     do i = 1,nbb
       mask_nb(i) = .false.
@@ -2363,7 +2354,7 @@ contains  !> MODULE PROCEDURES START HERE
       mask_nb = .true.
     end do
 
-!     out of line term: ranb,rbnb
+!> out of line term: ranb,rbnb
     do i = 1,nbb
       gi_nb(i) = tmp2(i)/ranb(i)
       dga(1:3) = gi_nb(i)*dranb(1:3,i)
@@ -2384,7 +2375,7 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 !------------------------------------------------------------------------------
-!     torsion term H...B=C<R1,R2
+!> torsion term H...B=C<R1,R2
 !------------------------------------------------------------------------------
     do i = 1,ntors
       ii = tlist(1,i)
@@ -2395,14 +2386,14 @@ contains  !> MODULE PROCEDURES START HERE
     gdr(1:3,ll) = gdr(1:3,ll)+gtors(1:3,ll)*tterm
 
 !------------------------------------------------------------------------------
-!     angle term H...B=C
+!> angle term H...B=C
 !------------------------------------------------------------------------------
     gdr(1:3,jj) = gdr(1:3,jj)+gangl(1:3,jj)*bterm
     gdr(1:3,kk) = gdr(1:3,kk)+gangl(1:3,kk)*bterm
     gdr(1:3,ll) = gdr(1:3,ll)+gangl(1:3,ll)*bterm
 
 !------------------------------------------------------------------------------
-!     move gradients into place
+!> move gradients into place
     gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
     gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
     gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
@@ -2412,8 +2403,8 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine abhgfnff_eg3
 
-!subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
-!this is the multiplicative version of incorporationg etors and ebend without neighbor LP
+!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
+!> this is the multiplicative version of incorporationg etors and ebend without neighbor LP
   subroutine abhgfnff_eg3_mul(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
     implicit none
     type(TGFFData),intent(in) :: param
@@ -2453,7 +2444,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
     logical mask_nb(topo%nb(20,B))
 
-!     proportion between Rbh und Rab distance dependencies
+!> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
 
@@ -2475,33 +2466,33 @@ contains  !> MODULE PROCEDURES START HERE
 
     call hbonds(A,B,ca,cb,param,topo)
 
-    !Determine all neighbors for torsion term
-    !  A
-    !   \         tors:
-    !    H        ll
-    !     :        \
-    !      O        jj
-    !      ||       |
-    !      C        kk
-    !     / \       \
-    !    R1  R2      ii
-    !------------------------------------------
+!> Determine all neighbors for torsion term
+!>   A
+!>    \         tors:
+!>     H        ll
+!>      :        \
+!>       O        jj
+!>       ||       |
+!>       C        kk
+!>      / \       \
+!>     R1  R2      ii
+!------------------------------------------
     nbb = topo%nb(20,B)
     C = topo%nb(nbb,B)
     nbc = topo%nb(20,C)
     ntors = nbc-nbb
 
-    !A-B distance
+!> A-B distance
     ij = lina(A,B)
     rab2 = sqrab(ij)
     rab = srab(ij)
 
-    !A-H distance
+!> A-H distance
     ij = lina(A,H)
     rah2 = sqrab(ij)
     rah = srab(ij)
 
-    !B-H distance
+!> B-H distance
     ij = lina(B,H)
     rbh2 = sqrab(ij)
     rbh = srab(ij)
@@ -2509,17 +2500,17 @@ contains  !> MODULE PROCEDURES START HERE
     rahprbh = rah+rbh+1.d-12
     radab = param%rad(at(A))+param%rad(at(B))
 
-!     out-of-line damp: A-H...B
+!> out-of-line damp: A-H...B
     expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
     if (expo .gt. 15.0d0) return ! avoid overflow
     ratio2 = exp(expo)
     outl = 2.d0/(1.d0+ratio2)
 
-!     long damping
+!> long range damping
     ratio1 = (rab2/param%hblongcut)**param%hbalp
     dampl = 1.d0/(1.d0+ratio1)
 
-!     short damping
+!> short range damping
     shortcut = param%hbscut*radab
     ratio3 = (shortcut/rab2)**param%hbalp
     damps = 1.d0/(1.d0+ratio3)
@@ -2530,7 +2521,7 @@ contains  !> MODULE PROCEDURES START HERE
     rabdamp = damp*((p_ab/rab2/rab))
     rdamp = rbhdamp+rabdamp
 
-    !Set up torsion paramter
+!> Set up torsion paramter
     j = 0
     do i = 1,nbc
       if (topo%nb(i,C) == B) cycle
@@ -2544,7 +2535,7 @@ contains  !> MODULE PROCEDURES START HERE
       vtors(2,j) = 0.70
     end do
 
-    !Calculate etors
+!> Calculate etors
     do i = 1,ntors
       ii = tlist(1,i)
       jj = tlist(2,i)
@@ -2574,31 +2565,31 @@ contains  !> MODULE PROCEDURES START HERE
     gangl(1:3,ll) = gangl(1:3,ll)+g3tmp(1:3,3)
     eangl = eangl+etmp
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1h = exp(param%hbst*q(H))
     ex2h = ex1h+param%hbsf
     qh = ex1h/ex2h
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1a = exp(-param%hbst*q(A))
     ex2a = ex1a+param%hbsf
     qa = ex1a/ex2a
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1b = exp(-param%hbst*q(B))
     ex2b = ex1b+param%hbsf
     qb = ex1b/ex2b
 
-!     max distance to neighbors excluded, would lead to linear C=O-H
+!> max distance to neighbors excluded, would lead to linear C=O-H
     qhoutl = qh*outl
 
-!     constant values, no gradient
+!> constant values, no gradient
     const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
 
-!     energy
+!> energy
     energy = -rdamp*qhoutl*const*eangl*etors
 
-!     gradient
+!> gradient
     drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
     drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
     drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
@@ -2609,7 +2600,7 @@ contains  !> MODULE PROCEDURES START HERE
     bterm = -rdamp*qhoutl*etors*const
 
 !------------------------------------------------------------------------------
-!     damping part: rab
+!> damping part: rab
     gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
     gi = gi*dterm
     dg(1:3) = gi*drab(1:3)
@@ -2617,7 +2608,7 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     damping part: rbh
+!>  damping part: rbh
     gi = -3.d0*rbhdamp/rbh2
     gi = gi*dterm
     dg(1:3) = gi*drbh(1:3)
@@ -2625,16 +2616,16 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     angular A-H...B term
+!> angular A-H...B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
     gi = -tmp1*rahprbh/rab2
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = ga(1:3)+dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: rah,rbh
+!> out of line term: rah,rbh
     gi = tmp1/rah
     dga(1:3) = gi*drah(1:3)
     ga(1:3) = ga(1:3)+dga(1:3)
@@ -2645,7 +2636,7 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = gh(1:3)+dgh(1:3)
 
 !------------------------------------------------------------------------------
-!     torsion term H...B=C<R1,R2
+!> torsion term H...B=C<R1,R2
 !------------------------------------------------------------------------------
     do i = 1,ntors
       ii = tlist(1,i)
@@ -2656,22 +2647,23 @@ contains  !> MODULE PROCEDURES START HERE
     gdr(1:3,ll) = gdr(1:3,ll)+gtors(1:3,ll)*tterm
 
 !------------------------------------------------------------------------------
-!     angle term H...B=C
+!> angle term H...B=C
 !------------------------------------------------------------------------------
     gdr(1:3,jj) = gdr(1:3,jj)+gangl(1:3,jj)*bterm
     gdr(1:3,kk) = gdr(1:3,kk)+gangl(1:3,kk)*bterm
     gdr(1:3,ll) = gdr(1:3,ll)+gangl(1:3,ll)*bterm
 
 !------------------------------------------------------------------------------
-!     move gradients into place
+!> move gradients into place
     gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
     gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
     gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
 
   end subroutine abhgfnff_eg3_mul
 
-!subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
-!this is the additive version of incorporationg etors and ebend
+!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
+!> this is the additive version of incorporationg etors and ebend
+!> This subroutine is currently unused
   subroutine abhgfnff_eg3_add(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
     implicit none
     type(TGFFData),intent(in) :: param
@@ -2712,7 +2704,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
     logical mask_nb(topo%nb(20,B))
 
-!     proportion between Rbh und Rab distance dependencies
+!> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
 
@@ -2732,33 +2724,33 @@ contains  !> MODULE PROCEDURES START HERE
 
     call hbonds(A,B,ca,cb,param,topo)
 
-    !Determine all neighbors for torsion term
-    !  A
-    !   \         tors:
-    !    H        ll
-    !     :        \
-    !      O        jj
-    !      ||       |
-    !      C        kk
-    !     / \       \
-    !    R1  R2      ii
-    !------------------------------------------
+!> Determine all neighbors for torsion term
+!>   A
+!>    \         tors:
+!>     H        ll
+!>      :        \
+!>       O        jj
+!>       ||       |
+!>       C        kk
+!>      / \       \
+!>     R1  R2      ii
+!------------------------------------------
     nbb = topo%nb(20,B)
     C = topo%nb(nbb,B)
     nbc = topo%nb(20,C)
     ntors = nbc-nbb
 
-    !A-B distance
+!> A-B distance
     ij = lina(A,B)
     rab2 = sqrab(ij)
     rab = srab(ij)
 
-    !A-H distance
+!> A-H distance
     ij = lina(A,H)
     rah2 = sqrab(ij)
     rah = srab(ij)
 
-    !B-H distance
+!> B-H distance
     ij = lina(B,H)
     rbh2 = sqrab(ij)
     rbh = srab(ij)
@@ -2766,17 +2758,17 @@ contains  !> MODULE PROCEDURES START HERE
     rahprbh = rah+rbh+1.d-12
     radab = param%rad(at(A))+param%rad(at(B))
 
-!     out-of-line damp: A-H...B
+!> out-of-line damp: A-H...B
     expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
     if (expo .gt. 15.0d0) return ! avoid overflow
     ratio2 = exp(expo)
     outl = 2.d0/(1.d0+ratio2)
 
-!     long damping
+!> long range damping
     ratio1 = (rab2/param%hblongcut)**param%hbalp
     dampl = 1.d0/(1.d0+ratio1)
 
-!     short damping
+!> short range damping
     shortcut = param%hbscut*radab
     ratio3 = (shortcut/rab2)**param%hbalp
     damps = 1.d0/(1.d0+ratio3)
@@ -2787,7 +2779,7 @@ contains  !> MODULE PROCEDURES START HERE
     rabdamp = damp*((p_ab/rab2/rab))
     rdamp = rbhdamp+rabdamp
 
-    !Set up torsion paramter
+!> Set up torsion paramter
     j = 0
     do i = 1,nbc
       if (topo%nb(i,C) == B) cycle
@@ -2801,7 +2793,7 @@ contains  !> MODULE PROCEDURES START HERE
       vtors(2,j) = 0.30
     end do
 
-    !Calculate etors
+!> Calculate etors
     do i = 1,ntors
       ii = tlist(1,i)
       jj = tlist(2,i)
@@ -2819,13 +2811,13 @@ contains  !> MODULE PROCEDURES START HERE
       etors = etors+etmp
     end do
 
-    !Calculate eangl + gangl
-    write (*,*) 'angle atoms          phi0   phi      FC'
+!> Calculate eangl + gangl
+    write (stdout,*) 'angle atoms          phi0   phi      FC'
     r0 = 120
     phi0 = r0*pi/180.
     fc = 0.20
     call bangl(xyz,kk,jj,ll,phi)
-    write (*,'(3i5,2x,3f8.3)') &
+    write (stdout,'(3i5,2x,3f8.3)') &
     &   jj,kk,ll,phi0*180./pi,phi*180./pi,fc
     call egbend_nci(jj,kk,ll,phi0,fc,n,at,xyz,etmp,g3tmp,param)
     gdr(1:3,jj) = gdr(1:3,jj)+g3tmp(1:3,1)
@@ -2833,31 +2825,31 @@ contains  !> MODULE PROCEDURES START HERE
     gdr(1:3,ll) = gdr(1:3,ll)+g3tmp(1:3,3)
     eangl = eangl+etmp
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1h = exp(param%hbst*q(H))
     ex2h = ex1h+param%hbsf
     qh = ex1h/ex2h
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1a = exp(-param%hbst*q(A))
     ex2a = ex1a+param%hbsf
     qa = ex1a/ex2a
 
-!     hydrogen charge scaled term
+!> hydrogen charge scaled term
     ex1b = exp(-param%hbst*q(B))
     ex2b = ex1b+param%hbsf
     qb = ex1b/ex2b
 
-!     max distance to neighbors excluded, would lead to linear C=O-H
+!> max distance to neighbors excluded, would lead to linear C=O-H
     qhoutl = qh*outl
 
-!     constant values, no gradient
+!> constant values, no gradient
     const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
 
-!     energy
+!> energy
     energy = -rdamp*qhoutl*const+etors+eangl
 
-!     gradient
+!> gradient
     drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
     drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
     drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
@@ -2866,7 +2858,7 @@ contains  !> MODULE PROCEDURES START HERE
     dterm = -qhoutl*const
 
 !------------------------------------------------------------------------------
-!     damping part: rab
+!> damping part: rab
     gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
     gi = gi*dterm
     dg(1:3) = gi*drab(1:3)
@@ -2874,7 +2866,7 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     damping part: rbh
+!> damping part: rbh
     gi = -3.d0*rbhdamp/rbh2
     gi = gi*dterm
     dg(1:3) = gi*drbh(1:3)
@@ -2882,16 +2874,16 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = -dg(1:3)
 
 !------------------------------------------------------------------------------
-!     angular A-H...B term
+!> angular A-H...B term
 !------------------------------------------------------------------------------
-!     out of line term: rab
+!> out of line term: rab
     tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
     gi = -tmp1*rahprbh/rab2
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = ga(1:3)+dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: rah,rbh
+!> out of line term: rah,rbh
     gi = tmp1/rah
     dga(1:3) = gi*drah(1:3)
     ga(1:3) = ga(1:3)+dga(1:3)
@@ -2902,7 +2894,7 @@ contains  !> MODULE PROCEDURES START HERE
     gh(1:3) = gh(1:3)+dgh(1:3)
 
 !------------------------------------------------------------------------------
-!     move gradients into place
+!> move gradients into place
     gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
     gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
     gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
@@ -2942,34 +2934,34 @@ contains  !> MODULE PROCEDURES START HERE
     cb = 1.!param%xhbas(at(B))
     cx = param%xbaci(at(X))
 
-!     compute distances
+!> compute distances
     drax(1:3) = xyz(1:3,A)-xyz(1:3,X)
     drbx(1:3) = xyz(1:3,B)-xyz(1:3,X)
     drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
 
-!     A-B distance
+!> A-B distance
     rab2 = sum(drab**2)
     rab = sqrt(rab2)
 
-!     A-X distance
+!> A-X distance
     rax2 = sum(drax**2)
     rax = sqrt(rax2)+1.d-12
 
-!     B-X distance
+!> B-X distance
     rbx2 = sum(drbx**2)
     rbx = sqrt(rbx2)+1.d-12
 
-!     out-of-line damp
+!> out-of-line damp
     expo = param%xbacut*((rax+rbx)/rab-1.d0)
     if (expo .gt. 15.0d0) return ! avoid overflow
     ratio2 = exp(expo)
     outl = 2.d0/(1.d0+ratio2)
 
-!     long damping
+!> long damping
     ratio1 = (rbx2/param%hblongcut_xb)**param%hbalp
     dampl = 1.d0/(1.d0+ratio1)
 
-!     short damping
+!> short damping
     shortcut = param%xbscut*(param%rad(at(A))+param%rad(at(B)))
     ratio3 = (shortcut/rbx2)**param%hbalp
     damps = 1.d0/(1.d0+ratio3)
@@ -2977,25 +2969,25 @@ contains  !> MODULE PROCEDURES START HERE
     damp = damps*dampl
     rdamp = damp/rbx2/rbx ! **2
 
-!     halogen charge scaled term
+!> halogen charge scaled term
     ex1_x = exp(param%xbst*q(X))
     ex2_x = ex1_x+param%xbsf
     qx = ex1_x/ex2_x
 
-!     donor charge scaled term
+!> donor charge scaled term
     ex1_b = exp(-param%xbst*q(B))
     ex2_b = ex1_b+param%xbsf
     qb = ex1_b/ex2_b
 
-!     constant values, no gradient
+!> constant values, no gradient
     const = cb*qb*cx*qx
 
-!     r^3 only sligxtly better than r^4
+!> r^3 only sligxtly better than r^4
     aterm = -rdamp*const
     dterm = -outl*const
     energy = -rdamp*outl*const
 
-!     damping part rab
+!> damping part rab
     gi = rdamp*(-(2.d0*param%hbalp*ratio1/(1.d0+ratio1))+(2.d0*param%hbalp*ratio3&
    &     /(1.d0+ratio3))-3.d0)/rbx2   ! 4,5,6 instead of 3.
     gi = gi*dterm
@@ -3003,14 +2995,14 @@ contains  !> MODULE PROCEDURES START HERE
     gb(1:3) = dg(1:3)
     gx(1:3) = -dg(1:3)
 
-!     out of line term: rab
+!> out of line term: rab
     gi = 2.d0*ratio2*expo*(rax+rbx)/(1.d0+ratio2)**2/(rax+rbx-rab)/rab2
     gi = gi*aterm
     dg(1:3) = gi*drab(1:3)
     ga(1:3) = +dg(1:3)
     gb(1:3) = gb(1:3)-dg(1:3)
 
-!     out of line term: rax,rbx
+!> out of line term: rax,rbx
     gi = -2.d0*ratio2*expo/(1.d0+ratio2)**2/(rax+rbx-rab)/rax
     gi = gi*aterm
     dga(1:3) = gi*drax(1:3)
@@ -3022,8 +3014,7 @@ contains  !> MODULE PROCEDURES START HERE
     dgx(1:3) = -dga(1:3)-dgb(1:3)
     gx(1:3) = gx(1:3)+dgx(1:3)
 
-!     move gradients into place
-
+!> move gradients into place
     gdr(1:3,1) = ga(1:3)
     gdr(1:3,2) = gb(1:3)
     gdr(1:3,3) = gx(1:3)
@@ -3056,8 +3047,10 @@ contains  !> MODULE PROCEDURES START HERE
     fj = min(max(fj,-4.0d0),4.0d0)
     fk = (1.d0-fqq*q(kat))
     fk = min(max(fk,-4.0d0),4.0d0)
-    ff = fi*fj*fk ! charge term
-    c9 = ff*param%zb3atm(at(iat))*param%zb3atm(at(jat))*param%zb3atm(at(kat)) ! strength of interaction
+!> charge term
+    ff = fi*fj*fk
+!> strength of interaction
+    c9 = ff*param%zb3atm(at(iat))*param%zb3atm(at(jat))*param%zb3atm(at(kat))
     linij = lina(iat,jat)
     linik = lina(iat,kat)
     linjk = lina(jat,kat)
@@ -3073,7 +3066,7 @@ contains  !> MODULE PROCEDURES START HERE
     angr9 = (ang+1.0d0)/rav3
     energy = c9*angr9 ! energy
 
-!     derivatives of each part w.r.t. r_ij,jk,ik
+!> derivatives of each part w.r.t. r_ij,jk,ik
     dang = -0.375d0*(r2ij**3+r2ij**2*(r2jk+r2ik) &
 &             +r2ij*(3.0d0*r2jk**2+2.0*r2jk*r2ik+3.0*r2ik**2) &
 &             -5.0*(r2jk-r2ik)**2*(r2jk+r2ik)) &
