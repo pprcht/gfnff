@@ -10,6 +10,7 @@ list(APPEND srcs
   "${dir}/lebedev.f90"
   "${dir}/model.f90"
   "${dir}/sasa.f90"
+  "${dir}/solvation_math_wrapper.f90"
   "${dir}/state.f90"
   "${dir}/type.f90"
   "${dir}/util.F90"
