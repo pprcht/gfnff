@@ -41,13 +41,15 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,mchar,hyb,itag,nbm,nbf,param,topo)
+  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,mchar,hyb,itag,nbm,nbf,param,topo,myunit,pr)
     use gfnff_param
     use gfnff_rab
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_neigh'
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(inout) :: topo
+    integer,intent(in) :: myunit
+    logical,intent(in) :: pr 
     logical :: makeneighbor
     integer :: at(natoms),natoms
     integer :: hyb(natoms)
@@ -140,10 +142,10 @@ contains  !> MODULE PROCEDURES START HERE
 
 ! tag atoms in nb(19,i) if they belong to a cluster (which avoids the ring search)
     do i = 1,natoms
-      if (nbf(20,i) .eq. 0.and.param%group(at(i)) .ne. 8) then
-        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
-        write (stdout,'(''  warning: no bond partners for atom'',i4)') i
-        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+      if (nbf(20,i) .eq. 0.and.param%group(at(i)) .ne. 8 .and.pr) then
+        write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+        write (myunit,'(''  warning: no bond partners for atom'',i4)') i
+        write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
       end if
       if (at(i) .lt. 11.and.nbf(20,i) .gt. 2) then
         do k = 1,nbf(20,i)
@@ -155,7 +157,7 @@ contains  !> MODULE PROCEDURES START HERE
           end if
         end do
       end if
-!        write(stdout,*) i,(topo%nb(j,i),j=1,topo%nb(20,i))
+!        write(myunit,*) i,(topo%nb(j,i),j=1,topo%nb(20,i))
     end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -346,9 +348,8 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end do
     end do
-    if (dble(j)/dble(natoms) .gt. 0.3) then
-      !call env%error(' too many atoms with extreme high CN',source)
-      write(stdout,*) 'too many atoms with extreme high CN',source
+    if (dble(j)/dble(natoms) .gt. 0.3 .and.pr) then
+      write(myunit,*) 'too many atoms with extreme high CN',source
     end if
 
   end subroutine gfnff_neigh

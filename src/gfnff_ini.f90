@@ -267,7 +267,7 @@ contains  !> MODULE PROCEDURES START HERE
       write (myunit,'(2x,"generating topology and atomic info file ...")')
       endif
       call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
-         & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,nbm,nbf,param,topo)
+         & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,nbm,nbf,param,topo,myunit,pr)
 
       do i = 1,nat
         imetal(i) = param%metal(at(i))
@@ -984,6 +984,7 @@ contains  !> MODULE PROCEDURES START HERE
           end if
         end if
 ! save BO
+        !if(.not.allocated(topo%pbo))allocate(topo%pbo(topo%nbond),source=1.0_wp)
         do i = 1,topo%nbond
           ii = topo%blist(1,i)
           jj = topo%blist(2,i)
@@ -992,6 +993,7 @@ contains  !> MODULE PROCEDURES START HERE
           if (ia .gt. 0.and.ja .gt. 0) then
             pibo(i) = Api(ja,ia)
             pbo(lin(ii,jj)) = Api(ja,ia)
+            !topo%pbo(i) = Api(ja,ia)
             itmp(ii) = 1
             itmp(jj) = 1
           end if

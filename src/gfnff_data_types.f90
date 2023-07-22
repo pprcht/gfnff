@@ -102,6 +102,7 @@ module gfnff_data_types
     integer,allocatable ::  tlist(:,:)   ! torsions
     integer,allocatable :: b3list(:,:)   ! bond atm
     integer,allocatable :: sTorsl(:,:)   ! triple bonded carbon potential
+    real(wp),allocatable::      pbo(:)   ! bond order from Hückel
     !-----------------------------------------------
     integer,allocatable :: nr_hb(:)        ! Nr. of H bonds per O-H or N-H bond
     integer,allocatable :: bond_hb_AH(:,:) ! A, H atoms in bonds that are also part of HBs

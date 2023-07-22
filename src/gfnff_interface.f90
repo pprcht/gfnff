@@ -30,6 +30,7 @@ module gfnff_interface
   public :: gfnff_initialize
   public :: gfnff_singlepoint
   public :: print_gfnff_results
+  public :: gfnff_get_fake_wbo
 
 !> this type bundles together most of the
 !> data required for a GFN-FF calculation
@@ -276,6 +277,30 @@ contains  !> MODULE PROCEDURES START HERE
     allocate (self%nlist)
     allocate (self%res)
   end subroutine gfnff_data_make_types
+
+!=========================================================================================!
+  subroutine gfnff_get_fake_wbo(ff_dat,nat,wbo)
+    implicit none
+    type(gfnff_data),intent(in) :: ff_dat
+    integer,intent(in) :: nat
+    real(wp),intent(out) :: wbo(nat,nat)
+    integer :: i,k,l
+    wbo = 0.0_wp
+    if(allocated(ff_dat%topo))then
+      if(allocated(ff_dat%topo%blist))then
+         do i =1,ff_dat%topo%nbond
+            k = ff_dat%topo%blist(1,i)
+            l = ff_dat%topo%blist(2,i)
+            !if(allocated(ff_dat%topo%pbo))then
+            !  wbo(k,l) = ff_dat%topo%pbo( i )
+            ! else
+              wbo(k,l) = 1.0_wp
+            !endif
+              wbo(l,k) = wbo(k,l)
+         enddo
+      endif
+    endif
+  end subroutine gfnff_get_fake_wbo
 
 !========================================================================================!
 end module gfnff_interface
