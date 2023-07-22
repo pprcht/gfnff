@@ -95,11 +95,13 @@ module gfnff_data_types
 
     !lists
     integer,allocatable ::     nb(:,:)   ! neighbors nb(20,i) is the # neigbors
+    integer,allocatable ::      hyb(:)   ! hybridization of every atom
     integer,allocatable ::    bpair(:)   ! # of cov. between atoms
     integer,allocatable ::  blist(:,:)   ! bonded atoms
     integer,allocatable ::  alist(:,:)   ! angles
     integer,allocatable ::  tlist(:,:)   ! torsions
     integer,allocatable :: b3list(:,:)   ! bond atm
+    integer,allocatable :: sTorsl(:,:)   ! triple bonded carbon potential
     !-----------------------------------------------
     integer,allocatable :: nr_hb(:)        ! Nr. of H bonds per O-H or N-H bond
     integer,allocatable :: bond_hb_AH(:,:) ! A, H atoms in bonds that are also part of HBs

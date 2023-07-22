@@ -331,6 +331,7 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
     topo%nb = nbdum ! list is complete but hyb determination is based only on reduced (without metals) list
+    if(allocated(topo%hyb)) topo%hyb = hyb
 
     deallocate (nbdum)
 

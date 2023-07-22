@@ -109,7 +109,7 @@ ENDIF()
 #
 # Executables
 #
-IF(BUILD_EXE)
+IF(build_exe)
 set(srcs2)
 add_subdirectory("testprog")
 add_executable(

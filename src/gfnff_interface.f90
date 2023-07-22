@@ -49,9 +49,9 @@ module gfnff_interface
     type(TBorn),allocatable             :: solvation
     type(gfnff_results),allocatable     :: res
   contains
-    procedure deallocate => gfnff_data_deallocate
-    procedure type_reset => gfnff_data_reset_types
-    procedure type_init => gfnff_data_make_types
+    procedure :: deallocate => gfnff_data_deallocate
+    procedure :: type_reset => gfnff_data_reset_types
+    procedure :: type_init => gfnff_data_make_types
   end type gfnff_data
 
 !> This is a semi-global placeholder for a single gfnff_data object.

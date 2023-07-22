@@ -48,7 +48,7 @@ gfnff_dep = declare_dependency(
 if get_option('build_exe')
 subdir('testprog')
 gfnff_exe = executable(
-  meson.project_name(),
+  'gfnff-tester',
   sources: prog,
   dependencies: gfnff_dep,
   install: install,

@@ -66,7 +66,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer :: ati,atj,atk,i,j,k,l,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no
     integer :: ineig,jneig,nrot,bbtyp,ringtyp,nn1,nn2,hybi,hybj,pis,ka,nh,jdum,hcalc,nc
     integer :: ringsi,ringsj,ringsk,ringl,npi,nelpi,picount,npiall,maxtors,rings4,nheav
-    integer :: nm,maxhb,ki,n13,current,ncarbo,mtyp1,mtyp2
+    integer :: nm,maxhb,ki,n13,current,ncarbo,mtyp1,mtyp2,nbi
     integer :: ind3(3),sr(20),cr(10,20),niel(86)
     integer :: qloop_count,nf,nsi,nmet,nhi,nhj,ifrag
     integer :: hbA,hbH,Bat,atB,Aat,Hat
@@ -157,6 +157,7 @@ contains  !> MODULE PROCEDURES START HERE
     allocate (cn(nat),source=0.0d0)
     allocate (sqrab(nat*(nat+1)/2),source=0.0d0)
     allocate (hyb(nat),source=0)
+    allocate (topo%hyb(nat),source=0)
     allocate (topo%alphanb(nat*(nat+1)/2),source=0.0d0)
     allocate (rtmp(nat*(nat+1)/2),source=0.0d0)
     allocate (pbo(nat*(nat+1)/2),source=0.0d0)
@@ -1889,6 +1890,28 @@ contains  !> MODULE PROCEDURES START HERE
     write (myunit,'(1x,"#nmol    :",3x,i0)') topo%nfrag
     endif
 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! check if triple bonded carbon is present (for torsion term)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      nn=0
+      do i=1, nat
+        if (at(i).eq.6.and.topo%nb(20,i).eq.2) then
+          do j=1, 2
+            nbi=topo%nb(j,i)
+            if (at(nbi).eq.6.and.topo%nb(20,nbi).eq.2) then
+              nn = nn + 1
+            endif
+          enddo
+        endif
+      enddo
+      if (nn.ne.0) then
+        ! fix double counting
+        nn = nn/2
+        allocate(topo%sTorsl(6, nn), source=0)
+        call specialTorsList(nn, nat, at, xyz, topo, hyb, topo%sTorsl)
+      endif
+
 !> all done
 
     topo%maxsystem = 5000
@@ -1983,6 +2006,97 @@ contains  !> MODULE PROCEDURES START HERE
 
     Return
   end function iTabRow6
+
+!========================================================================================!
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! special treatment for rotation around carbon triple bonds
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! requested for obtaining diphenylacetylene torsion potential
+! also applied for e.g. divinylacetylene
+
+! Check for triple bonded carbon (Ci and Cnbi) and setup list for calculating
+!  torsion potential using dehidral angle between C1 C2 C3 C4
+! C--C1                C--C
+!      \              /
+!       C2--Ci-Cnbi--C3
+!      /             \
+! C-- C               C4--C
+!
+! using C1=ii, C2=jj, C3=kk, C4=ll
+subroutine specialTorsList(nst, nat, at, xyz, topo, hyb, sTorsList)
+  use gfnff_data_types,only:TGFFTopology 
+  integer, intent(in) :: nst
+  integer,intent(in) :: nat
+  integer,intent(in) :: at(nat)
+  real(wp),intent(in) :: xyz(3,nat)
+  type(TGFFTopology), intent(in) :: topo
+  integer,intent(in) :: hyb(nat)
+  integer, intent(inout) :: sTorsList(6, nst)
+  integer :: i,j,k,ii,jj,kk,ll,idx,nbi
+  logical :: iiok, llok
+  idx=0
+  do i=1, nat
+    ! carbon with two neighbors bonded to other carbon* with two neighbors
+    if (at(i).eq.6.and.topo%nb(20,i).eq.2) then
+      do j=1, 2
+        nbi=topo%nb(j,i)
+        if (at(nbi).eq.6.and.topo%nb(20,nbi).eq.2) then  ! *other carbon
+          ! check carbon triple bond distance
+          if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)).le.2.37) then
+            ! at this point we know that i and nbi are carbons bonded through triple bond
+            ! check C2 and C3
+            do k=1, 2  ! C2 is other nb of Ci
+              if (topo%nb(k,i).ne.nbi.and.at(topo%nb(k,i)).eq.6) then
+                jj=topo%nb(k,i)
+              endif
+            enddo
+            do k=1, 2  ! C3 is other nb of Cnbi
+              if (topo%nb(k,nbi).ne.i.and.at(topo%nb(k,nbi)).eq.6) then
+                kk=topo%nb(k,nbi)
+              endif
+            enddo
+            ! check C1 through C4 are sp2 carbon
+            if (hyb(jj).eq.2.and.hyb(kk).eq.2 &
+            &   .and.at(jj).eq.6.and.at(kk).eq.6) then
+              iiok=.false.
+              llok=.false.
+              ! which of the two valid neighbors is picked as C1 depends
+              !  on atom sorting in input file !!! The last one in file.
+              do k=1, topo%nb(20,jj)
+                if (hyb(k).eq.2.and.at(k).eq.6.and.topo%nb(20,k).eq.3.and. &
+                   & topo%nb(k,jj).ne.i) then
+                  ii=topo%nb(k,jj)
+                  iiok=.true.
+                endif
+              enddo
+              ! which of the two valid neighbors is picked as C4 depends
+              !  on atom sorting in input file !!! The last one in file.
+              do k=1, topo%nb(20,kk)
+                if (hyb(k).eq.2.and.at(k).eq.6.and.topo%nb(20,k).eq.3.and. &
+                   & topo%nb(k,kk).ne.nbi) then
+                  ll=topo%nb(k,kk)
+                  llok=.true.
+                endif
+              enddo
+              if (nbi.gt.i.and.iiok.and.llok) then ! to avoid double counting
+                idx = idx + 1
+                sTorsList(1, idx) = ii  ! C1
+                sTorsList(2, idx) = jj  ! C2
+                sTorsList(3, idx) = i   ! Ci
+                sTorsList(4, idx) = nbi ! Cnbi
+                sTorsList(5, idx) = kk  ! C3
+                sTorsList(6, idx) = ll  ! C4
+              endif
+            endif ! C1-C4 are sp2 carbon
+          endif  ! CC distance
+        endif  ! other carbon
+      enddo
+    endif ! is carbon with nnb=2
+  enddo
+end subroutine specialTorsList
 
 !========================================================================================!
 end module gfnff_ini_mod
