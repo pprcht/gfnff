@@ -43,21 +43,27 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat
     integer,intent(in)  :: version
     integer :: ich ! file handle
+    integer :: err
 
-    open (newunit=ich,file=fname,form='unformatted')
-    !Dimensions
+    open (file=fname,newunit=ich,action='write',form='unformatted',iostat=err)
+
+!>--- Dimensions
     write (ich) int(version,i8),int(nat,i8)
     write (ich) topo%nbond,topo%nangl,topo%ntors,   &
-             & topo%nathbH,topo%nathbAB,topo%natxbAB,topo%nbatm,topo%nfrag,topo%nsystem,  &
-             & topo%maxsystem
-    write (ich) topo%nbond_blist,topo%nbond_vbond,topo%nangl_alloc,topo%ntors_alloc,topo%bond_hb_nr,topo%b_max
-    !Arrays Integers
-    write (ich) topo%nb,topo%bpair,topo%blist,topo%alist,topo%tlist,topo%b3list, &
-       & topo%fraglist,topo%hbatHl,topo%hbatABl,topo%xbatABl,topo%ispinsyst,topo%nspinsyst,             &
-       & topo%bond_hb_AH,topo%bond_hb_B,topo%bond_hb_Bn,topo%nr_hb
-    !Arrays Reals
-    write (ich) topo%vbond,topo%vangl,topo%vtors,topo%chieeq,topo%gameeq,topo%alpeeq,topo%alphanb,topo%qa,       &
-       & topo%xyze0,topo%zetac6,topo%qfrag,topo%hbbas,topo%hbaci
+             &  topo%nathbH,topo%nathbAB,topo%natxbAB,topo%nbatm, &
+             &  topo%nfrag,topo%nsystem,topo%maxsystem
+    write (ich) topo%nbond_blist,topo%nbond_vbond,topo%nangl_alloc, &
+             &  topo%ntors_alloc,topo%bond_hb_nr,topo%b_max
+!>--- Arrays Integers
+    write (ich) topo%nb,topo%bpair,topo%blist,topo%alist, &
+             &  topo%tlist,topo%b3list,topo%fraglist,topo%hbatHl,topo%hbatABl, &
+             &  topo%xbatABl,topo%ispinsyst,topo%nspinsyst,topo%bond_hb_AH, &
+             &  topo%bond_hb_B,topo%bond_hb_Bn,topo%nr_hb
+!>--- Arrays Reals
+    write (ich) topo%vbond,topo%vangl,topo%vtors,topo%chieeq, &
+             &  topo%gameeq,topo%alpeeq,topo%alphanb,topo%qa,  &
+             &  topo%xyze0,topo%zetac6, &
+             &  topo%qfrag,topo%hbbas,topo%hbaci
     close (ich)
   end subroutine write_restart_gff
 !========================================================================================!
@@ -79,9 +85,10 @@ contains  !> MODULE PROCEDURES START HERE
     logical :: exist
 
     success = .false.
-    open (newunit=ich,file=fname,status='old')
+    open (file=fname,newunit=ich,status='old',action='read', &
+         & form='unformatted',iostat=err)
     if (ich .ne. -1) then
-      !read the first byte, which identify the calculation specs
+!>--- read the first byte, which identify the calculation specs
       read (ich,iostat=err) iver8,nat8
       if (err .eq. 0) then
         if (iver8 .ne. int(version,i8).and.verbose) &
@@ -93,9 +100,12 @@ contains  !> MODULE PROCEDURES START HERE
           return
         else if (iver8 .eq. int(version)) then
           success = .true.
-          read (ich) topo%nbond,topo%nangl,topo%ntors,topo%nathbH,topo%nathbAB,  &
-                  & topo%natxbAB,topo%nbatm,topo%nfrag,topo%nsystem,topo%maxsystem
-          read (ich) topo%nbond_blist,topo%nbond_vbond,topo%nangl_alloc,topo%ntors_alloc,topo%bond_hb_nr,topo%b_max
+          read (ich) topo%nbond,topo%nangl,topo%ntors, &
+                  &  topo%nathbH,topo%nathbAB,topo%natxbAB,topo%nbatm, &
+                  &  topo%nfrag,topo%nsystem,topo%maxsystem
+          read (ich) topo%nbond_blist,topo%nbond_vbond,topo%nangl_alloc, &
+                  &  topo%ntors_alloc,topo%bond_hb_nr,topo%b_max
+!>--- allocate some memory now
           call gfnff_param_alloc(topo,n)
           if (.not.allocated(topo%ispinsyst)) allocate (topo%ispinsyst(n,topo%maxsystem),source=0)
           if (.not.allocated(topo%nspinsyst)) allocate (topo%nspinsyst(topo%maxsystem),source=0)

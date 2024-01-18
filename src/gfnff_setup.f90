@@ -40,7 +40,7 @@ contains   !> MODULE PROCEDURES START HERE
     use gfnff_param,only:ini,gfnff_set_param
     implicit none
     character(len=*),parameter :: source = 'gfnff_setup'
-! Dummy
+!> Dummy
     integer,intent(in)  :: nat
     integer,intent(in)  :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
@@ -58,13 +58,9 @@ contains   !> MODULE PROCEDURES START HERE
     logical,intent(in),optional :: verbose !> extended prinout
     integer,intent(in),optional :: iunit
 
-! Stack
-    integer :: newichrg
-    integer :: myunit
-    logical :: ex
-    logical :: success
-    logical :: exitRun
-
+!> Stack
+    integer :: newichrg,myunit
+    logical :: ex,success,exitRun
 
 !> initialize
     io = 0
@@ -80,14 +76,15 @@ contains   !> MODULE PROCEDURES START HERE
     call gfnff_set_param(nat,gen,param)
     param%dispscale = 1.0_wp
     if (restart) then
-      inquire (file='gfnff_topo',exist=ex)
+      inquire (file=topo%filename,exist=ex)
       if (ex) then
-        call read_restart_gff('gfnff_topo',nat,version,success,.true.,topo)
+        call read_restart_gff(topo%filename,nat,version,success,.true.,topo)
         if (success) then
-          write (myunit,'(10x,"GFN-FF topology read from file successfully!")')
+          write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
+          & topo%filename  
           return
         else
-          write (myunit,'("Could not read topology file.",a)') source
+          write (myunit,'("**ERROR** Could not read topology file. ",a)') source
           exitRun = .true.
           if (exitRun) then
             return
@@ -142,101 +139,32 @@ contains   !> MODULE PROCEDURES START HERE
     if (.not.allocated(topo%qfrag)) allocate (topo%qfrag(nat),source=0.0d0)
     if (.not.allocated(topo%fraglist)) allocate (topo%fraglist(nat),source=0)
 
-!  select case(mol%ftype)
-!  !--------------------------------------------------------------------
-!  ! PDB case
-!  case(fileType%pdb)
-!    ini = .true.
-!    ifrag=0
-!    allocate(rn(mol%n))
-!    rn(:) = mol%pdb%residue_number
-!    do iresidue = minval(rn),maxval(rn)
-!      if (any(iresidue .eq. rn)) then
-!        ifrag=ifrag+1
-!        where(iresidue .eq. rn) topo%fraglist = ifrag
-!      end if
-!    end do
-!    deallocate(rn)
-!    topo%nfrag = maxval(topo%fraglist)
-!    if (.not.allocated(topo%qpdb)) allocate(topo%qpdb(mol%n))
-!    do iatom=1,mol%n
-!      topo%qfrag(topo%fraglist(iatom)) = topo%qfrag(topo%fraglist(iatom)) &
-!        & + dble(mol%pdb(iatom)%charge)
-!      topo%qpdb(iatom) = mol%pdb(iatom)%charge
-!    end do
-!    ichrg=idint(sum(topo%qfrag(1:topo%nfrag)))
-!    write(env%unit,'(10x,"charge from pdb residues: ",i0)') ichrg
-!  !--------------------------------------------------------------------
-!  ! SDF case
-!  case(fileType%sdf,fileType%molfile)
-!    ini = .false.
-!    topo%nb=0
-!    topo%nfrag=0
-!    do ibond = 1, len(mol%bonds)
-!      call mol%bonds%get_item(ibond,bond_ij)
-!      i = bond_ij(1)
-!      j = bond_ij(2)
-!      ni=topo%nb(20,i)
-!      ex=.false.
-!      do k=1,ni
-!        if(topo%nb(k,i).eq.j) then
-!          ex=.true.
-!          exit
-!        endif
-!      enddo
-!      if(.not.ex)then
-!        topo%nb(20,i)=topo%nb(20,i)+1
-!        topo%nb(topo%nb(20,i),i)=j
-!        topo%nb(20,j)=topo%nb(20,j)+1
-!        topo%nb(topo%nb(20,j),j)=i
-!      endif
-!    end do
-!    do i=1,mol%n
-!      if(topo%nb(20,i).eq.0)then
-!        dum1=1.d+42
-!        do j=1,i
-!          r=sqrt(sum((mol%xyz(:,i)-mol%xyz(:,j))**2))
-!          if(r.lt.dum1.and.r.gt.0.001)then
-!            dum1=r
-!            k=j
-!          endif
-!        enddo
-!        topo%nb(20,i)=1
-!        topo%nb(1,i)=k
-!      endif
-!    end do
-!    ! initialize qfrag as in the default case
-!    topo%qfrag(1)=mol%chrg
-!    topo%qfrag(2:mol%n)=0
-!  !--------------------------------------------------------------------
-!  ! General case: input = xyz or coord
-!  case default
-!    if (mol%npbc > 0) then
-!      call env%error("Input file format not suitable for GFN-FF!")
-!      return
-!    end if
+!> We actually do not want to read .CHRG if we have multiple instances of GFN-FF running at once
+!> E.g. within an ONIOM setup.
+!> Could REALLLY mess things up.....
+
     ini = .true.
-    inquire (file='.CHRG',exist=ex)
-    if (ex) then
-      open (newunit=ich,file='.CHRG')
-      read (ich,'(a)') atmp
-      close (ich)
-      !call readline(atmp,floats,s,ns,nf)
-      dum1 = -huge(dum1)/2.0_wp
-      floats(:) = dum1
-      read (atmp,*) floats(1:10)
-      nf = 0
-      do i = 1,10
-        if (floats(i) .gt. dum1) nf = nf+1
-      end do
-      topo%qfrag(1:nf) = floats(1:nf)
-      ichrg = int(sum(topo%qfrag(1:nf)))
-      topo%qfrag(nf+1:nat) = 9999
-    else
+!    inquire (file='.CHRG',exist=ex)
+!    if (ex) then
+!      open (newunit=ich,file='.CHRG')
+!      read (ich,'(a)') atmp
+!      close (ich)
+!      !call readline(atmp,floats,s,ns,nf)
+!      dum1 = -huge(dum1)/2.0_wp
+!      floats(:) = dum1
+!      read (atmp,*) floats(1:10)
+!      nf = 0
+!      do i = 1,10
+!        if (floats(i) .gt. dum1) nf = nf+1
+!      end do
+!      topo%qfrag(1:nf) = floats(1:nf)
+!      ichrg = int(sum(topo%qfrag(1:nf)))
+!      topo%qfrag(nf+1:nat) = 9999
+!    else
       topo%qfrag(1) = ichrg
       topo%qfrag(2:nat) = 0
-    end if
-!  end select
+!    end if
+
   end subroutine gfnff_input
 !========================================================================================!
 

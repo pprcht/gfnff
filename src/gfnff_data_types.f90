@@ -71,6 +71,8 @@ module gfnff_data_types
   !> Topology information for a given system
   type :: TGFFTopology
 
+    character(len=:),allocatable :: filename
+
     !number of terms
     integer  :: nbond
     integer  :: nangl
@@ -469,7 +471,7 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   subroutine zero(self)
-    class(TGFFTopology),intent(out) :: self
+    class(TGFFTopology),intent(inout) :: self
 
     self%nbond = 0
     self%nangl = 0

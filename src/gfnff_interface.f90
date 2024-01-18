@@ -41,7 +41,11 @@ module gfnff_interface
     integer  :: version = gffVersion%angewChem2020_2
     logical  :: update = .true.
     logical  :: write_topo = .true.
+    character(len=:),allocatable :: parametrisation
     character(len=:),allocatable :: solvent
+    logical :: restart = .false.
+    character(len=:),allocatable :: restartfile
+    character(len=:),allocatable :: refgeo
 
     type(TGFFGenerator),allocatable     :: gen
     type(TGFFData),allocatable          :: param
@@ -136,7 +140,7 @@ contains  !> MODULE PROCEDURES START HERE
   end subroutine print_gfnff_results
 !========================================================================================!
 
-  subroutine gfnff_initialize(nat,at,xyz,dat,fname,restart, &
+  subroutine gfnff_initialize(nat,at,xyz,dat, &
   &                 print,verbose,iunit,version,iostat,ichrg)
     use gfnff_param
     use gfnff_setup_mod,only:gfnff_setup
@@ -147,8 +151,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat
     integer,intent(in) :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    character(len=*),intent(in) :: fname
-    logical,intent(in) :: restart
+    character(len=:),allocatable :: fname
     logical,intent(in),optional  :: print
     logical,intent(in),optional  :: verbose
     integer,intent(in),optional  :: iunit
@@ -161,6 +164,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer :: ich,io,myunit
     logical :: ex,okbas,pr,pr2
     logical :: exitRun
+    logical :: restart
 
 !> mapping of optional instuctions
     if(present(print))then
@@ -185,6 +189,14 @@ contains  !> MODULE PROCEDURES START HERE
     if(present(ichrg))then
       dat%ichrg = ichrg
     endif
+!> except restart-related options
+    restart = dat%restart
+    if(.not.allocated(dat%restartfile))then
+      dat%topo%filename = 'gfnff_topo'
+    else
+      dat%topo%filename = dat%restartfile
+    endif
+    if(allocated(dat%refgeo)) restart = .false.
 
 !> Parametrisation version
     if (present(version)) then
@@ -202,6 +214,11 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 !> Obtain the parameter file or load internal
+    if(allocated(dat%parametrisation))then
+      fname=dat%parametrisation
+    else
+      fname='no file!'
+    endif
     inquire (file=fname,exist=ex)
     if (ex) then
       open (newunit=ich,file=fname)
@@ -291,12 +308,8 @@ contains  !> MODULE PROCEDURES START HERE
          do i =1,ff_dat%topo%nbond
             k = ff_dat%topo%blist(1,i)
             l = ff_dat%topo%blist(2,i)
-            !if(allocated(ff_dat%topo%pbo))then
-            !  wbo(k,l) = ff_dat%topo%pbo( i )
-            ! else
-              wbo(k,l) = 1.0_wp
-            !endif
-              wbo(l,k) = wbo(k,l)
+            wbo(k,l) = 1.0_wp
+            wbo(l,k) = wbo(k,l)
          enddo
       endif
     endif
