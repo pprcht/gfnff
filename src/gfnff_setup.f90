@@ -80,7 +80,7 @@ contains   !> MODULE PROCEDURES START HERE
       if (ex) then
         call read_restart_gff(topo%filename,nat,version,success,.true.,topo)
         if (success) then
-          write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
+          if(pr) write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
           & topo%filename  
           return
         else
