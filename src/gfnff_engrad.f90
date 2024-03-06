@@ -207,11 +207,11 @@ contains  !> MODULE PROCEDURES START HERE
     nlist%initialized = nlist%initialized.and.nhb1 <= nlist%nhb1 &
        & .and.nhb2 <= nlist%nhb2.and.nxb <= nlist%nxb
     require_update = .not.nlist%initialized
+    nlist%force_hbond_update = nhb1 .ne. nlist%nhb1 &
+                         & .or.nhb2 .ne. nlist%nhb2 &
+                         & .or.nxb .ne. nlist%nxb   &
+                         & .or. require_update
     if (.not.nlist%initialized) then
-      !if (pr) then
-      !  write (stdout,'(10x,"nhb123",3x,i0,x,i0,x,i0)') &
-      !     & nhb1,nhb2,nxb
-      !end if
       call new(nlist,n,5*nhb1,5*nhb2,3*nxb)
       nlist%hbrefgeo(:,:) = xyz
     end if

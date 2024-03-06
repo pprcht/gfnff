@@ -148,6 +148,7 @@ module gfnff_data_types
   !> Neighbourlist storage
   type :: TGFFNeighbourList
     logical :: initialized = .false.
+    logical :: force_hbond_update = .false.
     integer :: nhb1
     integer :: nhb2
     integer :: nxb

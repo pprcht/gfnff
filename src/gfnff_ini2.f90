@@ -710,8 +710,9 @@ contains  !> MODULE PROCEDURES START HERE
 
     rmsd = sqrt(sum((xyz-nlist%hbrefgeo)**2))/dble(n)
 
-    if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0) then ! update list if first call or substantial move occured
-
+    !> update list if first call or substantial move occured
+    if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0 .or. &
+    &    nlist%force_hbond_update) then
       nlist%nhb1 = 0
       nlist%nhb2 = 0
       do ix = 1,topo%nathbAB
