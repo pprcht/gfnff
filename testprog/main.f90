@@ -74,7 +74,7 @@ program gfnff_main_tester
 !>--- First, setup of parametrisation and topology into DAT
     write(*,*)
     write(*,*) 'Initializing GFN-FF'
-    call gfnff_initialize(nat,at,xyz,DAT,'no file',.false.,verbose=.false.,ichrg=chrg,iostat=io)
+    call gfnff_initialize(nat,at,xyz,DAT,verbose=.false.,ichrg=chrg,iostat=io)
     write(*,*) 'Setup exit status:',io
 
 !>--- Then call to the singlepoint routine
@@ -111,7 +111,7 @@ program gfnff_main_tester
     write(*,*)
     write(*,*) 'Initializing GFN-FF + ALPB(water)'
     DAT%solvent = 'h2o'
-    call gfnff_initialize(nat,at,xyz,DAT,'no file',.false.,print=.true.,ichrg=chrg,iostat=io)
+    call gfnff_initialize(nat,at,xyz,DAT,print=.true.,ichrg=chrg,iostat=io)
     write(*,*) 'Setup exit status:',io
 
 !>--- Then call to the singlepoint routine
