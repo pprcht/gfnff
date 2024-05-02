@@ -2043,23 +2043,26 @@ subroutine specialTorsList(nst, nat, at, xyz, topo, hyb, sTorsList)
   do i=1, nat
     ! carbon with two neighbors bonded to other carbon* with two neighbors
     if (at(i).eq.6.and.topo%nb(20,i).eq.2) then
-      do j=1, 2
+      JLOOP : do j=1, 2
         nbi=topo%nb(j,i)
         if (at(nbi).eq.6.and.topo%nb(20,nbi).eq.2) then  ! *other carbon
           ! check carbon triple bond distance
           if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)).le.2.37) then
             ! at this point we know that i and nbi are carbons bonded through triple bond
             ! check C2 and C3
+            jj = 0
             do k=1, 2  ! C2 is other nb of Ci
               if (topo%nb(k,i).ne.nbi.and.at(topo%nb(k,i)).eq.6) then
                 jj=topo%nb(k,i)
               endif
             enddo
+            kk = 0
             do k=1, 2  ! C3 is other nb of Cnbi
               if (topo%nb(k,nbi).ne.i.and.at(topo%nb(k,nbi)).eq.6) then
                 kk=topo%nb(k,nbi)
               endif
             enddo
+            if(jj == 0 .or. kk == 0) cycle JLOOP
             ! check C1 through C4 are sp2 carbon
             if (hyb(jj).eq.2.and.hyb(kk).eq.2 &
             &   .and.at(jj).eq.6.and.at(kk).eq.6) then
@@ -2095,7 +2098,7 @@ subroutine specialTorsList(nst, nat, at, xyz, topo, hyb, sTorsList)
             endif ! C1-C4 are sp2 carbon
           endif  ! CC distance
         endif  ! other carbon
-      enddo
+      enddo JLOOP
     endif ! is carbon with nnb=2
   enddo
 end subroutine specialTorsList

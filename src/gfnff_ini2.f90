@@ -468,8 +468,12 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine ringsbond(n,i,j,c,s,rings)
     implicit none
-    integer n,i,j,k,l,c(10,20,n),s(20,n),rings,rings1,rings2
+    integer,intent(in) :: n,i,j,c(10,20,n),s(20,n)
+    integer,intent(out) :: rings
+    integer :: k,l,rings1,rings2
 
+    rings=0
+    if(n==2) return
     rings1 = 99
     rings2 = 99
     do k = 1,s(20,i)    ! all rings of atom i
@@ -710,9 +714,8 @@ contains  !> MODULE PROCEDURES START HERE
 
     rmsd = sqrt(sum((xyz-nlist%hbrefgeo)**2))/dble(n)
 
-    !> update list if first call or substantial move occured
-    if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0 .or. &
-    &    nlist%force_hbond_update) then
+    if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0) then ! update list if first call or substantial move occured
+
       nlist%nhb1 = 0
       nlist%nhb2 = 0
       do ix = 1,topo%nathbAB
