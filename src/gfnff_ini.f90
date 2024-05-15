@@ -468,9 +468,18 @@ contains  !> MODULE PROCEDURES START HERE
         call mrecgff(nat,nbf,topo%nfrag,topo%fraglist)
         if(pr) write (myunit,'(2x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
 !> read QM info if it exists
-        inquire(file='charges',exist=ex)
+        if(allocated(topo%refcharges))then
+          inquire(file=trim(topo%refcharges),exist=ex)
+          if(.not.ex)then
+            write(*,*) 'reference charge file '//topo%refcharges//' allocated, but could not be found!'
+            error stop 
+          endif
+        else
+          ex=.false.
+        endif
         if(ex)then
-          open(newunit=ich,file='charges',action='read')
+          if(pr) write(myunit,'(2x,a)') topo%refcharges//" file detected, attempting to read ..."
+          open(newunit=ich,file=trim(topo%refcharges),action='read')
           qtmp = 0
           err = 0
           i = 0
@@ -494,7 +503,7 @@ contains  !> MODULE PROCEDURES START HERE
               exitRun = .true.
             else
               topo%qfrag = dnint(qtmp)
-              if(pr) write (myunit,'(2x,"fragment charges from <charges> :",10F7.3)') topo%qfrag(1:topo%nfrag)
+              if(pr) write (myunit,'(2x,"fragment charges from <charges> :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
             end if
           else
             if(pr) write(myunit,'("Could not initialize fragment charges from file ",a)')source 
@@ -554,6 +563,8 @@ contains  !> MODULE PROCEDURES START HERE
       !  write (myunit,'(2x,"#fragments for EEQ constrain from pdb file: ",i0)') topo%nfrag
       !  frag_charges_known = .true.
       end if
+
+       if(pr) write (myunit,'(2x,"fragment charges :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
 
 !> make estimated, topology only EEQ charges from rabd values, including "right" fragment charge
       call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io)

@@ -71,9 +71,11 @@ module gfnff_data_types
   !> Topology information for a given system
   type :: TGFFTopology
 
+    !> some reference files
     character(len=:),allocatable :: filename
+    character(len=:),allocatable :: refcharges
 
-    !number of terms
+    !> number of terms
     integer  :: nbond
     integer  :: nangl
     integer  :: ntors
@@ -82,20 +84,20 @@ module gfnff_data_types
     integer  :: natxbAB
     integer  :: nbatm
     integer  :: nfrag
-    integer  :: maxsystem   ! max. number of fragmentsfor hessian
-    integer  :: bond_hb_nr  ! number of unique AH...B HB/bond terms
-    integer  :: b_max      ! number of B atoms per unique AH bond
+    integer  :: maxsystem   !> max. number of fragmentsfor hessian
+    integer  :: bond_hb_nr  !> number of unique AH...B HB/bond terms
+    integer  :: b_max       !> number of B atoms per unique AH bond
 
-    !numbers that are rewritten, so must be stored for allocation
+    !> numbers that are rewritten, so must be stored for allocation
     integer  :: nbond_blist
     integer  :: nbond_vbond
     integer  :: nangl_alloc
     integer  :: ntors_alloc
 
-    !file type read
+    !> file type read
     integer  :: read_file_type
 
-    !lists
+    !> lists
     integer,allocatable ::     nb(:,:)   ! neighbors nb(20,i) is the # neigbors
     integer,allocatable ::      hyb(:)   ! hybridization of every atom
     integer,allocatable ::    bpair(:)   ! # of cov. between atoms

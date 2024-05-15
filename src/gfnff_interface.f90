@@ -46,6 +46,7 @@ module gfnff_interface
     logical :: restart = .false.
     character(len=:),allocatable :: restartfile
     character(len=:),allocatable :: refgeo
+    character(len=:),allocatable :: refcharges
 
     type(TGFFGenerator),allocatable     :: gen
     type(TGFFData),allocatable          :: param
@@ -197,6 +198,9 @@ contains  !> MODULE PROCEDURES START HERE
       dat%topo%filename = dat%restartfile
     endif
     if(allocated(dat%refgeo)) restart = .false.
+    if(allocated(dat%refcharges))then
+      dat%topo%refcharges = dat%refcharges
+    endif
 
 !> Parametrisation version
     if (present(version)) then
