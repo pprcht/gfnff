@@ -225,7 +225,7 @@ contains !> MODULE PROCEDURES START HERE
     do i = 1,kk
       if (same(i) .eq. 0) then
         m = m+1
-        if (m .gt. 20) stop 'too many rings'
+        if (m .gt. 20) exit !stop 'too many rings'
         irout(m) = idum(i)     ! number of atoms in ring m
         nn = idum(i)
         cout(1:nn,m) = cdum(1:nn,i)
