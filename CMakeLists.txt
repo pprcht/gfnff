@@ -177,9 +177,9 @@ endif()
 ###############################################################################
 ################################## Testing ####################################
 ###############################################################################
-# # add the testsuite
-# if (WITH_TESTS)
-#   enable_testing()
-#   add_subdirectory("test")
-# endif()
+# add the testsuite
+if (WITH_TESTS)
+  enable_testing()
+  add_subdirectory("test")
+endif()
 
