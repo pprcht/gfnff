@@ -2,6 +2,7 @@ srcs += files(
 )
 
 prog += files(
-  'testmol.f90',
-  'main.f90',
+  'xyzreader.f90',
+  'timer.f90',
+  'main.F90',
 )

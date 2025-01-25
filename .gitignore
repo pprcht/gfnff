@@ -2,6 +2,7 @@
 *.mod
 *.a
 *.tgz
+*.old
 github_bin/
 build_majestix
 build_commands

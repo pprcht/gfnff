@@ -1,8 +1,9 @@
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(APPEND ffapp
-  "${dir}/testmol.f90"
-  "${dir}/main.f90"
+  "${dir}/xyzreader.f90"
+  "${dir}/timer.f90"
+  "${dir}/main.F90"
 )
 
 add_executable(
