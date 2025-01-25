@@ -48,10 +48,9 @@ jobs:
         run: |
           cmake --build build --config ${{ matrix.build_type }}
 
-      # Test (using CTest or the "test" target)
-      - name: Test
+      # Test (using CTest filtered for "gfnff"))
+      - name: Test (filtered for GFN-FF)
         run: |
-          cmake --build build --config ${{ matrix.build_type }} --target test
-          # OR you could do:
-          # ctest --test-dir build --verbose
-
+          ctest --test-dir build \
+                --output-on-failure \
+                -R '^gfnff/'

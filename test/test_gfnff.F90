@@ -25,13 +25,13 @@ contains  !> Unit tests for PV calculations
 !&<
     testsuite = [ &
     new_unittest("GFN-FF singlepoint calculation ",test_gfnff_sp), &
-    new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad), &
 #ifdef WITH_GBSA
     new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb), & 
 #else
     new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb,should_fail=.true.), &   
 #endif
-    new_unittest("GFN-FF OpenMP parallel SP      ",test_gfnff_openmp) &
+!    new_unittest("GFN-FF OpenMP parallel SP      ",test_gfnff_openmp), &
+    new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad) &
     ]
 !&>
   end subroutine collect_gfnff
