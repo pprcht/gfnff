@@ -239,8 +239,7 @@ contains  !> Unit tests for PV calculations
     allocate (grad(3,nat),source=0.0_wp)
 
     !> calculation
-    ffdata%solvent=alpbsolvent
-    call gfnff_initialize(nat,at,xyz,ffdata,print=pr,ichrg=ichrg,iostat=io)
+    call ffdata%init(nat,at,xyz,print=pr,ichrg=ichrg,iostat=io,solvent=alpbsolvent)
     call gfnff_singlepoint(nat,at,xyz,ffdata,energy,grad,pr,iostat=io)
     !write (*,'(F25.15)') energy
     !write (*,'(3(F20.15,"_wp,")," &")') grad

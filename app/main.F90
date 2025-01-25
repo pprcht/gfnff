@@ -130,7 +130,7 @@ program gfnff_main_tester
 !>--- And printout of the results from ffdata%res
   write (*,*)
   write (*,*) 'GFN-FF results'
-  call print_gfnff_results(stdout,ffdata%res,allocated(ffdata%solvation))
+  call ffdata%resultprint()
 
   write (*,*)
   write (*,'(A)') "Gradient (x, y, z in Eh/a0) for each atom:"

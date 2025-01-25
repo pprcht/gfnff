@@ -58,6 +58,9 @@ module gfnff_interface
     procedure :: deallocate => gfnff_data_deallocate
     procedure :: type_reset => gfnff_data_reset_types
     procedure :: type_init => gfnff_data_make_types
+    procedure :: singlepoint => gfnff_singlepoint_wrapper
+    procedure :: init => gfnff_initialize_wrapper
+    procedure :: resultprint => gfnff_print_results_wrapper
   end type gfnff_data
 
 !> This is a semi-global placeholder for a single gfnff_data object.
@@ -108,6 +111,26 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
   end subroutine gfnff_singlepoint
+
+  subroutine gfnff_singlepoint_wrapper(self,nat,at,xyz,energy,gradient,verbose,iostat)
+!******************************************************************
+!* A wrapper to the singlepoint routine, allowing
+!* the energy routine to be called with "call dat%singlepoint(...)"
+!******************************************************************
+    implicit none
+    !> INPUT
+    class(gfnff_data) :: self 
+    integer,intent(in)  :: nat        !> number of atoms
+    integer,intent(in)  :: at(nat)    !> atom types
+    real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
+    logical,intent(in),optional    :: verbose  !> printout activation 
+    !> OUTPUT
+    real(wp),intent(out) :: energy
+    real(wp),intent(out) :: gradient(3,nat)
+    integer,intent(out),optional  :: iostat
+    call gfnff_singlepoint(nat,at,xyz,self,energy,gradient,verbose=verbose,iostat=iostat)
+  end subroutine gfnff_singlepoint_wrapper
+
 !========================================================================================!
 
   subroutine print_gfnff_results(iunit,res_gff,lsolv)
@@ -139,6 +162,24 @@ contains  !> MODULE PROCEDURES START HERE
     end if
     write (iunit,'(a)') repeat('-',50)
   end subroutine print_gfnff_results
+
+  subroutine gfnff_print_results_wrapper(self,iunit)
+    implicit none
+    class(gfnff_data) :: self
+    !> INPUT
+    integer,intent(in),optional :: iunit
+    !> LOCAL
+    integer :: myunit 
+
+    if(present(iunit))then
+       myunit = iunit
+    else
+       myunit = stdout
+    endif
+    if(allocated(self%res))then
+    call print_gfnff_results(myunit,self%res,allocated(self%solvation))
+    endif
+  end subroutine gfnff_print_results_wrapper
 !========================================================================================!
 
   subroutine gfnff_initialize(nat,at,xyz,dat, &
@@ -259,6 +300,36 @@ contains  !> MODULE PROCEDURES START HERE
       iostat = io
     end if
   end subroutine gfnff_initialize
+
+  subroutine gfnff_initialize_wrapper(self,nat,at,xyz, &
+     &                 print,verbose,iunit,version,iostat,ichrg,solvent)
+!******************************************************************
+!* A wrapper to the initialize routine, allowing
+!* the energy routine to be called with "call dat%init(...)"
+!******************************************************************
+    implicit none
+    class(gfnff_data) :: self
+    !> INPUT
+    integer,intent(in) :: nat
+    integer,intent(in) :: at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    character(len=:),allocatable :: fname
+    logical,intent(in),optional  :: print
+    logical,intent(in),optional  :: verbose
+    integer,intent(in),optional  :: iunit
+    integer,intent(in),optional  :: version
+    integer,intent(out),optional :: iostat
+    integer,intent(in),optional  :: ichrg
+    character(len=*),intent(in),optional :: solvent
+
+    if(present(solvent))then
+      if(solvent.ne.'none') self%solvent=solvent
+    endif
+
+    call  gfnff_initialize(nat,at,xyz,self, &
+    &       print=print,verbose=verbose,iunit=iunit,&
+    &       version=version,iostat=iostat,ichrg=ichrg)
+  end subroutine gfnff_initialize_wrapper
 
 !========================================================================================!
   subroutine gfnff_data_deallocate(self)
