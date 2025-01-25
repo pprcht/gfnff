@@ -92,8 +92,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     !> Allocate and initialize the Fortran calculator
     allocate (calc)
-    !> AGAIN, WARNING: There is a row-first vs column-first change in Fortran vs C -> Transpose
-    call calc%init(nat,at,transpose(xyz),ichrg=ichrg, &
+    call calc%init(nat,at,xyz,ichrg=ichrg, &
     &              print=pr,verbose=verbose,iunit=iunit,iostat=iostatus)
     if (iostatus == 0) then
       !> Store the pointer in the C-compatible structure
@@ -167,7 +166,7 @@ contains  !> MODULE PROCEDURES START HERE
     c_energy = energy
     c_gradient(1:3,1:nat) = grad(1:3,1:nat)
     c_iostat = iostat
-
+    
   end subroutine c_gfnff_calculator_singlepoint
 
 !========================================================================================!

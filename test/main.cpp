@@ -41,14 +41,9 @@ void run_singlepoint_test() {
       at,  // int *at
            // &xyz[0][0],  // double xyz[3][24]
       xyz,
-      1.0,   // double pressure
-      1,     // int model
-      2030,  // int gridpts
-      1.4,   // double proberad
-      false, // bool verbose
-      2,     // int printlevel
-      0      // int vdwSet
-             // No iostat in this call
+      0,   // molecular charge
+      1    // printlevel directive (0 is off)
+           // No iostat in this call
   );
 
   if (calc.ptr == NULL) {
@@ -78,7 +73,7 @@ void run_singlepoint_test() {
 
   // Print results to stdout
   int iunit = 6;
-  c_gfnff_calculator_info(&calc, iunit);
+  c_gfnff_calculator_results(&calc, iunit);
 
   // Deallocate the Fortran calculator
   c_gfnff_calculator_deallocate(&calc);

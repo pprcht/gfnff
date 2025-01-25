@@ -33,18 +33,12 @@ int main() {
       {8.31511620712388, -9.76854236502758, -1.79108242206824}};
 
   // Test variables
-  double pressure = 1.0;
-  int model = 1; // 0 for XHCFF, 1 for PV
-  int gridpts = 2030;
-  double proberad = 1.4;
-  bool verbose = false; // we test the info routine separately below
-  int vdwSet = 0;
-  int printlevel = 2;
+  int ichrg = 0;
+  int printlevel = 1;
 
   // Call the Fortran function
   c_gfnff_calculator calc =
-      c_gfnff_calculator_init(nat, at, xyz, pressure, model, gridpts, proberad,
-                              verbose, printlevel, vdwSet);
+      c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel);
 
   if (calc.ptr == NULL) {
     printf("Error initializing gfnff calculator.\n");
@@ -80,7 +74,7 @@ int main() {
   int iunit = 6; // Use 6 to get Fortran's STDOUT
 
   // Call the print function
-  c_gfnff_calculator_info(&calc, iunit);
+  c_gfnff_calculator_results(&calc, iunit);
 
   // Deallocate the Fortran object
   c_gfnff_calculator_deallocate(&calc);
