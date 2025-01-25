@@ -224,13 +224,13 @@ contains  !> MODULE PROCEDURES START HERE
 ! Setup
 ! GBSA
 !!!!!!!!!!!!!
-
+#ifdef WITH_GBSA
     if (allocated(solvation)) then
 !      call timer%measure(11, "GBSA")
       call solvation%update(at,xyz)
 !      call timer%measure(11)
     end if
-
+#endif
 !!!!!!!!!!!!!
 ! REP part
 ! non-bonded
@@ -345,6 +345,7 @@ contains  !> MODULE PROCEDURES START HERE
     !$omp end parallel do
     if (.not.pr) deallocate (eeqtmp)
 
+#ifdef WITH_GBSA
     if (allocated(solvation)) then
 !         call timer%measure(11, "GBSA")
       call solvation%addGradient(at,xyz,nlist%q,nlist%q,g)
@@ -356,6 +357,7 @@ contains  !> MODULE PROCEDURES START HERE
       gborn = 0.0d0
       ghb = 0.0d0
     end if
+#endif
 
     do i = 1,n
       qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
@@ -1341,9 +1343,11 @@ contains  !> MODULE PROCEDURES START HERE
       end do
     end do
 
+#ifdef WITH_GBSA
     if (allocated(gbsa)) then
       A(:n,:n) = A(:n,:n)+gbsa%bornMat(:,:)
     end if
+#endif
 
     allocate (ipiv(m))
 
