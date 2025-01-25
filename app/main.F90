@@ -102,7 +102,7 @@ program gfnff_main_tester
   call timer%new(2,.true.)
 !>--- First, setup of parametrisation and topology into ffdata
   call timer%measure(1,'GFN-FF topology setup')
-  call gfnff_initialize(nat,at,xyz,ffdata,print=.true.,ichrg=ichrg,iostat=io)
+  call gfnff_initialize(nat,at,xyz,ffdata,print=.true.,verbose=.true.,ichrg=ichrg,iostat=io)
   write (*,*)
   if (io == 0) then
     write (*,*) 'Topology setup successful!'

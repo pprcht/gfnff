@@ -193,7 +193,6 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat
     integer,intent(in) :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    character(len=:),allocatable :: fname
     logical,intent(in),optional  :: print
     logical,intent(in),optional  :: verbose
     integer,intent(in),optional  :: iunit
@@ -203,6 +202,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> OUTPUT
     type(gfnff_data),intent(inout) :: dat
     !> LOCAL
+    character(len=:),allocatable :: fname
     integer :: ich,io,myunit
     logical :: ex,okbas,pr,pr2
     logical :: exitRun
@@ -313,7 +313,6 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat
     integer,intent(in) :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    character(len=:),allocatable :: fname
     logical,intent(in),optional  :: print
     logical,intent(in),optional  :: verbose
     integer,intent(in),optional  :: iunit
