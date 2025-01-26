@@ -322,7 +322,7 @@ contains  !> MODULE PROCEDURES START HERE
     character(len=*),intent(in),optional :: solvent
 
     if(present(solvent))then
-      if(solvent.ne.'none') self%solvent=solvent
+      if(solvent.ne.'none'.and.len_trim(solvent)>0) self%solvent=solvent
     endif
 
     call  gfnff_initialize(nat,at,xyz,self, &

@@ -17,7 +17,8 @@ typedef struct {
 
 // Declate the initializer
 extern c_gfnff_calculator
-c_gfnff_calculator_init(int nat, int *at, double (*xyz)[3], int ichrg, int printlevel);
+c_gfnff_calculator_init(int nat, int *at, double (*xyz)[3], 
+                        int ichrg, int printlevel, const char *solvent);
 
 // Declare the deallocator
 extern void c_gfnff_calculator_deallocate(c_gfnff_calculator *calculator);

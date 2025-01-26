@@ -46,8 +46,8 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
 !>--- C-compatible initialization function
-  function c_gfnff_calculator_init(c_nat,c_at,c_xyz,c_ichrg,c_printlevel   &
-    &                                  ) &
+  function c_gfnff_calculator_init(c_nat,c_at,c_xyz,c_ichrg,c_printlevel,  &
+    &                              c_solvent) &
     &                                  result(calculator) &
     &                                  bind(C,name="c_gfnff_calculator_init")
     implicit none
@@ -67,13 +67,13 @@ contains  !> MODULE PROCEDURES START HERE
     integer(c_int),value,intent(in) :: c_ichrg
     !integer(c_int),value,intent(in) :: c_iunit
     integer(c_int),value,intent(in) :: c_printlevel
-
+    character(kind=c_char),intent(in) :: c_solvent(*)
     type(gfnff_data),pointer :: calc
 
     integer :: nat
     integer,pointer :: at(:)
     real(wp),pointer :: xyz(:,:)
-    character(len=:),allocatable :: model
+    character(len=:),allocatable :: solvent
     logical :: verbose,pr
     integer :: iunit,printlevel,iostatus
     integer :: i,ichrg
@@ -83,17 +83,20 @@ contains  !> MODULE PROCEDURES START HERE
     call c_f_pointer(c_loc(c_at),at, [nat])
     call c_f_pointer(c_loc(c_xyz),xyz, [3,nat]) !> assumes xyz[nat][3] in C
     ichrg = c_ichrg
-    pr=.false.
+    pr = .false.
     verbose = .false.
     iunit = stdout !> use a default here.
     printlevel = c_printlevel
-    if(printlevel > 0) pr=.true.
-    if(printlevel > 1) verbose=.true.
+    if (printlevel > 0) pr = .true.
+    if (printlevel > 1) verbose = .true.
+    solvent = c_string_to_fortran(c_solvent)
+    if (len_trim(solvent) == 0) deallocate (solvent)
 
     !> Allocate and initialize the Fortran calculator
     allocate (calc)
     call calc%init(nat,at,xyz,ichrg=ichrg, &
-    &              print=pr,verbose=verbose,iunit=iunit,iostat=iostatus)
+    &              print=pr,verbose=verbose,iunit=iunit,iostat=iostatus,&
+    &              solvent=solvent)
     if (iostatus == 0) then
       !> Store the pointer in the C-compatible structure
       calculator%ptr = c_loc(calc)
@@ -166,7 +169,7 @@ contains  !> MODULE PROCEDURES START HERE
     c_energy = energy
     c_gradient(1:3,1:nat) = grad(1:3,1:nat)
     c_iostat = iostat
-    
+
   end subroutine c_gfnff_calculator_singlepoint
 
 !========================================================================================!
@@ -186,6 +189,26 @@ contains  !> MODULE PROCEDURES START HERE
     !> Call the Fortran subroutine
     call calc_ptr%resultprint(myunit)
   end subroutine c_gfnff_calculator_results
+
+!========================================================================================!
+
+  function c_string_to_fortran(c_str) result(f_str)
+    use iso_c_binding
+    implicit none
+    character(kind=c_char),intent(in) :: c_str(*)   !> C null-terminated string
+    character(len=:),allocatable :: f_str           !> Fortran allocatable string
+    integer :: i
+    !> Find the null terminator dynamically
+    i = 1
+    do while (c_str(i) /= c_null_char)
+      i = i+1
+    end do
+    i = i-1  !> Exclude null terminator
+    !> Allocate Fortran string with exact length
+    allocate (character(len=i) :: f_str)
+    !> Copy contents from C string to Fortran string
+    f_str = transfer(c_str(1:i),f_str)
+  end function c_string_to_fortran
 
 !========================================================================================!
 !========================================================================================!

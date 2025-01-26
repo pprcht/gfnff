@@ -34,6 +34,7 @@ void run_singlepoint_test() {
   double energy;
   double gradient[nat][3];
   int iostat;
+  const char *solvent = "h2o";
 
   // Initialize the Fortran calculator
   c_gfnff_calculator calc = c_gfnff_calculator_init(
@@ -41,8 +42,9 @@ void run_singlepoint_test() {
       at,  // int *at
            // &xyz[0][0],  // double xyz[3][24]
       xyz,
-      0,   // molecular charge
-      1    // printlevel directive (0 is off)
+      0,      // molecular charge
+      1,      // printlevel directive (0 is off)
+      solvent // solvent string
            // No iostat in this call
   );
 

@@ -35,10 +35,11 @@ int main() {
   // Test variables
   int ichrg = 0;
   int printlevel = 1;
+  char *solvent="";
 
   // Call the Fortran function
   c_gfnff_calculator calc =
-      c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel);
+      c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel, solvent);
 
   if (calc.ptr == NULL) {
     printf("Error initializing gfnff calculator.\n");
