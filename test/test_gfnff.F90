@@ -47,7 +47,7 @@ contains  !> Unit tests for PV calculations
     integer :: nat,io,ichrg
     logical :: pr
     character(len=:),allocatable :: alpbsolvent
-    type(gfnff_data) :: ffdata
+    type(gfnff_data) :: calculator
 
 !&<
     real(wp),parameter :: e_ref = -4.672792533926004_wp
@@ -90,8 +90,8 @@ contains  !> Unit tests for PV calculations
     allocate (grad(3,nat),source=0.0_wp)
 
     !> calculation
-    call gfnff_initialize(nat,at,xyz,ffdata,print=pr,ichrg=ichrg,iostat=io)
-    call gfnff_singlepoint(nat,at,xyz,ffdata,energy,grad,pr,iostat=io)
+    call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,pr,iostat=io)
     !write (*,'(F25.15)') energy
     !write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
@@ -123,7 +123,7 @@ contains  !> Unit tests for PV calculations
     integer :: nat,io,i,j,ichrg
     real(wp) :: step,bw,bw2,fw,fw2
     logical :: pr
-    type(gfnff_data) :: ffdata
+    type(gfnff_data) :: calculator
     real(wp),allocatable :: gradient(:,:),g_ref(:,:),stencil(:,:)
 !&<
     real(wp),parameter :: e_ref = -4.672792533926004_wp
@@ -141,8 +141,8 @@ contains  !> Unit tests for PV calculations
     allocate (gradient(3,nat),g_ref(3,nat),stencil(3,nat),source=0.0_wp)
 
     !> calculation
-    call gfnff_initialize(nat,at,xyz,ffdata,print=pr,ichrg=ichrg,iostat=io)
-    call gfnff_singlepoint(nat,at,xyz,ffdata,energy,grad,pr,iostat=io)
+    call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,pr,iostat=io)
    ! write (*,'(F25.15)') energy
    ! write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
@@ -154,16 +154,16 @@ contains  !> Unit tests for PV calculations
       do j = 1,3
         !write (*,*) 'Numerical gradient dimension ', (i-1)*3+j
         stencil(j,i) = stencil(j,i)-2.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,ffdata,bw2,gradient,pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,bw2,gradient,pr,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)-1.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,ffdata,bw,gradient,pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,bw,gradient,pr,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)+1.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,ffdata,fw,gradient,pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,fw,gradient,pr,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)+2.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,ffdata,fw2,gradient,pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,fw2,gradient,pr,iostat=io)
         stencil(j,i) = xyz(j,i)
         g_ref(j,i) = (bw2/12.0_wp-8.0_wp*bw/12.0_wp+8.0_wp*fw/12.0_wp-fw2/12.0_wp)/step
       end do
@@ -195,7 +195,7 @@ contains  !> Unit tests for PV calculations
     integer :: nat,io,ichrg
     logical :: pr
     character(len=:),allocatable :: alpbsolvent
-    type(gfnff_data) :: ffdata
+    type(gfnff_data) :: calculator
 
 !&<
     real(wp),parameter :: e_ref = -4.689906356924923_wp
@@ -239,8 +239,8 @@ contains  !> Unit tests for PV calculations
     allocate (grad(3,nat),source=0.0_wp)
 
     !> calculation
-    call ffdata%init(nat,at,xyz,print=pr,ichrg=ichrg,iostat=io,solvent=alpbsolvent)
-    call gfnff_singlepoint(nat,at,xyz,ffdata,energy,grad,pr,iostat=io)
+    call calculator%init(nat,at,xyz,print=pr,ichrg=ichrg,iostat=io,solvent=alpbsolvent)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,pr,iostat=io)
     !write (*,'(F25.15)') energy
     !write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
@@ -271,7 +271,7 @@ contains  !> Unit tests for PV calculations
     integer,allocatable :: at(:)
     integer :: nat,io,i,j,ntimes,ichrg
     logical :: pr
-    type(gfnff_data) :: ffdata
+    type(gfnff_data) :: calculator
     type(gfnff_timer) :: timer
     character(len=40) :: atmp
     logical :: speedup
@@ -331,8 +331,8 @@ contains  !> Unit tests for PV calculations
       !> calculation
       grad = 0.0_wp
       do j = 1,20
-        call gfnff_initialize(nat,at,xyz,ffdata,print=pr,ichrg=ichrg,iostat=io)
-        call gfnff_singlepoint(nat,at,xyz,ffdata,energy,grad,pr,iostat=io)
+        call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
+        call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,pr,iostat=io)
         call check(error,io,0)
         if (allocated(error)) return
 

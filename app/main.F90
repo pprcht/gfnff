@@ -38,7 +38,7 @@ program gfnff_main_tester
   real(wp) :: gnorm
   logical :: fail,pr
   integer :: io
-  type(gfnff_data) :: ffdata
+  type(gfnff_data) :: calculator
   type(gfnff_timer) :: timer
 
   character(len=1028) :: inputfile
@@ -90,7 +90,7 @@ program gfnff_main_tester
   write (*,*)
 
   if (allocated(alpbsolvent)) then
-    ffdata%solvent = alpbsolvent
+    calculator%solvent = alpbsolvent
   end if
 
 !=======================================================================================!
@@ -100,9 +100,10 @@ program gfnff_main_tester
 !=======================================================================================!
 
   call timer%new(2,.true.)
-!>--- First, setup of parametrisation and topology into ffdata
+!>--- First, setup of parametrisation and topology into calculator
   call timer%measure(1,'GFN-FF topology setup')
-  call gfnff_initialize(nat,at,xyz,ffdata,print=.true.,verbose=.true.,ichrg=ichrg,iostat=io)
+!  call gfnff_initialize(nat,at,xyz,calculator,print=.true.,verbose=.true.,ichrg=ichrg,iostat=io)
+  call calculator%init(nat,at,xyz,print=pr,verbose=pr,ichrg=ichrg,iostat=io)
   write (*,*)
   if (io == 0) then
     write (*,*) 'Topology setup successful!'
@@ -117,7 +118,8 @@ program gfnff_main_tester
   write (*,*)
   write (stdout,'(1x,a)',advance='no') 'Performing GFN-FF singlepoint calculation ... '
   call timer%measure(2,'GFN-FF energy evaluation')
-  call gfnff_singlepoint(nat,at,xyz,ffdata,energy,gradient,pr,iostat=io)
+!  call gfnff_singlepoint(nat,at,xyz,calculator,energy,gradient,pr,iostat=io)
+  call calculator%singlepoint(nat,at,xyz,energy,gradient,verbose=pr,iostat=io)
   if (io == 0) then
     write (*,*) 'success!'
   else
@@ -127,10 +129,10 @@ program gfnff_main_tester
   call timer%measure(2)
   call timer%write_timing(stdout,2,verbose=.false.)
 
-!>--- And printout of the results from ffdata%res
+!>--- And printout of the results from calculator%res
   write (*,*)
   write (*,*) 'GFN-FF results'
-  call ffdata%resultprint()
+  call calculator%resultprint()
 
   write (*,*)
   write (*,'(A)') "Gradient (x, y, z in Eh/a0) for each atom:"
@@ -248,9 +250,9 @@ subroutine printhelp()
   !> Examples of common usage
   write (*,*)
   write (*,"(1x,a)") "Examples:"
-  write (*,"(1x,a)") " xhcff inputfile.xyz -p 2.0"
-  write (*,"(1x,a)") " xhcff -i inputfile.xyz -T 4"
-  write (*,"(1x,a)") " xhcff --pressure 1.0 --proberad 1.2"
+  write (*,"(1x,a)") " gfnff inputfile.xyz"
+  write (*,"(1x,a)") " gfnff -i inputfile.xyz -c 1 -T 4"
+  write (*,"(1x,a)") " gfnff inputfile.xyz -alpb h2o -c -1"
 
   stop
 end subroutine printhelp
