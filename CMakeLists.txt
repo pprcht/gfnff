@@ -11,12 +11,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.17)
 
 project(
   "gfnff"
-  LANGUAGES "Fortran" "C"
+  LANGUAGES "Fortran" "C" "CXX"
   VERSION "0.0.1"
+  DESCRIPTION "Standalone implementation of general the `Geometries, Frequencies, Non-covalent interactions Force-Field` (GFN-FF)"
 )
 
 
@@ -27,60 +28,57 @@ include(GNUInstallDirs)
 set(libs)
 add_subdirectory("config")
 
+###############################################################################
+####################### SUBPROJECTS & DEPENDENCIES ############################
+###############################################################################
 
-#
-# Libraries
-#
-
-# OpenMP dependency
-if(NOT TARGET OpenMP::OpenMP_Fortran AND WITH_OpenMP)
-  find_package(OpenMP REQUIRED)
-  list(
-    APPEND libs
-    OpenMP::OpenMP_Fortran
-  )
-endif()
-
-# BLAS and LAPACK
-if(NOT TARGET BLAS::BLAS)
-  find_package(BLAS REQUIRED)
-  if(NOT TARGET BLAS::BLAS AND BLAS_FOUND)
-    add_library(BLAS::BLAS INTERFACE IMPORTED)
-    target_link_libraries(BLAS::BLAS INTERFACE "${BLAS_LIBRARIES}")
-    target_link_options(BLAS::BLAS INTERFACE "${BLAS_LINKER_FLAGS}")
+# OpenMP parallelization
+if(NOT TARGET "OpenMP::OpenMP_Fortran")
+  if (WITH_OpenMP)
+    find_package("OpenMP" REQUIRED)
+    add_compile_definitions(WITH_OpenMP) 
+  else()
+    # Create dummy library
+    add_library("OpenMP::OpenMP_Fortran" INTERFACE IMPORTED)
   endif()
 endif()
-if(NOT TARGET LAPACK::LAPACK)
-  find_package(LAPACK REQUIRED)
-  if(NOT TARGET LAPACK::LAPACK AND LAPACK_FOUND)
-    add_library(LAPACK::LAPACK INTERFACE IMPORTED)
-    target_link_libraries(LAPACK::LAPACK INTERFACE "${LAPACK_LIBRARIES}")
-    target_link_options(LAPACK::LAPACK INTERFACE "${LAPACK_LINKER_FLAGS}")
-  endif()
+
+# Linear algebra (contains BLAS)
+if(NOT TARGET "LAPACK::LAPACK")
+  find_package("LAPACK" REQUIRED)
 endif()
-list(
-  APPEND libs
-  LAPACK::LAPACK
-  BLAS::BLAS
+
+# Fortran unit test interface (also used by other subprojects)
+if(NOT TARGET "test-drive::test-drive" AND WITH_TESTS)
+   find_package("test-drive" REQUIRED)
+endif()
+
+set(
+  lib-deps
+  "OpenMP::OpenMP_Fortran"
+  "LAPACK::LAPACK"
+  "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
 )
 
+# Custom compile arguments
+IF(WITH_GBSA)
+add_definitions(-DWITH_GBSA)
+ENDIF()
 
-#
-# gfnff sources
-#
+# gfnff-lib sources
 set(srcs)
 add_subdirectory("src")
 
 
-#
-# Build the lib
-#
+###############################################################################
+############################### Static Library ################################
+###############################################################################
 add_library(
-  "lib${PROJECT_NAME}.a"
+  "${PROJECT_NAME}-lib"
   "${srcs}"
 )
 set_target_properties(
-  "lib${PROJECT_NAME}.a"
+  "${PROJECT_NAME}-lib"
   PROPERTIES
   POSITION_INDEPENDENT_CODE TRUE
   OUTPUT_NAME "${PROJECT_NAME}"
@@ -89,56 +87,33 @@ set_target_properties(
   WINDOWS_EXPORT_ALL_SYMBOLS TRUE
   Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include"
 )
+target_link_libraries(
+  "${PROJECT_NAME}-lib"
+  PUBLIC
+  "${lib-deps}"
+)
 target_include_directories(
-  "lib${PROJECT_NAME}.a"
+  "${PROJECT_NAME}-lib"
   PUBLIC
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
-  $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}>
 )
-target_link_libraries(
-  "lib${PROJECT_NAME}.a"
-  PUBLIC
-  "${libs}"
-)
+if(NOT EXISTS "${PROJECT_BINARY_DIR}/include")
+  file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/include")
+endif()
 
-IF(WITH_GBSA)
-add_definitions(-DWITH_GBSA)
-ENDIF()
-
-#
-# Executables
-#
-IF(build_exe)
-set(srcs2)
-add_subdirectory("testprog")
-add_executable(
-  ${PROJECT_NAME}-tester
-  "${srcs2}" 
-)
-set_target_properties(
-  ${PROJECT_NAME}-tester
-  PROPERTIES
-  Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include
-  RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
-  OUTPUT_NAME "${PROJECT_NAME}-tester"
-)
-target_link_libraries(
-  ${PROJECT_NAME}-tester
-  PRIVATE
-  "lib${PROJECT_NAME}.a"
-)
-ENDIF()
-
-#
+###############################################################################
+##################### Install and Export Instructions #########################
+###############################################################################
 # Export targets for other projects
-#
 add_library("${PROJECT_NAME}" INTERFACE)
-target_link_libraries("${PROJECT_NAME}" INTERFACE   "lib${PROJECT_NAME}.a")
+target_link_libraries("${PROJECT_NAME}" INTERFACE "${PROJECT_NAME}-lib")
 install(
   TARGETS
   "${PROJECT_NAME}"
-  "lib${PROJECT_NAME}.a"
+  "${PROJECT_NAME}-lib"
   EXPORT
   "${PROJECT_NAME}-targets"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
@@ -161,5 +136,50 @@ install(
   "${CMAKE_CURRENT_BINARY_DIR}/include/"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${module-dir}"
 )
+# Package license files
+install(
+  FILES
+  "COPYING"
+  "COPYING.LESSER"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}"
+)
 
+
+# build a minimal app that can read xyz files and perform singlepoints
+if (build_exe)
+add_subdirectory("app")
+endif()
+
+###############################################################################
+################################ python bindings ##############################
+###############################################################################
+# if (PYTHON_BINDINGS)
+# find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
+# find_package(pybind11 REQUIRED)
+# 
+# # Add the pybind11 module
+# #pybind11_add_module(_gfnff src/pygfnff.cpp)
+# python_add_library(_gfnff src/pygfnff.cpp WITH_SOABI)
+# 
+# # Link against any existing libraries if necessary
+# target_link_libraries(_gfnff 
+#                       PRIVATE 
+#                       "${PROJECT_NAME}-lib"
+#                       pybind11::headers)
+# 
+# # This is passing in the version as a define
+# target_compile_definitions(_gfnff PRIVATE VERSION_INFO=${PROJECT_VERSION})
+# 
+# # The install directory is the output (wheel) directory
+# install(TARGETS _gfnff DESTINATION pygfnff)
+# endif()
+
+###############################################################################
+################################## Testing ####################################
+###############################################################################
+# add the testsuite
+if (WITH_TESTS)
+  enable_testing()
+  add_subdirectory("test")
+endif()
 

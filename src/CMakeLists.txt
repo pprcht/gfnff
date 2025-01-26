@@ -20,10 +20,11 @@ list(APPEND srcs
    "${dir}/gfnff_ini2.f90"
    "${dir}/gfnff_ini.f90"
    "${dir}/gfnff_alpb.F90"
-   "${dir}/gfnff_engrad.f90"
+   "${dir}/gfnff_engrad.F90"
    "${dir}/gfnff_restart.f90"
    "${dir}/gfnff_setup.f90"
    "${dir}/gfnff_interface.f90"
+   "${dir}/C_interface.f90"
 )
 
 set(srcs ${srcs} PARENT_SCOPE)

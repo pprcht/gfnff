@@ -1,0 +1,3 @@
+[submodule "subprojects/test-drive"]
+	path = subprojects/test-drive
+	url = https://github.com/fortran-lang/test-drive.git

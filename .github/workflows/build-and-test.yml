@@ -1,0 +1,56 @@
+name: Build and Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        compiler_version: [12, 13]
+        build_type: [Debug, RelWithDebInfo]
+
+    steps:
+      # Checkout the source
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # Set up compilers and dependencies
+      - name: Install compilers and dependencies
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-${{ matrix.compiler_version }} \
+            g++-${{ matrix.compiler_version }} \
+            gfortran-${{ matrix.compiler_version }} \
+            libopenblas-dev
+
+          # Set environment variables to use the selected compilers
+          echo "CC=gcc-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+          echo "CXX=g++-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+          echo "FC=gfortran-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+
+      # Configure (generate build files)
+      - name: Configure with CMake
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_C_COMPILER=${{ env.CC }} \
+            -DCMAKE_CXX_COMPILER=${{ env.CXX }} \
+            -DCMAKE_Fortran_COMPILER=${{ env.FC }}
+
+      # Build
+      - name: Build
+        run: |
+          cmake --build build --config ${{ matrix.build_type }}
+
+      # Test (using CTest filtered for "gfnff"))
+      - name: Test (filtered for GFN-FF)
+        run: |
+          ctest --test-dir build \
+                --output-on-failure \
+                -R '^gfnff/'
