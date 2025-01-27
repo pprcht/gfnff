@@ -2,7 +2,7 @@
 #include <iostream>
 
 void run_singlepoint_test() {
-  int nat = 24;
+  const int nat = 24;
   int at[nat] = {6, 7, 6, 7, 6, 6, 6, 8, 7, 6, 8, 7,
                  6, 6, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
   double xyz[nat][3] = {
