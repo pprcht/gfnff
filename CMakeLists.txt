@@ -139,8 +139,7 @@ install(
 # Package license files
 install(
   FILES
-  "COPYING"
-  "COPYING.LESSER"
+  "LICENSE"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/${PROJECT_NAME}"
 )
 
