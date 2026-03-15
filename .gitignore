@@ -12,3 +12,4 @@ bin/
 testprog/gfn0
 testprog/coord
 ff/
+*/.wraplock
