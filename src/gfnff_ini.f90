@@ -21,7 +21,7 @@
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
 module gfnff_ini_mod
-  use iso_fortran_env,only:wp => real64,sp => real32, stdout=>output_unit
+  use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
   use gfnff_helpers
   implicit none
   private
@@ -40,15 +40,15 @@ contains  !> MODULE PROCEDURES START HERE
 
     use gfnff_ini2
     use gfnff_cn,only:gfnff_dlogcoord
-    use gfnff_qm_setup, only:gfnffqmsolve
+    use gfnff_qm_setup,only:gfnffqmsolve
     use gfnff_fraghess
     use gfnff_rab
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini'
 !--------------------------------------------------------------------------------------------------
     integer,intent(in) :: nat
-    integer,intent(in) :: at( nat )
-    real(wp),intent(in) :: xyz(3,nat) 
+    integer,intent(in) :: at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
 
     type(TGFFTopology),intent(inout) :: topo
     type(TGFFGenerator),intent(in) :: gen
@@ -58,7 +58,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: ichrg         ! mol. charge
     logical,intent(in) :: pr            ! standard print flag
     logical,intent(in) :: makeneighbor  ! make a neigbor list or use existing one?
-    integer,intent(out) :: io           ! return status 
+    integer,intent(out) :: io           ! return status
     logical,intent(in),optional :: verbose  ! extended print flag
     integer,intent(in),optional :: iunit    ! printout unit
 !--------------------------------------------------------------------------------------------------
@@ -116,23 +116,22 @@ contains  !> MODULE PROCEDURES START HERE
     integer  :: ich,err
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
     logical :: exitRun
-  
-    real(wp),parameter :: pi=3.1415926535897932385_wp
+
+    real(wp),parameter :: pi = 3.1415926535897932385_wp
 
 !> initialization
     io = 0
     exitRun = .false.
-    if(present(iunit))then
+    if (present(iunit)) then
       myunit = iunit
     else
       myunit = stdout
-    endif
-    if(present(verbose))then
+    end if
+    if (present(verbose)) then
       pr2 = verbose
     else
-      pr2 =.false.
-    endif
-
+      pr2 = .false.
+    end if
 
 !> set thresholds
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
@@ -142,16 +141,16 @@ contains  !> MODULE PROCEDURES START HERE
       write (myunit,'(1x,"entering GFN-FF setup routine... ",i0)') nat
     end if
 
-    if(pr)then
-    write (myunit,*)
-    write (myunit,'(1x,"==================== Thresholds ====================")')
-    write (myunit,'(2x,"CN  :",f12.5)') cnthr
-    write (myunit,'(2x,"rep :",f12.5)') repthr
-    write (myunit,'(2x,"disp:",f12.5)') dispthr
-    write (myunit,'(2x,"HB1 :",f12.5)') hbthr1
-    write (myunit,'(2x,"HB2 :",f12.5)') hbthr2
-    write (myunit,*)
-    endif
+    if (pr) then
+      write (myunit,*)
+      write (myunit,'(1x,"==================== Thresholds ====================")')
+      write (myunit,'(2x,"CN  :",f12.5)') cnthr
+      write (myunit,'(2x,"rep :",f12.5)') repthr
+      write (myunit,'(2x,"disp:",f12.5)') dispthr
+      write (myunit,'(2x,"HB1 :",f12.5)') hbthr1
+      write (myunit,'(2x,"HB2 :",f12.5)') hbthr2
+      write (myunit,*)
+    end if
 
     allocate (rab(nat*(nat+1)/2),source=0.0d0)
     allocate (cn(nat),source=0.0d0)
@@ -191,28 +190,28 @@ contains  !> MODULE PROCEDURES START HERE
       niel(at(i)) = niel(at(i))+1
     end do
 
-    if(pr)then
-    write (myunit,'(2x,"Pauling EN used:")')
-    do i = 1,86
-      if (niel(i) .gt. 0) write (myunit,'(2x,"Z :",i2,"  EN :",f6.2)') i,param%en(i)
-    end do
+    if (pr) then
+      write (myunit,'(2x,"Pauling EN used:")')
+      do i = 1,86
+        if (niel(i) .gt. 0) write (myunit,'(2x,"Z :",i2,"  EN :",f6.2)') i,param%en(i)
+      end do
 
-    dum = sqrt(sum(efield**2))
-    write (myunit,'(2x,"electric field strengths (au):",f6.3)') dum
+      dum = sqrt(sum(efield**2))
+      write (myunit,'(2x,"electric field strengths (au):",f6.3)') dum
 
-    write (myunit,*)
-    write (myunit,'(1x," ------------------------------------------------- ")')
-    write (myunit,'(1x,"|           Force Field Initialization            |")')
-    write (myunit,'(1x," ------------------------------------------------- ")')
-    write (myunit,*)
-    endif
+      write (myunit,*)
+      write (myunit,'(1x," ------------------------------------------------- ")')
+      write (myunit,'(1x,"|           Force Field Initialization            |")')
+      write (myunit,'(1x," ------------------------------------------------- ")')
+      write (myunit,*)
+    end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! distances and bonds
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     topo%xyze0 = xyz ! initial geom
 
-    if(pr) write (myunit,'(2x,"distances ...")')
+    if (pr) write (myunit,'(2x,"distances ...")')
     pbo = 0
     rab = 0
     sqrab = 0
@@ -225,8 +224,8 @@ contains  !> MODULE PROCEDURES START HERE
         sqrab(k) = (xyz(1,i)-xyz(1,j))**2+(xyz(2,i)-xyz(2,j))**2+(xyz(3,i)-xyz(3,j))**2
         rab(k) = sqrt(sqrab(k))
         if (rab(k) .lt. 1.d-3) then
-          if(pr) write (myunit,*) i,j,ati,atj,rab(k)
-          if(pr) write(myunit,'("Particular close distance present ",a)')source
+          if (pr) write (myunit,*) i,j,ati,atj,rab(k)
+          if (pr) write (myunit,'("Particular close distance present ",a)') source
           exitRun = .true.
           exit
         end if
@@ -234,7 +233,7 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
     if (exitRun) then
-      io = -1 
+      io = -1
       return
     end if
 
@@ -262,10 +261,10 @@ contains  !> MODULE PROCEDURES START HERE
 !  do the loop only if factor is significant
     do while (qloop_count .lt. 2.and.gen%rqshrink .gt. 1.d-3)
 
-      if(pr)then
-      write (myunit,'(2x,"----------------------------------------")')
-      write (myunit,'(2x,"generating topology and atomic info file ...")')
-      endif
+      if (pr) then
+        write (myunit,'(2x,"----------------------------------------")')
+        write (myunit,'(2x,"generating topology and atomic info file ...")')
+      end if
       call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
          & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,nbm,nbf,param,topo,myunit,pr)
 
@@ -410,7 +409,7 @@ contains  !> MODULE PROCEDURES START HERE
 !> base val  spec. corr.    CN dep.
         topo%chieeq(i) = -param%chi(ati)+dxi(i)+param%cnf(ati)*sqrt(dum)
         topo%gameeq(i) = param%gam(ati)
-        if (imetal(i) .eq. 2) then 
+        if (imetal(i) .eq. 2) then
 !> the "true" charges for the TM metals are small (for various reasons)
 !> so take for the non-geom. dep. ones less   electronegative metals yield more q+
 !> which reflect better the true polarity used for guessing various
@@ -426,7 +425,7 @@ contains  !> MODULE PROCEDURES START HERE
 
       if (pr) write (myunit,'(2x,"pair mat ...")')
 !> get number of cov. bonds between atoms up to 4 bonds
-      call nbondmat(nat,topo%nb,topo%bpair) 
+      call nbondmat(nat,topo%nb,topo%bpair)
       if (pr) write (myunit,'(2x,"computing topology distances matrix with Floyd-Warshall algo ...")')
       allocate (rabd(nat,nat),source=0.0e0_sp)
       rabd = rabd_cutoff
@@ -462,24 +461,24 @@ contains  !> MODULE PROCEDURES START HERE
       deallocate (rabd)
 
       frag_charges_known = .false.
-      if(pr) write (myunit,'(2x,"making topology EEQ charges ...")')
+      if (pr) write (myunit,'(2x,"making topology EEQ charges ...")')
       if (topo%nfrag .le. 1) then                           ! nothing is known
 !> first check for fragments
         call mrecgff(nat,nbf,topo%nfrag,topo%fraglist)
-        if(pr) write (myunit,'(2x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
+        if (pr) write (myunit,'(2x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
 !> read QM info if it exists
-        if(allocated(topo%refcharges))then
-          inquire(file=trim(topo%refcharges),exist=ex)
-          if(.not.ex)then
-            write(*,*) 'reference charge file '//topo%refcharges//' allocated, but could not be found!'
-            error stop 
-          endif
+        if (allocated(topo%refcharges)) then
+          inquire (file=trim(topo%refcharges),exist=ex)
+          if (.not.ex) then
+            write (*,*) 'reference charge file '//topo%refcharges//' allocated, but could not be found!'
+            error stop
+          end if
         else
-          ex=.false.
-        endif
-        if(ex)then
-          if(pr) write(myunit,'(2x,a)') topo%refcharges//" file detected, attempting to read ..."
-          open(newunit=ich,file=trim(topo%refcharges),action='read')
+          ex = .false.
+        end if
+        if (ex) then
+          if (pr) write (myunit,'(2x,a)') topo%refcharges//" file detected, attempting to read ..."
+          open (newunit=ich,file=trim(topo%refcharges),action='read')
           qtmp = 0
           err = 0
           i = 0
@@ -490,23 +489,23 @@ contains  !> MODULE PROCEDURES START HERE
               i = i+1
               qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+dum
             else
-              if(pr) write(myunit,'("More charges than atoms present, assuming missmatch ",a)') source
-              exitRun=.true.
+              if (pr) write (myunit,'("More charges than atoms present, assuming missmatch ",a)') source
+              exitRun = .true.
               err = 1
             end if
           end do
           if (is_iostat_end(err).and.i == nat) err = 0
-          close(ich)
+          close (ich)
           if (err == 0) then
             if (i < nat.or.abs(sum(qtmp)-ichrg) > 1.0e-3_wp) then
-              if(pr) write(myunit,'("Rejecting external charges input due to missmatch ",a)')source
+              if (pr) write (myunit,'("Rejecting external charges input due to missmatch ",a)') source
               exitRun = .true.
             else
               topo%qfrag = dnint(qtmp)
-              if(pr) write (myunit,'(2x,"fragment charges from <charges> :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
+              if (pr) write (myunit,'(2x,"fragment charges from <charges> :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
             end if
           else
-            if(pr) write(myunit,'("Could not initialize fragment charges from file ",a)')source 
+            if (pr) write (myunit,'("Could not initialize fragment charges from file ",a)') source
             exitRun = .true.
           end if
 
@@ -515,18 +514,18 @@ contains  !> MODULE PROCEDURES START HERE
             return
           end if
         end if
-        if (nat .lt. 100 .and. &
-        &   topo%nfrag .gt. 2 .and. &
-        &   ichrg .ne. 0 .and. &
+        if (nat .lt. 100.and. &
+        &   topo%nfrag .gt. 2.and. &
+        &   ichrg .ne. 0.and. &
         &   sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
           itmp = 0
           do i = 1,nat
             itmp(topo%fraglist(i)) = itmp(topo%fraglist(i))+1
           end do
           do i = 1,topo%nfrag
-            if(pr) write (myunit,*) i,itmp(i)
+            if (pr) write (myunit,*) i,itmp(i)
           end do
-          if(pr)  write(myunit,'("fragment charge input required ",a)')source
+          if (pr) write (myunit,'("fragment charge input required ",a)') source
           io = 1
           return
         end if
@@ -535,42 +534,42 @@ contains  !> MODULE PROCEDURES START HERE
           topo%qfrag(2:topo%nfrag) = 0
         end if
         if (topo%nfrag .eq. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
-          if(pr) write (myunit,*) 'trying auto detection of charge on 2 fragments:'
+          if (pr) write (myunit,*) 'trying auto detection of charge on 2 fragments:'
           topo%qfrag(1) = 0
           topo%qfrag(2) = dble(ichrg)
           call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum1,topo,io)
-          if(io /= 0 ) exitRun = .true.
+          if (io /= 0) exitRun = .true.
           if (exitRun) then
-            if(pr) write(myunit,'("Failed to generate charges ",a)')source
+            if (pr) write (myunit,'("Failed to generate charges ",a)') source
             return
           end if
           topo%qfrag(2) = 0
           topo%qfrag(1) = dble(ichrg)
           call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum2,topo,io)
-          if(io /= 0 ) exitRun = .true.
+          if (io /= 0) exitRun = .true.
           if (exitRun) then
-            if(pr) write(myunit,'("Failed to generate charges ",a)')source
+            if (pr) write (myunit,'("Failed to generate charges ",a)') source
             return
           end if
           if (dum1 .lt. dum2) then
             topo%qfrag(1) = 0
             topo%qfrag(2) = dble(ichrg)
           end if
-          if(pr) write (myunit,*) 'dEes      :',dum1-dum2
-          if(pr) write (myunit,*) 'charge 1/2:',topo%qfrag(1:2)
+          if (pr) write (myunit,*) 'dEes      :',dum1-dum2
+          if (pr) write (myunit,*) 'charge 1/2:',topo%qfrag(1:2)
         end if
-      !else if (allocated(mol%pdb)) then ! frag_charges_known
-      !  write (myunit,'(2x,"#fragments for EEQ constrain from pdb file: ",i0)') topo%nfrag
-      !  frag_charges_known = .true.
+        !else if (allocated(mol%pdb)) then ! frag_charges_known
+        !  write (myunit,'(2x,"#fragments for EEQ constrain from pdb file: ",i0)') topo%nfrag
+        !  frag_charges_known = .true.
       end if
 
-       if(pr) write (myunit,'(2x,"fragment charges :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
+      if (pr) write (myunit,'(2x,"fragment charges :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
 
 !> make estimated, topology only EEQ charges from rabd values, including "right" fragment charge
       call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io)
-      if(io /= 0 ) exitRun = .true. 
+      if (io /= 0) exitRun = .true.
       if (exitRun) then
-        if(pr) write(myunit,'("Failed to generate charges ",a)')source
+        if (pr) write (myunit,'("Failed to generate charges ",a)') source
         return
       end if
 
@@ -602,9 +601,9 @@ contains  !> MODULE PROCEDURES START HERE
             dum2 = topo%qfrag(ifrag) ! save
             topo%qfrag(ifrag) = 0 ! make only this EEQ fragment neutral
             call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io) ! for neutral
-            if(io /= 0 ) exitRun = .true.
+            if (io /= 0) exitRun = .true.
             if (exitRun) then
-              if(pr) write(myunit,'("Failed to generate charges ",a)')source
+              if (pr) write (myunit,'("Failed to generate charges ",a)') source
               return
             end if
             topo%qfrag(ifrag) = dum2 ! back
@@ -685,7 +684,7 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! get ring info (smallest ring size)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if(pr) write (myunit,'(2x,"rings ...")')
+    if (pr) write (myunit,'(2x,"rings ...")')
 !$omp parallel default(none) private(i,cr,sr) shared(nat,at,nbm,cring,sring)
 !$omp do
     do i = 1,nat
@@ -727,12 +726,12 @@ contains  !> MODULE PROCEDURES START HERE
       end do
     end do
     if (topo%nbatm .gt. idum) then
-      if(pr) write (myunit,*) idum,topo%nbatm
-      if(pr) write(myunit,'("overflow in ini ",a)')source 
+      if (pr) write (myunit,*) idum,topo%nbatm
+      if (pr) write (myunit,'("overflow in ini ",a)') source
       io = 1
       return
     end if
-    if(pr) write (myunit,'(2x,"# BATM",3x,i0)') topo%nbatm
+    if (pr) write (myunit,'(2x,"# BATM",3x,i0)') topo%nbatm
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! non bonded pair exponents
@@ -817,7 +816,7 @@ contains  !> MODULE PROCEDURES START HERE
         topo%hbatHl(topo%nathbH) = i
       end if
     end do
-    if(pr) write (myunit,'(2x,"# H in HB",3x,i0)') topo%nathbH
+    if (pr) write (myunit,'(2x,"# H in HB",3x,i0)') topo%nathbH
 
     topo%nathbAB = 0
     do i = 1,nat
@@ -886,9 +885,9 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     if (picount .gt. 0) then
-      if(pr)then
-      write (myunit,'(2x,"doing iterative Hueckel for ",i0," subsystem(s) ...")') picount
-      endif
+      if (pr) then
+        write (myunit,'(2x,"doing iterative Hueckel for ",i0," subsystem(s) ...")') picount
+      end if
       allocate (pispop(picount),pisip(picount),pisea(picount),source=0.0d0)
       allocate (piel(nat),source=0)
       itmp = 0 ! save pi atom info
@@ -966,8 +965,8 @@ contains  !> MODULE PROCEDURES START HERE
 
           apisave = Api
 !> diagonalize, 4000 better than 300
-          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps, io)
-          if(io /= 0) return
+          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)
+          if (io /= 0) return
 
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
@@ -990,8 +989,8 @@ contains  !> MODULE PROCEDURES START HERE
             end do
             nelpi = nelpi-1
             Api = Apisave
-            call gfnffqmsolve(.false.,Api,S,.false.,300.0d0,npi,0,nelpi,dum,occ,eps, io)  
-            if(io /= 0) return
+            call gfnffqmsolve(.false.,Api,S,.false.,300.0d0,npi,0,nelpi,dum,occ,eps,io)
+            if (io /= 0) return
           end if
         end if
 ! save BO
@@ -1032,17 +1031,17 @@ contains  !> MODULE PROCEDURES START HERE
       end if
     end do
 
-    if(pr)then
-    write (myunit,*)
-    write (myunit,'(2x,"atom   neighbors  erfCN metchar sp-hybrid imet pi  qest     coordinates")')
-    do i = 1,nat
-      j = hyb(i)
-      if (amide(nat,at,hyb,topo%nb,piadr,i)) j = -hyb(i)
-      if (at(i) .eq. 6.and.itag(i) .eq. 1) j = -hyb(i)
-      write (myunit,'(i5,2x,a2,3x,i4,3x,f5.2,2x,f5.2,8x,i2,3x,i2,3x,i2,2x,f6.3,3f12.6)') &
-  &             i,pse(at(i)),topo%nb(20,i),cn(i),mchar(i),j,imetal(i),piadr(i),topo%qa(i),xyz(1:3,i)
-    end do
-    endif
+    if (pr) then
+      write (myunit,*)
+      write (myunit,'(2x,"atom   neighbors  erfCN metchar sp-hybrid imet pi  qest     coordinates")')
+      do i = 1,nat
+        j = hyb(i)
+        if (amide(nat,at,hyb,topo%nb,piadr,i)) j = -hyb(i)
+        if (at(i) .eq. 6.and.itag(i) .eq. 1) j = -hyb(i)
+        write (myunit,'(i5,2x,a2,3x,i4,3x,f5.2,2x,f5.2,8x,i2,3x,i2,3x,i2,2x,f6.3,3f12.6)') &
+    &             i,pse(at(i)),topo%nb(20,i),cn(i),mchar(i),j,imetal(i),piadr(i),topo%qa(i),xyz(1:3,i)
+      end do
+    end if
 
 !     compute fragments and charges for output (check for CT)
 !     call mrecgff(nat,topo%nb,nmol,piadr3)
@@ -1074,11 +1073,11 @@ contains  !> MODULE PROCEDURES START HERE
     topo%nbond_vbond = topo%nbond
     allocate (topo%vbond(3,topo%nbond),source=0.0d0)
 
-    if(pr)then
-    write (myunit,*)
-    write (myunit,'(1x,"#atoms   :",3x,i0)') nat
-    write (myunit,'(1x,"#bonds   :",3x,i0)') topo%nbond
-    endif
+    if (pr) then
+      write (myunit,*)
+      write (myunit,'(1x,"#atoms   :",3x,i0)') nat
+      write (myunit,'(1x,"#bonds   :",3x,i0)') topo%nbond
+    end if
     if (pr2) then
       write (myunit,*)
       write (myunit,*) 'bond atoms        type  in ring    R      R0    piBO    fqq  kbond(tot)  alp'
@@ -1788,8 +1787,8 @@ contains  !> MODULE PROCEDURES START HERE
           if (fctot .gt. gen%fcthr) then ! avoid tiny potentials
             topo%ntors = topo%ntors+1
             if (topo%ntors .gt. maxtors) then
-              if (pr) write(myunit,'("internal (torsion setup) error ",a)')source  
-              io = 1 
+              if (pr) write (myunit,'("internal (torsion setup) error ",a)') source
+              io = 1
               return
             end if
             topo%tlist(1,topo%ntors) = ll
@@ -1810,8 +1809,8 @@ contains  !> MODULE PROCEDURES START HERE
           if (sp3kl.and.sp3ij.and.(.not.lring).and.btyp(m) .lt. 5) then
             topo%ntors = topo%ntors+1
             if (topo%ntors .gt. maxtors) then
-              if(pr) write(myunit,'("internal (torsion setup) error ",a)')source
-              io = 1 
+              if (pr) write (myunit,'("internal (torsion setup) error ",a)') source
+              io = 1
               return
             end if
             ff = gen%torsf(6)
@@ -1898,32 +1897,31 @@ contains  !> MODULE PROCEDURES START HERE
       if (pr2) write (myunit,'(4i5,7x,3f8.3)') i,jj,kk,ll,topo%vtors(1,topo%ntors)*180./pi,phi*180./pi,topo%vtors(2,topo%ntors)
     end do
 
-    if(pr)then
-    write (myunit,'(1x,"#tors    :",3x,i0)') topo%ntors
-    write (myunit,'(1x,"#nmol    :",3x,i0)') topo%nfrag
-    endif
-
+    if (pr) then
+      write (myunit,'(1x,"#tors    :",3x,i0)') topo%ntors
+      write (myunit,'(1x,"#nmol    :",3x,i0)') topo%nfrag
+    end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! check if triple bonded carbon is present (for torsion term)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      nn=0
-      do i=1, nat
-        if (at(i).eq.6.and.topo%nb(20,i).eq.2) then
-          do j=1, 2
-            nbi=topo%nb(j,i)
-            if (at(nbi).eq.6.and.topo%nb(20,nbi).eq.2) then
-              nn = nn + 1
-            endif
-          enddo
-        endif
-      enddo
-      if (nn.ne.0) then
-        ! fix double counting
-        nn = nn/2
-        allocate(topo%sTorsl(6, nn), source=0)
-        call specialTorsList(nn, nat, at, xyz, topo, hyb, topo%sTorsl)
-      endif
+    nn = 0
+    do i = 1,nat
+      if (at(i) .eq. 6.and.topo%nb(20,i) .eq. 2) then
+        do j = 1,2
+          nbi = topo%nb(j,i)
+          if (at(nbi) .eq. 6.and.topo%nb(20,nbi) .eq. 2) then
+            nn = nn+1
+          end if
+        end do
+      end if
+    end do
+    if (nn .ne. 0) then
+      ! fix double counting
+      nn = nn/2
+      allocate (topo%sTorsl(6,nn),source=0)
+      call specialTorsList(nn,nat,at,xyz,topo,hyb,topo%sTorsl)
+    end if
 
 !> all done
 
@@ -1931,7 +1929,7 @@ contains  !> MODULE PROCEDURES START HERE
     call fragmentize(nat,at,xyz,topo%maxsystem,500,rab,topo%nb, &
        & topo%ispinsyst,topo%nspinsyst,topo%nsystem)
 
-    if(pr) write (myunit,'(1x,"#optfrag :",3x,i0)') topo%nfrag
+    if (pr) write (myunit,'(1x,"#optfrag :",3x,i0)') topo%nfrag
 
     if (pr2) then
       write (myunit,*)
@@ -1946,20 +1944,20 @@ contains  !> MODULE PROCEDURES START HERE
 !> zeta(g_a,gam(ia)*g_c,refq(ii,ia)+iz,q(i)+iz)
 
 !> charge scaling function
-    pure elemental function zeta(at,q)
-      implicit none
-      integer,intent(in) :: at
-      real(wp),intent(in) :: q
+  pure elemental function zeta(at,q)
+    implicit none
+    integer,intent(in) :: at
+    real(wp),intent(in) :: q
 
-      real(wp)           :: zeta,qmod
-      real(wp),parameter :: zeff(86) = (/ &
-      &   1,2,  & ! H-He
-      &   3,4,5,6,7,8,9,10,  & ! Li-Ne
-      &  11,12,13,14,15,16,17,18,  & ! Na-Ar
-      &  19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,  & ! K-Kr
-      &   9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,  & ! Rb-Xe
-      &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43,  & ! Cs-Lu
-      &  12,13,14,15,16,17,18,19,20,21,22,23,24,25,26/)  ! Hf-Rn
+    real(wp)           :: zeta,qmod
+    real(wp),parameter :: zeff(86) = (/ &
+    &   1,2,  & ! H-He
+    &   3,4,5,6,7,8,9,10,  & ! Li-Ne
+    &  11,12,13,14,15,16,17,18,  & ! Na-Ar
+    &  19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,  & ! K-Kr
+    &   9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,  & ! Rb-Xe
+    &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43,  & ! Cs-Lu
+    &  12,13,14,15,16,17,18,19,20,21,22,23,24,25,26/)  ! Hf-Rn
 !! Semiempirical Evaluation of the GlobalHardness of the Atoms of 103
 !! Elements of the Periodic Table Using the Most Probable Radii as
 !! their Size Descriptors DULAL C. GHOSH, NAZMUL ISLAM 2009 in
@@ -1968,33 +1966,33 @@ contains  !> MODULE PROCEDURES START HERE
 !! values in the paper multiplied by two because
 !! (ii:ii)=(IP-EA)=d^2 E/dN^2 but the hardness
 !! definition they use is 1/2d^2 E/dN^2 (in Eh)
-      real(wp),parameter :: c(1:86) = (/ &
-     &0.47259288_wp,0.92203391_wp,0.17452888_wp,0.25700733_wp,0.33949086_wp,0.42195412_wp, & ! H-C
-     &0.50438193_wp,0.58691863_wp,0.66931351_wp,0.75191607_wp,0.17964105_wp,0.22157276_wp, & ! N-Mg
-     &0.26348578_wp,0.30539645_wp,0.34734014_wp,0.38924725_wp,0.43115670_wp,0.47308269_wp, & ! Al-Ar
-     &0.17105469_wp,0.20276244_wp,0.21007322_wp,0.21739647_wp,0.22471039_wp,0.23201501_wp, & ! Ca-Cr
-     &0.23933969_wp,0.24665638_wp,0.25398255_wp,0.26128863_wp,0.26859476_wp,0.27592565_wp, & ! Mn-Zn
-     &0.30762999_wp,0.33931580_wp,0.37235985_wp,0.40273549_wp,0.43445776_wp,0.46611708_wp, & ! Ga-Kr
-     &0.15585079_wp,0.18649324_wp,0.19356210_wp,0.20063311_wp,0.20770522_wp,0.21477254_wp, & ! Rb-Mo
-     &0.22184614_wp,0.22891872_wp,0.23598621_wp,0.24305612_wp,0.25013018_wp,0.25719937_wp, & ! Tc-Cd
-     &0.28784780_wp,0.31848673_wp,0.34912431_wp,0.37976593_wp,0.41040808_wp,0.44105777_wp, & ! In-Xe
-     &0.05019332_wp,0.06762570_wp,0.08504445_wp,0.10247736_wp,0.11991105_wp,0.13732772_wp, & ! Cs-Nd
-     &0.15476297_wp,0.17218265_wp,0.18961288_wp,0.20704760_wp,0.22446752_wp,0.24189645_wp, & ! Pm-Dy
-     &0.25932503_wp,0.27676094_wp,0.29418231_wp,0.31159587_wp,0.32902274_wp,0.34592298_wp, & ! Ho-Hf
-     &0.36388048_wp,0.38130586_wp,0.39877476_wp,0.41614298_wp,0.43364510_wp,0.45104014_wp, & ! Ta-Pt
-     &0.46848986_wp,0.48584550_wp,0.12526730_wp,0.14268677_wp,0.16011615_wp,0.17755889_wp, & ! Au-Po
-     &0.19497557_wp,0.21240778_wp/)
+    real(wp),parameter :: c(1:86) = (/ &
+   &0.47259288_wp,0.92203391_wp,0.17452888_wp,0.25700733_wp,0.33949086_wp,0.42195412_wp, & ! H-C
+   &0.50438193_wp,0.58691863_wp,0.66931351_wp,0.75191607_wp,0.17964105_wp,0.22157276_wp, & ! N-Mg
+   &0.26348578_wp,0.30539645_wp,0.34734014_wp,0.38924725_wp,0.43115670_wp,0.47308269_wp, & ! Al-Ar
+   &0.17105469_wp,0.20276244_wp,0.21007322_wp,0.21739647_wp,0.22471039_wp,0.23201501_wp, & ! Ca-Cr
+   &0.23933969_wp,0.24665638_wp,0.25398255_wp,0.26128863_wp,0.26859476_wp,0.27592565_wp, & ! Mn-Zn
+   &0.30762999_wp,0.33931580_wp,0.37235985_wp,0.40273549_wp,0.43445776_wp,0.46611708_wp, & ! Ga-Kr
+   &0.15585079_wp,0.18649324_wp,0.19356210_wp,0.20063311_wp,0.20770522_wp,0.21477254_wp, & ! Rb-Mo
+   &0.22184614_wp,0.22891872_wp,0.23598621_wp,0.24305612_wp,0.25013018_wp,0.25719937_wp, & ! Tc-Cd
+   &0.28784780_wp,0.31848673_wp,0.34912431_wp,0.37976593_wp,0.41040808_wp,0.44105777_wp, & ! In-Xe
+   &0.05019332_wp,0.06762570_wp,0.08504445_wp,0.10247736_wp,0.11991105_wp,0.13732772_wp, & ! Cs-Nd
+   &0.15476297_wp,0.17218265_wp,0.18961288_wp,0.20704760_wp,0.22446752_wp,0.24189645_wp, & ! Pm-Dy
+   &0.25932503_wp,0.27676094_wp,0.29418231_wp,0.31159587_wp,0.32902274_wp,0.34592298_wp, & ! Ho-Hf
+   &0.36388048_wp,0.38130586_wp,0.39877476_wp,0.41614298_wp,0.43364510_wp,0.45104014_wp, & ! Ta-Pt
+   &0.46848986_wp,0.48584550_wp,0.12526730_wp,0.14268677_wp,0.16011615_wp,0.17755889_wp, & ! Au-Po
+   &0.19497557_wp,0.21240778_wp/)
 
-      intrinsic :: exp
+    intrinsic :: exp
 
-      qmod = zeff(at)+q
-      if (qmod .lt. 0._wp) then
-        zeta = exp(3.0d0)
-      else
-        zeta = exp(3.0d0*(1._wp-exp(c(at)*(1._wp-zeff(at)/qmod))))
-      end if
+    qmod = zeff(at)+q
+    if (qmod .lt. 0._wp) then
+      zeta = exp(3.0d0)
+    else
+      zeta = exp(3.0d0*(1._wp-exp(c(at)*(1._wp-zeff(at)/qmod))))
+    end if
 
-    end function zeta
+  end function zeta
 
 !========================================================================================!
 
@@ -2022,8 +2020,6 @@ contains  !> MODULE PROCEDURES START HERE
 
 !========================================================================================!
 
-
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! special treatment for rotation around carbon triple bonds
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2039,80 +2035,80 @@ contains  !> MODULE PROCEDURES START HERE
 ! C-- C               C4--C
 !
 ! using C1=ii, C2=jj, C3=kk, C4=ll
-subroutine specialTorsList(nst, nat, at, xyz, topo, hyb, sTorsList)
-  use gfnff_data_types,only:TGFFTopology 
-  integer, intent(in) :: nst
-  integer,intent(in) :: nat
-  integer,intent(in) :: at(nat)
-  real(wp),intent(in) :: xyz(3,nat)
-  type(TGFFTopology), intent(in) :: topo
-  integer,intent(in) :: hyb(nat)
-  integer, intent(inout) :: sTorsList(6, nst)
-  integer :: i,j,k,ii,jj,kk,ll,idx,nbi
-  logical :: iiok, llok
-  idx=0
-  do i=1, nat
-    ! carbon with two neighbors bonded to other carbon* with two neighbors
-    if (at(i).eq.6.and.topo%nb(20,i).eq.2) then
-      JLOOP : do j=1, 2
-        nbi=topo%nb(j,i)
-        if (at(nbi).eq.6.and.topo%nb(20,nbi).eq.2) then  ! *other carbon
-          ! check carbon triple bond distance
-          if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)).le.2.37) then
-            ! at this point we know that i and nbi are carbons bonded through triple bond
-            ! check C2 and C3
-            jj = 0
-            do k=1, 2  ! C2 is other nb of Ci
-              if (topo%nb(k,i).ne.nbi.and.at(topo%nb(k,i)).eq.6) then
-                jj=topo%nb(k,i)
-              endif
-            enddo
-            kk = 0
-            do k=1, 2  ! C3 is other nb of Cnbi
-              if (topo%nb(k,nbi).ne.i.and.at(topo%nb(k,nbi)).eq.6) then
-                kk=topo%nb(k,nbi)
-              endif
-            enddo
-            if(jj == 0 .or. kk == 0) cycle JLOOP
-            ! check C1 through C4 are sp2 carbon
-            if (hyb(jj).eq.2.and.hyb(kk).eq.2 &
-            &   .and.at(jj).eq.6.and.at(kk).eq.6) then
-              iiok=.false.
-              llok=.false.
-              ! which of the two valid neighbors is picked as C1 depends
-              !  on atom sorting in input file !!! The last one in file.
-              do k=1, topo%nb(20,jj)
-                if (hyb(k).eq.2.and.at(k).eq.6.and.topo%nb(20,k).eq.3.and. &
-                   & topo%nb(k,jj).ne.i) then
-                  ii=topo%nb(k,jj)
-                  iiok=.true.
-                endif
-              enddo
-              ! which of the two valid neighbors is picked as C4 depends
-              !  on atom sorting in input file !!! The last one in file.
-              do k=1, topo%nb(20,kk)
-                if (hyb(k).eq.2.and.at(k).eq.6.and.topo%nb(20,k).eq.3.and. &
-                   & topo%nb(k,kk).ne.nbi) then
-                  ll=topo%nb(k,kk)
-                  llok=.true.
-                endif
-              enddo
-              if (nbi.gt.i.and.iiok.and.llok) then ! to avoid double counting
-                idx = idx + 1
-                sTorsList(1, idx) = ii  ! C1
-                sTorsList(2, idx) = jj  ! C2
-                sTorsList(3, idx) = i   ! Ci
-                sTorsList(4, idx) = nbi ! Cnbi
-                sTorsList(5, idx) = kk  ! C3
-                sTorsList(6, idx) = ll  ! C4
-              endif
-            endif ! C1-C4 are sp2 carbon
-          endif  ! CC distance
-        endif  ! other carbon
-      enddo JLOOP
-    endif ! is carbon with nnb=2
-  enddo
-end subroutine specialTorsList
+  subroutine specialTorsList(nst,nat,at,xyz,topo,hyb,sTorsList)
+    use gfnff_data_types,only:TGFFTopology
+    integer,intent(in) :: nst
+    integer,intent(in) :: nat
+    integer,intent(in) :: at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TGFFTopology),intent(in) :: topo
+    integer,intent(in) :: hyb(nat)
+    integer,intent(inout) :: sTorsList(6,nst)
+    integer :: i,j,k,ii,jj,kk,ll,idx,nbi
+    logical :: iiok,llok
+    idx = 0
+    do i = 1,nat
+      ! carbon with two neighbors bonded to other carbon* with two neighbors
+      if (at(i) .eq. 6.and.topo%nb(20,i) .eq. 2) then
+        JLOOP: do j = 1,2
+          nbi = topo%nb(j,i)
+          if (at(nbi) .eq. 6.and.topo%nb(20,nbi) .eq. 2) then  ! *other carbon
+            ! check carbon triple bond distance
+            if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)) .le. 2.37) then
+              ! at this point we know that i and nbi are carbons bonded through triple bond
+              ! check C2 and C3
+              jj = 0
+              do k = 1,2  ! C2 is other nb of Ci
+                if (topo%nb(k,i) .ne. nbi.and.at(topo%nb(k,i)) .eq. 6) then
+                  jj = topo%nb(k,i)
+                end if
+              end do
+              kk = 0
+              do k = 1,2  ! C3 is other nb of Cnbi
+                if (topo%nb(k,nbi) .ne. i.and.at(topo%nb(k,nbi)) .eq. 6) then
+                  kk = topo%nb(k,nbi)
+                end if
+              end do
+              if (jj == 0.or.kk == 0) cycle JLOOP
+              ! check C1 through C4 are sp2 carbon
+              if (hyb(jj) .eq. 2.and.hyb(kk) .eq. 2 &
+              &   .and.at(jj) .eq. 6.and.at(kk) .eq. 6) then
+                iiok = .false.
+                llok = .false.
+                ! which of the two valid neighbors is picked as C1 depends
+                !  on atom sorting in input file !!! The last one in file.
+                do k = 1,topo%nb(20,jj)
+                  if (hyb(k) .eq. 2.and.at(k) .eq. 6.and.topo%nb(20,k) .eq. 3.and. &
+                     & topo%nb(k,jj) .ne. i) then
+                    ii = topo%nb(k,jj)
+                    iiok = .true.
+                  end if
+                end do
+                ! which of the two valid neighbors is picked as C4 depends
+                !  on atom sorting in input file !!! The last one in file.
+                do k = 1,topo%nb(20,kk)
+                  if (hyb(k) .eq. 2.and.at(k) .eq. 6.and.topo%nb(20,k) .eq. 3.and. &
+                     & topo%nb(k,kk) .ne. nbi) then
+                    ll = topo%nb(k,kk)
+                    llok = .true.
+                  end if
+                end do
+                if (nbi .gt. i.and.iiok.and.llok) then ! to avoid double counting
+                  idx = idx+1
+                  sTorsList(1,idx) = ii  ! C1
+                  sTorsList(2,idx) = jj  ! C2
+                  sTorsList(3,idx) = i   ! Ci
+                  sTorsList(4,idx) = nbi ! Cnbi
+                  sTorsList(5,idx) = kk  ! C3
+                  sTorsList(6,idx) = ll  ! C4
+                end if
+              end if ! C1-C4 are sp2 carbon
+            end if  ! CC distance
+          end if  ! other carbon
+        end do JLOOP
+      end if ! is carbon with nnb=2
+    end do
+  end subroutine specialTorsList
 
 !========================================================================================!
 end module gfnff_ini_mod

@@ -87,7 +87,7 @@ contains  !> MODULE PROCEDURES START HERE
 !>     real(wp),allocatable:: vtors(:,:)
 !>     chi,gam,alp,cnf
 !>     repa,repz,alphanb
-!> 
+!>
 !---------------------------------------------------
   subroutine gfnff_eg(pr,n,ichrg,at,xyz,makeq,g,etot,res_gff, &
   &          param,topo,nlist,solvation,update,version,accuracy,io)
@@ -210,7 +210,7 @@ contains  !> MODULE PROCEDURES START HERE
     nlist%force_hbond_update = nhb1 .ne. nlist%nhb1 &
                          & .or.nhb2 .ne. nlist%nhb2 &
                          & .or.nxb .ne. nlist%nxb   &
-                         & .or. require_update
+                         & .or.require_update
     if (.not.nlist%initialized) then
       call new(nlist,n,5*nhb1,5*nhb2,3*nxb)
       nlist%hbrefgeo(:,:) = xyz
@@ -486,21 +486,20 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 !      if (pr) call timer%measure(8)
 
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! triple bonded carbon torsion potential
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-   if (allocated(topo%sTorsl)) then
+    if (allocated(topo%sTorsl)) then
       m = size(topo%sTorsl(1,:))
-      if (m.ne.0) then
-         do i=1, m
-               call sTors_eg(m, n, xyz, topo, etmp, g5tmp)
-               etors = etors + etmp
-               g = g + g5tmp
-         enddo
-      endif
-   endif
+      if (m .ne. 0) then
+        do i = 1,m
+          call sTors_eg(m,n,xyz,topo,etmp,g5tmp)
+          etors = etors+etmp
+          g = g+g5tmp
+        end do
+      end if
+    end if
 
 !!!!!!!!!!!!!!!!!!
 ! BONDED ATM
@@ -3117,25 +3116,25 @@ contains  !> MODULE PROCEDURES START HERE
 
 !========================================================================================!
 !> torsion term for rotation around triple bonded carbon
-subroutine sTors_eg(m, n, xyz, topo, energy, dg)
-   integer, intent(in) :: m
-   integer, intent(in) :: n
-   real(wp), intent(in) :: xyz(3,n)
-   type(TGFFTopology), intent(in) :: topo
-   real(wp), intent(out) :: energy
-   real(wp), intent(out) :: dg(3,n)
-   integer :: c1,c2,c3,c4
-   integer :: i
+  subroutine sTors_eg(m,n,xyz,topo,energy,dg)
+    integer,intent(in) :: m
+    integer,intent(in) :: n
+    real(wp),intent(in) :: xyz(3,n)
+    type(TGFFTopology),intent(in) :: topo
+    real(wp),intent(out) :: energy
+    real(wp),intent(out) :: dg(3,n)
+    integer :: c1,c2,c3,c4
+    integer :: i
 
-   !> torsion angle between C1-C4
-   real(wp) :: phi
-   real(wp) :: erefhalf
-   real(wp) :: dp1(3),dp2(3),dp3(3),dp4(3)
+    !> torsion angle between C1-C4
+    real(wp) :: phi
+    real(wp) :: erefhalf
+    real(wp) :: dp1(3),dp2(3),dp3(3),dp4(3)
 
-   energy = 0.0_wp
-   dg(:,:) = 0.0_wp
+    energy = 0.0_wp
+    dg(:,:) = 0.0_wp
 
-   if ( .not. any(topo%sTorsl(:,m) .eq. 0)) then
+    if (.not.any(topo%sTorsl(:,m) .eq. 0)) then
 
       c1 = topo%sTorsl(1,m)
       c2 = topo%sTorsl(2,m)
@@ -3143,24 +3142,22 @@ subroutine sTors_eg(m, n, xyz, topo, energy, dg)
       c4 = topo%sTorsl(6,m)
 
       ! dihedral angle in radians!
-      phi=valijklff(n,xyz,c1,c2,c3,c4)
+      phi = valijklff(n,xyz,c1,c2,c3,c4)
       call dphidr(n,xyz,c1,c2,c3,c4,phi,dp1,dp2,dp3,dp4)
 
       ! reference energy for torsion of 90° !
       ! calculated with DLPNO-CCSD(T) CBS on diphenylacetylene !
       erefhalf = 3.75_wp*1.0e-4_wp  ! approx 1.97 kJ/mol !
-      energy = -erefhalf*cos(2.0_wp*phi) + erefhalf
-      do i=1, 3
-         dg(i, c1) = dg(i, c1) + erefhalf*2.0_wp*sin(2.0_wp*phi)*dp1(i)
-         dg(i, c2) = dg(i, c2) + erefhalf*2.0_wp*sin(2.0_wp*phi)*dp2(i)
-         dg(i, c3) = dg(i, c3) + erefhalf*2.0_wp*sin(2.0_wp*phi)*dp3(i)
-         dg(i, c4) = dg(i, c4) + erefhalf*2.0_wp*sin(2.0_wp*phi)*dp4(i)
-      enddo
-   endif
+      energy = -erefhalf*cos(2.0_wp*phi)+erefhalf
+      do i = 1,3
+        dg(i,c1) = dg(i,c1)+erefhalf*2.0_wp*sin(2.0_wp*phi)*dp1(i)
+        dg(i,c2) = dg(i,c2)+erefhalf*2.0_wp*sin(2.0_wp*phi)*dp2(i)
+        dg(i,c3) = dg(i,c3)+erefhalf*2.0_wp*sin(2.0_wp*phi)*dp3(i)
+        dg(i,c4) = dg(i,c4)+erefhalf*2.0_wp*sin(2.0_wp*phi)*dp4(i)
+      end do
+    end if
 
-end subroutine sTors_eg
-
-
+  end subroutine sTors_eg
 
 !========================================================================================!
 end module gfnff_engrad_module

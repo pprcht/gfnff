@@ -57,8 +57,8 @@ contains
       if (i .eq. 0) then
         scratch2 = scratch1
       else
-        scratch2 = scratch1(:i - 1)
-        scratch1 = scratch1(i + 1:)
+        scratch2 = scratch1(:i-1)
+        scratch1 = scratch1(i+1:)
       end if
       fpath = scratch2//pathsep//arg
       inquire (file=fpath,exist=exist)

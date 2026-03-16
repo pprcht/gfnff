@@ -23,113 +23,108 @@
 
 !> Abstract solvation model
 module solvation_type_solvation
-   use iso_fortran_env, only : wp => real64
-   implicit none
-   private
+  use iso_fortran_env,only:wp => real64
+  implicit none
+  private
 
-   public :: TSolvation
+  public :: TSolvation
 
+  type,abstract :: TSolvation
+  contains
 
-   type, abstract :: TSolvation
-   contains
+    !> Update coordinates and internal state
+    procedure(update),deferred :: update
 
-      !> Update coordinates and internal state
-      procedure(update), deferred :: update
+    !> Add potential shift
+    procedure(addShift),deferred :: addShift
 
-      !> Add potential shift
-      procedure(addShift), deferred :: addShift
+    !> Calculate solvation energy
+    procedure(getEnergy),deferred :: getEnergy
 
-      !> Calculate solvation energy
-      procedure(getEnergy), deferred :: getEnergy
+    !> Calculate derivatives of solvation energy
+    procedure(addGradient),deferred :: addGradient
 
-      !> Calculate derivatives of solvation energy
-      procedure(addGradient), deferred :: addGradient
+  end type TSolvation
 
-   end type TSolvation
+  abstract interface
+    !> Update coordinates and internal state
+    subroutine update(self,num,xyz)
+      import :: TSolvation,wp
 
+      !> Instance of the solvation model
+      class(TSolvation),intent(inout) :: self
 
-   abstract interface
-      !> Update coordinates and internal state
-      subroutine update(self, num, xyz)
-         import :: TSolvation, wp
+      !> Atomic numbers
+      integer,intent(in) :: num(:)
 
-         !> Instance of the solvation model
-         class(TSolvation), intent(inout) :: self
+      !> Cartesian coordinates
+      real(wp),intent(in) :: xyz(:,:)
 
-         !> Atomic numbers
-         integer, intent(in) :: num(:)
+    end subroutine update
 
-         !> Cartesian coordinates
-         real(wp), intent(in) :: xyz(:, :)
+    !> Add potential shift
+    subroutine addShift(self,qat,qsh,atomicShift,shellShift)
+      import :: TSolvation,wp
 
-      end subroutine update
+      !> Instance of the solvation model
+      class(TSolvation),intent(inout) :: self
 
-      !> Add potential shift
-      subroutine addShift(self, qat, qsh, atomicShift, shellShift)
-         import :: TSolvation, wp
+      !> Atomic partial charges
+      real(wp),intent(in) :: qat(:)
 
-         !> Instance of the solvation model
-         class(TSolvation), intent(inout) :: self
+      !> Shell-resolved partial charges
+      real(wp),intent(in) :: qsh(:)
 
-         !> Atomic partial charges
-         real(wp), intent(in) :: qat(:)
+      !> Atomic potential shift
+      real(wp),intent(inout) :: atomicShift(:)
 
-         !> Shell-resolved partial charges
-         real(wp), intent(in) :: qsh(:)
+      !> Shell-resolved potential shift
+      real(wp),intent(inout) :: shellShift(:)
 
-         !> Atomic potential shift
-         real(wp), intent(inout) :: atomicShift(:)
+    end subroutine addShift
 
-         !> Shell-resolved potential shift
-         real(wp), intent(inout) :: shellShift(:)
+    !> Calculate solvation energy
+    subroutine getEnergy(self,qat,qsh,energy)
+      import :: TSolvation,wp
 
-      end subroutine addShift
+      !> Instance of the solvation model
+      class(TSolvation),intent(inout) :: self
 
+      !> Atomic partial charges
+      real(wp),intent(in) :: qat(:)
 
-      !> Calculate solvation energy
-      subroutine getEnergy(self, qat, qsh, energy)
-         import :: TSolvation, wp
+      !> Shell-resolved partial charges
+      real(wp),intent(in) :: qsh(:)
 
-         !> Instance of the solvation model
-         class(TSolvation), intent(inout) :: self
+      !> Total solvation energy
+      real(wp),intent(out) :: energy
 
-         !> Atomic partial charges
-         real(wp), intent(in) :: qat(:)
+    end subroutine getEnergy
 
-         !> Shell-resolved partial charges
-         real(wp), intent(in) :: qsh(:)
+    !> Calculate derivatives of solvation energy
+    subroutine addGradient(self,num,xyz,qat,qsh,gradient)
+      import :: TSolvation,wp
 
-         !> Total solvation energy
-         real(wp), intent(out) :: energy
+      !> Instance of the solvation model
+      class(TSolvation),intent(inout) :: self
 
-      end subroutine getEnergy
+      !> Atomic numbers
+      integer,intent(in) :: num(:)
 
+      !> Cartesian coordinates
+      real(wp),intent(in) :: xyz(:,:)
 
-      !> Calculate derivatives of solvation energy
-      subroutine addGradient(self, num, xyz, qat, qsh, gradient)
-         import :: TSolvation, wp
+      !> Atomic partial charges
+      real(wp),intent(in) :: qat(:)
 
-         !> Instance of the solvation model
-         class(TSolvation), intent(inout) :: self
+      !> Shell-resolved partial charges
+      real(wp),intent(in) :: qsh(:)
 
-         !> Atomic numbers
-         integer, intent(in) :: num(:)
+      !> Molecular gradient
+      real(wp),intent(inout) :: gradient(:,:)
 
-         !> Cartesian coordinates
-         real(wp), intent(in) :: xyz(:, :)
+    end subroutine addGradient
 
-         !> Atomic partial charges
-         real(wp), intent(in) :: qat(:)
-
-         !> Shell-resolved partial charges
-         real(wp), intent(in) :: qsh(:)
-
-         !> Molecular gradient
-         real(wp), intent(inout) :: gradient(:, :)
-
-      end subroutine addGradient
-
-   end interface
-
+  end interface
 
 end module solvation_type_solvation

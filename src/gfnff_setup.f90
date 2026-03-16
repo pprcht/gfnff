@@ -64,11 +64,11 @@ contains   !> MODULE PROCEDURES START HERE
 
 !> initialize
     io = 0
-    if(present(iunit))then
+    if (present(iunit)) then
       myunit = iunit
     else
       myunit = stdout
-    endif
+    end if
 
     newichrg = ichrg
     call gfnff_input(nat,at,xyz,newichrg,topo)
@@ -80,8 +80,8 @@ contains   !> MODULE PROCEDURES START HERE
       if (ex) then
         call read_restart_gff(topo%filename,nat,version,success,.true.,topo)
         if (success) then
-          if(pr) write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
-          & topo%filename  
+          if (pr) write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
+          & topo%filename
           return
         else
           write (myunit,'("**ERROR** Could not read topology file. ",a)') source
@@ -93,7 +93,7 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io,verbose=verbose, iunit=myunit)
+    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io,verbose=verbose,iunit=myunit)
     if (io /= 0) then
       write (myunit,'("Failed to generate topology ",a)') source
       return
@@ -161,8 +161,8 @@ contains   !> MODULE PROCEDURES START HERE
 !      ichrg = int(sum(topo%qfrag(1:nf)))
 !      topo%qfrag(nf+1:nat) = 9999
 !    else
-      topo%qfrag(1) = ichrg
-      topo%qfrag(2:nat) = 0
+    topo%qfrag(1) = ichrg
+    topo%qfrag(2:nat) = 0
 !    end if
 
   end subroutine gfnff_input

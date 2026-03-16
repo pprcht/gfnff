@@ -21,10 +21,10 @@
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
 module gfnff_ini2
-  use iso_fortran_env,only:wp => real64,sp => real32,stdout=>output_unit
+  use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
 
   use gfnff_data_types,only:TGFFData,TGFFNeighbourList,TGFFTopology
-  use gfnff_helpers, only: lin,bangl
+  use gfnff_helpers,only:lin,bangl
   implicit none
   private
 
@@ -49,7 +49,7 @@ contains  !> MODULE PROCEDURES START HERE
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(inout) :: topo
     integer,intent(in) :: myunit
-    logical,intent(in) :: pr 
+    logical,intent(in) :: pr
     logical :: makeneighbor
     integer :: at(natoms),natoms
     integer :: hyb(natoms)
@@ -142,7 +142,7 @@ contains  !> MODULE PROCEDURES START HERE
 
 ! tag atoms in nb(19,i) if they belong to a cluster (which avoids the ring search)
     do i = 1,natoms
-      if (nbf(20,i) .eq. 0.and.param%group(at(i)) .ne. 8 .and.pr) then
+      if (nbf(20,i) .eq. 0.and.param%group(at(i)) .ne. 8.and.pr) then
         write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
         write (myunit,'(''  warning: no bond partners for atom'',i4)') i
         write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
@@ -333,7 +333,7 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
     topo%nb = nbdum ! list is complete but hyb determination is based only on reduced (without metals) list
-    if(allocated(topo%hyb)) topo%hyb = hyb
+    if (allocated(topo%hyb)) topo%hyb = hyb
 
     deallocate (nbdum)
 
@@ -348,8 +348,8 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end do
     end do
-    if (dble(j)/dble(natoms) .gt. 0.3 .and.pr) then
-      write(myunit,*) 'too many atoms with extreme high CN',source
+    if (dble(j)/dble(natoms) .gt. 0.3.and.pr) then
+      write (myunit,*) 'too many atoms with extreme high CN',source
     end if
 
   end subroutine gfnff_neigh
@@ -472,8 +472,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(out) :: rings
     integer :: k,l,rings1,rings2
 
-    rings=0
-    if(n==2) return
+    rings = 0
+    if (n == 2) return
     rings1 = 99
     rings2 = 99
     do k = 1,s(20,i)    ! all rings of atom i
@@ -1139,7 +1139,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine goedeckera(n,at,nb,pair,q,es,topo,io)
     !use xtb_mctc_lapack,only:mctc_sytrf,mctc_sytrs
-    use gfnff_math_wrapper, only: sytrf_wrap, sytrs_wrap
+    use gfnff_math_wrapper,only:sytrf_wrap,sytrs_wrap
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
     !type(TEnvironment),intent(inout) :: env
@@ -1158,7 +1158,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer  :: ij,lj
     integer,allocatable :: ipiv(:)
 
-    integer :: info1, info2
+    integer :: info1,info2
     real(wp) :: gammij,sief1,sief2
     real(wp) :: r2,r0
     real(wp) :: rij
@@ -1213,13 +1213,13 @@ contains  !> MODULE PROCEDURES START HERE
     !call mctc_sytrf(env,a,ipiv)
     call sytrf_wrap(a,ipiv,info1)
     !call mctc_sytrs(env,a,x,ipiv)
-    call sytrs_wrap( a, x, ipiv, info2)
-    
-    exitRun = (info1 /= 0) .or. (info2 /= 0)
+    call sytrs_wrap(a,x,ipiv,info2)
+
+    exitRun = (info1 /= 0).or.(info2 /= 0)
     !call env%check(exitRun)
     if (exitRun) then
       !call env%error('Solving linear equations failed',source)
-      write(stdout,'("Solving linear equations failed ",a)')source
+      write (stdout,'("Solving linear equations failed ",a)') source
       io = 1
       return
     end if

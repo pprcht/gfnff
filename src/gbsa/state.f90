@@ -17,71 +17,67 @@
 
 !> Define reference states of solution
 module solvation_solv_state
-   use iso_fortran_env, only : wp => real64
-   implicit none
-   private
+  use iso_fortran_env,only:wp => real64
+  implicit none
+  private
 
-   public :: solutionState, getStateShift
+  public :: solutionState,getStateShift
 
+  !> Possible reference states for the solution
+  type :: TSolutionStateEnum
 
-   !> Possible reference states for the solution
-   type :: TSolutionStateEnum
+    !> 1 l of ideal gas and 1 l of liquid solution
+    integer :: gsolv = 1
 
-      !> 1 l of ideal gas and 1 l of liquid solution
-      integer :: gsolv = 1
+    !> 1 bar of ideal gas and 1 mol/L of liquid solution at infinite dilution
+    integer :: reference = 2
 
-      !> 1 bar of ideal gas and 1 mol/L of liquid solution at infinite dilution
-      integer :: reference = 2
+    !> 1 bar of ideal gas and 1 mol/L of liquid solution
+    integer :: mol1bar = 3
 
-      !> 1 bar of ideal gas and 1 mol/L of liquid solution
-      integer :: mol1bar = 3
+  end type TSolutionStateEnum
 
-   end type TSolutionStateEnum
+  !> Actual solvation state enumerator
+  type(TSolutionStateEnum),parameter :: solutionState = TSolutionStateEnum()
 
-   !> Actual solvation state enumerator
-   type(TSolutionStateEnum), parameter :: solutionState = TSolutionStateEnum()
-
-   real(wp), parameter :: kB = 3.166808578545117e-06_wp
-   real(wp), parameter :: refDensity = 1.0e-3_wp ! kg__au/(1.0e10_wp*AA__Bohr)**3
-   real(wp), parameter :: refMolecularMass = 1.0_wp ! amu__au
-   real(wp), parameter :: idealGasMolVolume = 24.79_wp
-   real(wp), parameter :: ambientTemperature = 298.15_wp ! * Boltzman
-
+  real(wp),parameter :: kB = 3.166808578545117e-06_wp
+  real(wp),parameter :: refDensity = 1.0e-3_wp ! kg__au/(1.0e10_wp*AA__Bohr)**3
+  real(wp),parameter :: refMolecularMass = 1.0_wp ! amu__au
+  real(wp),parameter :: idealGasMolVolume = 24.79_wp
+  real(wp),parameter :: ambientTemperature = 298.15_wp ! * Boltzman
 
 contains
 
+  pure function getStateShift(state,temperature,density,molecularMass) &
+        & result(freeEnergyShift)
 
-pure function getStateShift(state, temperature, density, molecularMass) &
-      & result(freeEnergyShift)
+    !> Reference state
+    integer,intent(in) :: state
 
-   !> Reference state
-   integer, intent(in) :: state
+    !> Temperature of the solution
+    real(wp),intent(in) :: temperature
 
-   !> Temperature of the solution
-   real(wp), intent(in) :: temperature
+    !> Mass density of the solvent
+    real(wp),intent(in) :: density
 
-   !> Mass density of the solvent
-   real(wp), intent(in) :: density
+    !> Molecular mass of the solvent
+    real(wp),intent(in) :: molecularMass
 
-   !> Molecular mass of the solvent
-   real(wp), intent(in) :: molecularMass
+    !> Resulting shift to the solvation free energy
+    real(wp) :: freeEnergyShift
 
-   !> Resulting shift to the solvation free energy
-   real(wp) :: freeEnergyShift
-
-   select case(state)
-   case default
+    select case (state)
+    case default
       freeEnergyShift = 0.0_wp
-   case(solutionState%reference)
-      freeEnergyShift = temperature * kB &
-         & * (log(idealGasMolVolume * temperature / ambientTemperature) &
-         & + log(density/refDensity * refMolecularMass/molecularMass))
-   case(solutionState%mol1bar)
-      freeEnergyShift = temperature * kB &
-         & * log(idealGasMolVolume * temperature / ambientTemperature)
-   end select
+    case (solutionState%reference)
+      freeEnergyShift = temperature*kB &
+         & *(log(idealGasMolVolume*temperature/ambientTemperature) &
+         & +log(density/refDensity*refMolecularMass/molecularMass))
+    case (solutionState%mol1bar)
+      freeEnergyShift = temperature*kB &
+                       & *log(idealGasMolVolume*temperature/ambientTemperature)
+    end select
 
-end function getStateShift
-
+  end function getStateShift
 
 end module solvation_solv_state

@@ -31,7 +31,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 module gfnff_fraghess
   use iso_fortran_env,only:wp => real64,sp => real32
-  !$ use omp_lib
+!$ use omp_lib
   use gfnff_helpers,only:mrecgff,lin
   implicit none
   public

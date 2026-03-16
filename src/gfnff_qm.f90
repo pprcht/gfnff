@@ -21,7 +21,7 @@
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
 module gfnff_qm_setup
-  use iso_fortran_env,only:wp => real64,sp => real64, stdout=>output_unit
+  use iso_fortran_env,only:wp => real64,sp => real64,stdout => output_unit
   use gfnff_data_types,only:TGFFData,init,TGFFGenerator,TGFFTopology
   implicit none
   private
@@ -99,7 +99,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (info .ne. 0) then
       write (stdout,*) 'diag error in ',source
-      io = info 
+      io = info
     end if
 
     if (et .gt. 1.d-3) then
@@ -122,10 +122,10 @@ contains  !> MODULE PROCEDURES START HERE
           do i = 1,nel/2
             focc(i) = 2.0d0
           end do
-          if(pr)then
-          write (stdout,*) 'perfect biradical detected at FT-HMO level. Breaking the symmetry'
-          write (stdout,*) 'because its assumed to be an anit-aromatic system like COT or CB.'
-          endif
+          if (pr) then
+            write (stdout,*) 'perfect biradical detected at FT-HMO level. Breaking the symmetry'
+            write (stdout,*) 'because its assumed to be an anit-aromatic system like COT or CB.'
+          end if
         end if
       end if
     else

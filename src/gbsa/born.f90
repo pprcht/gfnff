@@ -23,60 +23,59 @@
 
 !> Implementation of the Born radii integrator
 module solvation_solv_born
-   use iso_fortran_env, only: wp => real64
-   implicit none
-   private
+  use iso_fortran_env,only:wp => real64
+  implicit none
+  private
 
-   public :: compute_bornr
+  public :: compute_bornr
 
-   !> van der Waals to Lee-Richard's surface correction (GBOBCII parameter)
-   real(wp), parameter :: alp = 1._wp
-   real(wp), parameter :: bet = 0.8_wp
-   real(wp), parameter :: gam = 4.85_wp
+  !> van der Waals to Lee-Richard's surface correction (GBOBCII parameter)
+  real(wp),parameter :: alp = 1._wp
+  real(wp),parameter :: bet = 0.8_wp
+  real(wp),parameter :: gam = 4.85_wp
 
 contains
 
+  subroutine compute_bornr(nat,nnrad,nnlistr,ddpair,vdwr,rho,svdw,c1, &
+        & brad,brdr)
 
-subroutine compute_bornr(nat, nnrad, nnlistr, ddpair, vdwr, rho, svdw, c1, &
-      & brad, brdr)
+    !> Number of atoms
+    integer,intent(in) :: nat
 
-   !> Number of atoms
-   integer, intent(in) :: nat
+    !> Number of neighbours to consider for radii
+    integer,intent(in) :: nnrad
 
-   !> Number of neighbours to consider for radii
-   integer, intent(in) :: nnrad
+    !> Neighbourlist
+    integer,intent(in) :: nnlistr(:,:)
 
-   !> Neighbourlist
-   integer, intent(in) :: nnlistr(:, :)
+    !> Position and distances
+    real(wp),intent(in) :: ddpair(:,:)
 
-   !> Position and distances
-   real(wp), intent(in) :: ddpair(:, :)
+    !> Van-der-Waals radii
+    real(wp),intent(in) :: vdwr(:)
 
-   !> Van-der-Waals radii
-   real(wp), intent(in) :: vdwr(:)
+    !> Descreened van-der-Waals radii
+    real(wp),intent(in) :: rho(:)
 
-   !> Descreened van-der-Waals radii
-   real(wp), intent(in) :: rho(:)
+    !> van-der-Waals radii with offset
+    real(wp),intent(in) :: svdw(:)
 
-   !> van-der-Waals radii with offset
-   real(wp), intent(in) :: svdw(:)
+    !> Scaling factor for the Born radii
+    real(wp),intent(in) :: c1
 
-   !> Scaling factor for the Born radii
-   real(wp), intent(in) :: c1
+    !> Born radii
+    real(wp),intent(out) :: brad(:)
 
-   !> Born radii
-   real(wp), intent(out) :: brad(:)
+    !> Derivative of Born radii w.r.t. cartesian coordinates
+    real(wp),intent(out) :: brdr(:,:,:)
 
-   !> Derivative of Born radii w.r.t. cartesian coordinates
-   real(wp), intent(out) :: brdr(:, :, :)
+    integer :: iat
+    real(wp) :: br,dpsi,svdwi,vdwri,s1,v1,s2,arg,arg2
+    real(wp) :: th,ch,alpi,beti,gami
 
-   integer :: iat
-   real(wp) :: br, dpsi, svdwi, vdwri, s1, v1, s2, arg, arg2
-   real(wp) :: th, ch, alpi, beti, gami
+    call compute_psi(nat,nnrad,nnlistr,ddpair,vdwr,rho,brad,brdr)
 
-   call compute_psi(nat, nnrad, nnlistr, ddpair, vdwr, rho, brad, brdr)
-
-   do iat = 1, nat
+    do iat = 1,nat
 
       br = brad(iat)
 
@@ -105,62 +104,61 @@ subroutine compute_bornr(nat, nnrad, nnlistr, ddpair, vdwr, rho, svdw, c1, &
 
       brad(iat) = br
       !call mctc_scal(brdr(:, :, iat), dpsi)
-      brdr(:,:, iat) = brdr(:, :, iat) * dpsi
+      brdr(:,:,iat) = brdr(:,:,iat)*dpsi
 
-   end do
+    end do
 
-end subroutine compute_bornr
+  end subroutine compute_bornr
 
+  pure subroutine compute_psi(nat,nnrad,nnlistr,ddpair,vdwr,rho,psi,dpsidr)
 
-pure subroutine compute_psi(nat, nnrad, nnlistr, ddpair, vdwr, rho, psi, dpsidr)
+    !> Number of atoms
+    integer,intent(in) :: nat
 
-   !> Number of atoms
-   integer, intent(in) :: nat
+    !> Number of neighbours to consider for radii
+    integer,intent(in) :: nnrad
 
-   !> Number of neighbours to consider for radii
-   integer, intent(in) :: nnrad
+    !> Neighbourlist
+    integer,intent(in) :: nnlistr(:,:)
 
-   !> Neighbourlist
-   integer, intent(in) :: nnlistr(:, :)
+    !> Position and distances
+    real(wp),intent(in) :: ddpair(:,:)
 
-   !> Position and distances
-   real(wp), intent(in) :: ddpair(:, :)
+    !> Van-der-Waals radii
+    real(wp),intent(in) :: vdwr(:)
 
-   !> Van-der-Waals radii
-   real(wp), intent(in) :: vdwr(:)
+    !> Descreened van-der-Waals radii
+    real(wp),intent(in) :: rho(:)
 
-   !> Descreened van-der-Waals radii
-   real(wp), intent(in) :: rho(:)
+    !> Integrated value of Psi
+    real(wp),intent(out) :: psi(:)
 
-   !> Integrated value of Psi
-   real(wp), intent(out) :: psi(:)
+    !> Derivative of Psi w.r.t. cartesian coordinates
+    real(wp),intent(out) :: dpsidr(:,:,:)
 
-   !> Derivative of Psi w.r.t. cartesian coordinates
-   real(wp), intent(out) :: dpsidr(:, :, :)
+    real(wp),allocatable :: dpsitr(:,:)
+    integer  :: kk
+    integer  :: i,ii,jj,nn
+    real(wp) :: dr(3),r,rhoi,rhoj
+    real(wp) :: gi,gj,ap,am,lnab,rhab,ab,dgi,dgj
+    real(wp) :: drjj(3)
+    real(wp) :: rh1,rhr1,r24,rh2,r1,aprh1,r12
+    real(wp) :: rvdwi,rvdwj
+    integer  :: ovij,ovji,ov
 
-   real(wp), allocatable :: dpsitr(:, :)
-   integer  :: kk
-   integer  :: i, ii, jj, nn
-   real(wp) :: dr(3), r, rhoi, rhoj
-   real(wp) :: gi, gj, ap, am, lnab, rhab, ab, dgi, dgj
-   real(wp) :: drjj(3)
-   real(wp) :: rh1, rhr1, r24, rh2, r1, aprh1, r12
-   real(wp) :: rvdwi, rvdwj
-   integer  :: ovij, ovji, ov
+    allocate (dpsitr(3,nat))
+    psi(:) = 0.0_wp
+    dpsidr(:,:,:) = 0.0_wp
+    dpsitr(:,:) = 0.0_wp
 
-   allocate(dpsitr(3, nat))
-   psi(:) = 0.0_wp
-   dpsidr(:, :, :) = 0.0_wp
-   dpsitr(:, :) = 0.0_wp
+    do kk = 1,nnrad
 
-   do kk = 1, nnrad
+      ii = nnlistr(1,kk)
+      jj = nnlistr(2,kk)
+      nn = nnlistr(3,kk)
 
-      ii = nnlistr(1, kk)
-      jj = nnlistr(2, kk)
-      nn = nnlistr(3, kk)
-
-      r = ddpair(1, nn)
-      dr(:) = ddpair(2:4, nn)
+      r = ddpair(1,nn)
+      dr(:) = ddpair(2:4,nn)
 
       rhoi = rho(ii)
       rhoj = rho(jj)
@@ -169,218 +167,218 @@ pure subroutine compute_psi(nat, nnrad, nnlistr, ddpair, vdwr, rho, psi, dpsidr)
 
       ovij = 1
       ovji = 1
-      if(r.ge.(rvdwi+rhoj)) ovij = 0
-      if(r.ge.(rhoi+rvdwj)) ovji = 0
+      if (r .ge. (rvdwi+rhoj)) ovij = 0
+      if (r .ge. (rhoi+rvdwj)) ovji = 0
       ov = ovij+10*ovji
 
-      select case(ov)
-      case(0) ! ij do not overlap; ji do not overlap
-         ! nonoverlaping spheres
-         if(abs(rhoi-rhoj).lt.1.d-8) then
-            ! equal reduced radii
-            r1 = 1.0_wp/r
-            ap = r+rhoj
-            am = r-rhoj
-            ab = ap*am
-            rhab = rhoj/ab
-            lnab = 0.5_wp*log(am/ap)*r1
-            gi = rhab+lnab
-            dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
-            ! accumulate psi
-            psi(ii) = psi(ii)+gi
-            psi(jj) = psi(jj)+gi
-            ! accumulate psi gradient
-            drjj(:) = dgi*dr(:)
-            dpsitr(:, ii) = dpsitr(:, ii)+drjj(:)
-            dpsidr(:, jj, ii) = dpsidr(:, jj, ii)-drjj(:)
-            dpsitr(:, jj) = dpsitr(:, jj)-drjj(:)
-            dpsidr(:, ii, jj) = dpsidr(:, ii, jj)+drjj(:)
-         else
-            ! unequal reduced radii
-            ! ij contribution
-            r1 = 1.0_wp/r
-            ap = r+rhoj
-            am = r-rhoj
-            ab = ap*am
-            rhab = rhoj/ab
-            lnab = 0.5_wp*log(am/ap)*r1
-            gi = rhab+lnab
-            dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
-            ! ji contribution
-            ap = r+rhoi
-            am = r-rhoi
-            ab = ap*am
-            rhab = rhoi/ab
-            lnab = 0.5_wp*log(am/ap)*r1
-            gj = rhab+lnab
-            dgj = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
-            ! accumulate psi
-            psi(ii) = psi(ii)+gi
-            psi(jj) = psi(jj)+gj
-            ! accumulate psi gradient
-            drjj(:) = dgi*dr(:)
-            dpsitr(:, ii) = dpsitr(:, ii)+drjj(:)
-            dpsidr(:, jj, ii) = dpsidr(:, jj, ii)-drjj(:)
+      select case (ov)
+      case (0) ! ij do not overlap; ji do not overlap
+        ! nonoverlaping spheres
+        if (abs(rhoi-rhoj) .lt. 1.d-8) then
+          ! equal reduced radii
+          r1 = 1.0_wp/r
+          ap = r+rhoj
+          am = r-rhoj
+          ab = ap*am
+          rhab = rhoj/ab
+          lnab = 0.5_wp*log(am/ap)*r1
+          gi = rhab+lnab
+          dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
+          ! accumulate psi
+          psi(ii) = psi(ii)+gi
+          psi(jj) = psi(jj)+gi
+          ! accumulate psi gradient
+          drjj(:) = dgi*dr(:)
+          dpsitr(:,ii) = dpsitr(:,ii)+drjj(:)
+          dpsidr(:,jj,ii) = dpsidr(:,jj,ii)-drjj(:)
+          dpsitr(:,jj) = dpsitr(:,jj)-drjj(:)
+          dpsidr(:,ii,jj) = dpsidr(:,ii,jj)+drjj(:)
+        else
+          ! unequal reduced radii
+          ! ij contribution
+          r1 = 1.0_wp/r
+          ap = r+rhoj
+          am = r-rhoj
+          ab = ap*am
+          rhab = rhoj/ab
+          lnab = 0.5_wp*log(am/ap)*r1
+          gi = rhab+lnab
+          dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
+          ! ji contribution
+          ap = r+rhoi
+          am = r-rhoi
+          ab = ap*am
+          rhab = rhoi/ab
+          lnab = 0.5_wp*log(am/ap)*r1
+          gj = rhab+lnab
+          dgj = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
+          ! accumulate psi
+          psi(ii) = psi(ii)+gi
+          psi(jj) = psi(jj)+gj
+          ! accumulate psi gradient
+          drjj(:) = dgi*dr(:)
+          dpsitr(:,ii) = dpsitr(:,ii)+drjj(:)
+          dpsidr(:,jj,ii) = dpsidr(:,jj,ii)-drjj(:)
 
-            drjj(:) = dgj*dr(:)
-            dpsitr(:, jj) = dpsitr(:, jj)-drjj(:)
-            dpsidr(:, ii, jj) = dpsidr(:, ii, jj)+drjj(:)
-         endif
+          drjj(:) = dgj*dr(:)
+          dpsitr(:,jj) = dpsitr(:,jj)-drjj(:)
+          dpsidr(:,ii,jj) = dpsidr(:,ii,jj)+drjj(:)
+        end if
 
-      case(10) ! ij do not overlap; ji overlap
+      case (10) ! ij do not overlap; ji overlap
 
-         ! ij contribution
-         r1 = 1.0_wp/r
-         ap = r+rhoj
-         am = r-rhoj
-         ab = ap*am
-         rhab = rhoj/ab
-         lnab = 0.5_wp*log(am/ap)*r1
-         gi = rhab+lnab
-         dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
-         ! accumulate psi
-         psi(ii) = psi(ii)+gi
-         ! accumulate psi gradient
-         drjj(:) = dgi*dr(:)
-         dpsitr(:, ii) = dpsitr(:, ii)+drjj(:)
-         dpsidr(:, jj, ii) = dpsidr(:, jj, ii)-drjj(:)
+        ! ij contribution
+        r1 = 1.0_wp/r
+        ap = r+rhoj
+        am = r-rhoj
+        ab = ap*am
+        rhab = rhoj/ab
+        lnab = 0.5_wp*log(am/ap)*r1
+        gi = rhab+lnab
+        dgi = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
+        ! accumulate psi
+        psi(ii) = psi(ii)+gi
+        ! accumulate psi gradient
+        drjj(:) = dgi*dr(:)
+        dpsitr(:,ii) = dpsitr(:,ii)+drjj(:)
+        dpsidr(:,jj,ii) = dpsidr(:,jj,ii)-drjj(:)
 
-         if((r+rhoi).gt.rvdwj) then
-            ! ji contribution
-            r1 = 1.0_wp/r
-            r12 = 0.5_wp*r1
-            r24 = r12*r12
+        if ((r+rhoi) .gt. rvdwj) then
+          ! ji contribution
+          r1 = 1.0_wp/r
+          r12 = 0.5_wp*r1
+          r24 = r12*r12
 
-            ap = r+rhoi
-            am = r-rhoi
-            rh1 = 1.0_wp/rvdwj
-            rhr1 = 1.0_wp/ap
-            aprh1 = ap*rh1
-            lnab = log(aprh1)
+          ap = r+rhoi
+          am = r-rhoi
+          rh1 = 1.0_wp/rvdwj
+          rhr1 = 1.0_wp/ap
+          aprh1 = ap*rh1
+          lnab = log(aprh1)
 
-            gj = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
+          gj = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
 
-            dgj = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
-               &         rhoi*r24*(rhr1-rh1*aprh1)+ &
-               &         r12*(r1*lnab-rhr1)
-            dgj = dgj*r1
-            ! accumulate psi
-            psi(jj) = psi(jj)+gj
-            ! accumulate psi gradient
-            drjj(:) = dgj*dr(:)
-            dpsitr(:, jj) = dpsitr(:, jj)-drjj(:)
-            dpsidr(:, ii, jj) = dpsidr(:, ii, jj)+drjj(:)
-         endif
+          dgj = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
+             &         rhoi*r24*(rhr1-rh1*aprh1)+ &
+             &         r12*(r1*lnab-rhr1)
+          dgj = dgj*r1
+          ! accumulate psi
+          psi(jj) = psi(jj)+gj
+          ! accumulate psi gradient
+          drjj(:) = dgj*dr(:)
+          dpsitr(:,jj) = dpsitr(:,jj)-drjj(:)
+          dpsidr(:,ii,jj) = dpsidr(:,ii,jj)+drjj(:)
+        end if
 
-      case(1) ! ij overlap; ji do not overlap
+      case (1) ! ij overlap; ji do not overlap
 
-         if((r+rhoj).gt.rvdwi) then
-            ! ij contribution
-            r1 = 1.0_wp/r
-            r12 = 0.5_wp*r1
-            r24 = r12*r12
+        if ((r+rhoj) .gt. rvdwi) then
+          ! ij contribution
+          r1 = 1.0_wp/r
+          r12 = 0.5_wp*r1
+          r24 = r12*r12
 
-            ap = r+rhoj
-            am = r-rhoj
-            rh1 = 1.0_wp/rvdwi
-            rhr1 = 1.0_wp/ap
-            aprh1 = ap*rh1
-            lnab = log(aprh1)
+          ap = r+rhoj
+          am = r-rhoj
+          rh1 = 1.0_wp/rvdwi
+          rhr1 = 1.0_wp/ap
+          aprh1 = ap*rh1
+          lnab = log(aprh1)
 
-            gi = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
+          gi = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
 
-            dgi = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
-               &         rhoj*r24*(rhr1-rh1*aprh1)+ &
-               &         r12*(r1*lnab-rhr1)
-            dgi = dgi*r1
-            ! accumulate psi
-            psi(ii) = psi(ii)+gi
-            ! accumulate psi gradient
-            drjj(:) = dgi*dr(:)
-            dpsitr(:, ii) = dpsitr(:, ii)+drjj(:)
-            dpsidr(:, jj, ii) = dpsidr(:, jj, ii)-drjj(:)
-         endif
+          dgi = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
+             &         rhoj*r24*(rhr1-rh1*aprh1)+ &
+             &         r12*(r1*lnab-rhr1)
+          dgi = dgi*r1
+          ! accumulate psi
+          psi(ii) = psi(ii)+gi
+          ! accumulate psi gradient
+          drjj(:) = dgi*dr(:)
+          dpsitr(:,ii) = dpsitr(:,ii)+drjj(:)
+          dpsidr(:,jj,ii) = dpsidr(:,jj,ii)-drjj(:)
+        end if
 
-         ! ji contribution
-         ap = r+rhoi
-         am = r-rhoi
-         ab = ap*am
-         rhab = rhoi/ab
-         lnab = 0.5_wp*log(am/ap)*r1
-         gj = rhab+lnab
-         dgj = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
-         ! accumulate psi
-         psi(jj) = psi(jj)+gj
-         ! accumulate psi gradient
-         drjj(:) = dgj*dr(:)
-         dpsitr(:, jj) = dpsitr(:, jj)-drjj(:)
-         dpsidr(:, ii, jj) = dpsidr(:, ii, jj)+drjj(:)
+        ! ji contribution
+        ap = r+rhoi
+        am = r-rhoi
+        ab = ap*am
+        rhab = rhoi/ab
+        lnab = 0.5_wp*log(am/ap)*r1
+        gj = rhab+lnab
+        dgj = -2.0_wp*rhab/ab+(rhab-lnab)*r1*r1
+        ! accumulate psi
+        psi(jj) = psi(jj)+gj
+        ! accumulate psi gradient
+        drjj(:) = dgj*dr(:)
+        dpsitr(:,jj) = dpsitr(:,jj)-drjj(:)
+        dpsidr(:,ii,jj) = dpsidr(:,ii,jj)+drjj(:)
 
-      case(11) ! ij and ji overlap
-         ! overlaping spheres
-         if((r+rhoj).gt.rvdwi) then
-            ! ij contribution
-            r1 = 1.0_wp/r
-            r12 = 0.5_wp*r1
-            r24 = r12*r12
+      case (11) ! ij and ji overlap
+        ! overlaping spheres
+        if ((r+rhoj) .gt. rvdwi) then
+          ! ij contribution
+          r1 = 1.0_wp/r
+          r12 = 0.5_wp*r1
+          r24 = r12*r12
 
-            ap = r+rhoj
-            am = r-rhoj
-            rh1 = 1.0_wp/rvdwi
-            rhr1 = 1.0_wp/ap
-            aprh1 = ap*rh1
-            lnab = log(aprh1)
+          ap = r+rhoj
+          am = r-rhoj
+          rh1 = 1.0_wp/rvdwi
+          rhr1 = 1.0_wp/ap
+          aprh1 = ap*rh1
+          lnab = log(aprh1)
 
-            gi = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
+          gi = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
 
-            dgi = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
-               &         rhoj*r24*(rhr1-rh1*aprh1)+ &
-               &         r12*(r1*lnab-rhr1)
-            dgi = dgi*r1
-            ! accumulate psi
-            psi(ii) = psi(ii)+gi
-            ! accumulate psi gradient
-            drjj(:) = dgi*dr(:)
-            dpsitr(:, ii) = dpsitr(:, ii)+drjj(:)
-            dpsidr(:, jj, ii) = dpsidr(:, jj, ii)-drjj(:)
-         endif
+          dgi = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
+             &         rhoj*r24*(rhr1-rh1*aprh1)+ &
+             &         r12*(r1*lnab-rhr1)
+          dgi = dgi*r1
+          ! accumulate psi
+          psi(ii) = psi(ii)+gi
+          ! accumulate psi gradient
+          drjj(:) = dgi*dr(:)
+          dpsitr(:,ii) = dpsitr(:,ii)+drjj(:)
+          dpsidr(:,jj,ii) = dpsidr(:,jj,ii)-drjj(:)
+        end if
 
-         if((r+rhoi).gt.rvdwj) then
-            ! ji contribution
-            r1 = 1.0_wp/r
-            r12 = 0.5_wp*r1
-            r24 = r12*r12
+        if ((r+rhoi) .gt. rvdwj) then
+          ! ji contribution
+          r1 = 1.0_wp/r
+          r12 = 0.5_wp*r1
+          r24 = r12*r12
 
-            ap = r+rhoi
-            am = r-rhoi
-            rh1 = 1.0_wp/rvdwj
-            rhr1 = 1.0_wp/ap
-            aprh1 = ap*rh1
-            lnab = log(aprh1)
+          ap = r+rhoi
+          am = r-rhoi
+          rh1 = 1.0_wp/rvdwj
+          rhr1 = 1.0_wp/ap
+          aprh1 = ap*rh1
+          lnab = log(aprh1)
 
-            gj = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
+          gj = rh1-rhr1+r12*(0.5_wp*am*(rhr1-rh1*aprh1)-lnab)
 
-            dgj = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
-               &         rhoi*r24*(rhr1-rh1*aprh1)+ &
-               &         r12*(r1*lnab-rhr1)
-            dgj = dgj*r1
-            ! accumulate psi
-            psi(jj) = psi(jj)+gj
-            ! accumulate psi gradient
-            drjj(:) = dgj*dr(:)
-            dpsitr(:, jj) = dpsitr(:, jj)-drjj(:)
-            dpsidr(:, ii, jj) = dpsidr(:, ii, jj)+drjj(:)
-         endif
+          dgj = rhr1*rhr1*(1.0_wp-0.25_wp*am*r1*(1.0_wp+aprh1*aprh1))+ &
+             &         rhoi*r24*(rhr1-rh1*aprh1)+ &
+             &         r12*(r1*lnab-rhr1)
+          dgj = dgj*r1
+          ! accumulate psi
+          psi(jj) = psi(jj)+gj
+          ! accumulate psi gradient
+          drjj(:) = dgj*dr(:)
+          dpsitr(:,jj) = dpsitr(:,jj)-drjj(:)
+          dpsidr(:,ii,jj) = dpsidr(:,ii,jj)+drjj(:)
+        end if
 
       end select
 
-   enddo
+    end do
 
-   ! save one-center terms
-   do i = 1, nat
-      dpsidr(:, i, i) = dpsitr(:, i)
-   enddo
+    ! save one-center terms
+    do i = 1,nat
+      dpsidr(:,i,i) = dpsitr(:,i)
+    end do
 
-end subroutine compute_psi
+  end subroutine compute_psi
 
 end module solvation_solv_born

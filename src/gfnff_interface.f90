@@ -81,7 +81,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in),optional    :: verbose  !> printout activation 
+    logical,intent(in),optional    :: verbose  !> printout activation
     type(gfnff_data),intent(inout) :: dat  !> collection of gfnff datatypes and settings
     !> OUTPUT
     real(wp),intent(out) :: energy
@@ -92,11 +92,11 @@ contains  !> MODULE PROCEDURES START HERE
     logical :: pr
 
     !> printout activation via verbosity
-    if(present(verbose))then
+    if (present(verbose)) then
       pr = verbose
     else
-      pr =.false. !> (there is close to no printout anyways)
-    endif
+      pr = .false. !> (there is close to no printout anyways)
+    end if
 
     energy = 0.0_wp
     gradient(:,:) = 0.0_wp
@@ -119,11 +119,11 @@ contains  !> MODULE PROCEDURES START HERE
 !******************************************************************
     implicit none
     !> INPUT
-    class(gfnff_data) :: self 
+    class(gfnff_data) :: self
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in),optional    :: verbose  !> printout activation 
+    logical,intent(in),optional    :: verbose  !> printout activation
     !> OUTPUT
     real(wp),intent(out) :: energy
     real(wp),intent(out) :: gradient(3,nat)
@@ -169,16 +169,16 @@ contains  !> MODULE PROCEDURES START HERE
     !> INPUT
     integer,intent(in),optional :: iunit
     !> LOCAL
-    integer :: myunit 
+    integer :: myunit
 
-    if(present(iunit))then
-       myunit = iunit
+    if (present(iunit)) then
+      myunit = iunit
     else
-       myunit = stdout
-    endif
-    if(allocated(self%res))then
-    call print_gfnff_results(myunit,self%res,allocated(self%solvation))
-    endif
+      myunit = stdout
+    end if
+    if (allocated(self%res)) then
+      call print_gfnff_results(myunit,self%res,allocated(self%solvation))
+    end if
   end subroutine gfnff_print_results_wrapper
 !========================================================================================!
 
@@ -198,7 +198,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in),optional  :: iunit
     integer,intent(in),optional  :: version
     integer,intent(out),optional :: iostat
-    integer,intent(in),optional  :: ichrg 
+    integer,intent(in),optional  :: ichrg
     !> OUTPUT
     type(gfnff_data),intent(inout) :: dat
     !> LOCAL
@@ -209,39 +209,39 @@ contains  !> MODULE PROCEDURES START HERE
     logical :: restart
 
 !> mapping of optional instuctions
-    if(present(print))then
+    if (present(print)) then
       pr = print
     else
       pr = .false.
-    endif
-    if(present(verbose))then
+    end if
+    if (present(verbose)) then
       pr2 = verbose
     else
       pr2 = .false.
-    endif
-    if(pr2) pr = pr2    
-    if(present(iunit))then
+    end if
+    if (pr2) pr = pr2
+    if (present(iunit)) then
       myunit = iunit
     else
       myunit = stdout
-    endif
+    end if
 
 !> Reset datatypes
     call dat%type_init()
-    if(present(ichrg))then
+    if (present(ichrg)) then
       dat%ichrg = ichrg
-    endif
+    end if
 !> except restart-related options
     restart = dat%restart
-    if(.not.allocated(dat%restartfile))then
+    if (.not.allocated(dat%restartfile)) then
       dat%topo%filename = 'gfnff_topo'
     else
       dat%topo%filename = dat%restartfile
-    endif
-    if(allocated(dat%refgeo)) restart = .false.
-    if(allocated(dat%refcharges))then
+    end if
+    if (allocated(dat%refgeo)) restart = .false.
+    if (allocated(dat%refcharges)) then
       dat%topo%refcharges = dat%refcharges
-    endif
+    end if
 
 !> Parametrisation version
     if (present(version)) then
@@ -259,11 +259,11 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 !> Obtain the parameter file or load internal
-    if(allocated(dat%parametrisation))then
-      fname=dat%parametrisation
+    if (allocated(dat%parametrisation)) then
+      fname = dat%parametrisation
     else
-      fname='no file!'
-    endif
+      fname = 'no file!'
+    end if
     inquire (file=fname,exist=ex)
     if (ex) then
       open (newunit=ich,file=fname)
@@ -281,16 +281,16 @@ contains  !> MODULE PROCEDURES START HERE
 
     call gfnff_setup(nat,at,xyz,dat%ichrg,pr,restart,dat%write_topo, &
     &        dat%gen,dat%param,dat%topo,dat%accuracy,dat%version,io, &
-    &        verbose=verbose, iunit=myunit)
+    &        verbose=verbose,iunit=myunit)
 
     !> Optional, ALPB solvation
     if (allocated(dat%solvent)) then
       if (.not. (allocated(dat%solvation))) allocate (dat%solvation)
       call gfnff_gbsa_init(nat,at,dat%solvent,dat%solvation)
-      if (pr)then
-        write(myunit,*)
+      if (pr) then
+        write (myunit,*)
         call gfnff_gbsa_print(dat%solvation,myunit)
-      endif
+      end if
     end if
 
     if ((io /= 0).and.pr) then
@@ -321,11 +321,11 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in),optional  :: ichrg
     character(len=*),intent(in),optional :: solvent
 
-    if(present(solvent))then
-      if(solvent.ne.'none'.and.len_trim(solvent)>0) self%solvent=solvent
-    endif
+    if (present(solvent)) then
+      if (solvent .ne. 'none'.and.len_trim(solvent) > 0) self%solvent = solvent
+    end if
 
-    call  gfnff_initialize(nat,at,xyz,self, &
+    call gfnff_initialize(nat,at,xyz,self, &
     &       print=print,verbose=verbose,iunit=iunit,&
     &       version=version,iostat=iostat,ichrg=ichrg)
   end subroutine gfnff_initialize_wrapper
@@ -377,16 +377,16 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(out) :: wbo(nat,nat)
     integer :: i,k,l
     wbo = 0.0_wp
-    if(allocated(ff_dat%topo))then
-      if(allocated(ff_dat%topo%blist))then
-         do i =1,ff_dat%topo%nbond
-            k = ff_dat%topo%blist(1,i)
-            l = ff_dat%topo%blist(2,i)
-            wbo(k,l) = 1.0_wp
-            wbo(l,k) = wbo(k,l)
-         enddo
-      endif
-    endif
+    if (allocated(ff_dat%topo)) then
+      if (allocated(ff_dat%topo%blist)) then
+        do i = 1,ff_dat%topo%nbond
+          k = ff_dat%topo%blist(1,i)
+          l = ff_dat%topo%blist(2,i)
+          wbo(k,l) = 1.0_wp
+          wbo(l,k) = wbo(k,l)
+        end do
+      end if
+    end if
   end subroutine gfnff_get_fake_wbo
 
 !========================================================================================!
