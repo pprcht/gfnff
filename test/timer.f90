@@ -174,7 +174,7 @@ contains
     if (present(inmsg)) then
       msg = inmsg
     else
-      msg = self%tag(i)
+      write(msg,'(a25)')  self%tag(i)
     end if
 
     ! verbosity settings !

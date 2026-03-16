@@ -122,7 +122,7 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     implicit none
     character(len=*),intent(in) :: cin
     character(len=:),allocatable :: c
-    integer :: iout
+    integer :: iout = 0
     integer :: i,j,io,Z
     c = trim(convertlable(cin))
     read (cin,*,iostat=io) j
