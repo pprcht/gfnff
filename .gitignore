@@ -13,3 +13,4 @@ testprog/gfn0
 testprog/coord
 ff/
 */.wraplock
+*.bak
