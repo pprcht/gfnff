@@ -482,6 +482,8 @@ contains
 
     integer :: iat
 
+    if (.false.) write (*,*) num,xyz ! silences -Wunused-dummy-argument
+
     select case (self%kernel)
     case (gbKernel%still)
       if (self%lsalt) then
@@ -532,6 +534,8 @@ contains
     !> Shell-resolved potential shift
     real(wp),intent(inout) :: shellShift(:)
 
+    if (.false.) write (*,*) qsh,shellShift ! silences -Wunused-dummy-argument
+
     call symv(self%bornMat,qat,self%shift)
     atomicShift(:) = atomicShift+self%shift
 
@@ -554,6 +558,8 @@ contains
 
     !> Total solvation energy
     real(wp),intent(out) :: energy
+
+    if (.false.) write (*,*) qsh ! silences -Wunused-dummy-argument
 
     call symv(self%bornMat,qat,self%shift,alpha=0.5_wp)
     energy = dot(qat,self%shift)+self%gsasa+self%gshift
@@ -588,6 +594,8 @@ contains
     real(wp),intent(out) :: gshift
 
     integer :: iat
+
+    if (.false.) write (*,*) qsh ! silences -Wunused-dummy-argument
 
     ghb = 0.0_wp
     if (self%lhb) then
@@ -629,6 +637,8 @@ contains
     real(wp),intent(inout) :: gradient(:,:)
 
     real(wp) :: gborn,ghb
+
+    if (.false.) write (*,*) num,qsh ! silences -Wunused-dummy-argument
 
     select case (self%kernel)
     case (gbKernel%still)
@@ -947,6 +957,8 @@ contains
     real(wp) :: x,y,z,dr2
     integer :: ip,ip2
 
+    if (.false.) i1 = nat ! silences -Wunused-dummy-argument
+
     lrcut2 = lrcut*lrcut
     srcut2 = srcut*srcut
 
@@ -1050,6 +1062,8 @@ contains
     integer  :: i,j
     real(wp) :: dhbed
     real(wp) :: qq
+
+    if (.false.) i = at(1) ! silences -Wunused-dummy-argument
 
     ghb = 0.0_wp
     do i = 1,nat

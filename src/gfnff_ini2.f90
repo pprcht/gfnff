@@ -455,6 +455,8 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     integer :: n,i,k,c(10,20,n),s(20,n),rings
 
+    if(.false.) write(*,*) c ! silences -Wunused-dummy-argument
+
     rings = 99
     do k = 1,s(20,i)    ! all rings of atom i
       if (s(k,i) .lt. rings) rings = s(k,i)
@@ -712,6 +714,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rab,rmsd
     logical :: ijnonbond
 
+    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+
     rmsd = sqrt(sum((xyz-nlist%hbrefgeo)**2))/dble(n)
 
     if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0) then ! update list if first call or substantial move occured
@@ -785,6 +789,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rab
     logical :: ijnonbond
 
+    if(.false.) write(*,*) at,hbthr2,xyz ! silences -Wunused-dummy-argument
+
     bond_nr = 0
     bond_hbl = 0
     do ix = 1,topo%nathbAB
@@ -829,6 +835,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer :: i,j,k,nh,ix,ij,inh,jnh
     real(wp) :: rab
     logical :: ijnonbond
+
+    if(.false.) write(*,*) at,xyz,hbthr2 ! silences -Wunused-dummy-argument  
 
     bond_hbn = 0
     do ix = 1,topo%nathbAB
@@ -1077,6 +1085,8 @@ contains  !> MODULE PROCEDURES START HERE
     logical :: ijnonbond
     real(wp) :: rab
 
+    if(.false.) write(*,*) at,xyz ! silences -Wunused-dummy-argument  
+
     nhb1 = 0
     nhb2 = 0
     do ix = 1,topo%nathbAB
@@ -1124,6 +1134,7 @@ contains  !> MODULE PROCEDURES START HERE
     type(TGFFData),intent(in) :: param
     integer :: i,j
     real(wp) :: ci(2),cj(2)
+    if(.false.) write(*,*) param%repscaln ! silences -Wunused-dummy-argument 
     ci(1) = topo%hbbas(i)
     cj(1) = topo%hbbas(j)
     ci(2) = topo%hbaci(i)
@@ -1168,6 +1179,8 @@ contains  !> MODULE PROCEDURES START HERE
 
 !  parameter
     parameter(tsqrt2pi=0.797884560802866_wp)
+
+    if(.false.) write(*,*) at,nb  ! silences -Wunused-dummy-argument
 
     io = 0
 

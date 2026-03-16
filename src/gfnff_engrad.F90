@@ -141,6 +141,8 @@ contains  !> MODULE PROCEDURES START HERE
     !type(tb_timer) :: timer
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
 
+    if(.false.) write(*,*) makeq  ! silences -Wunused-dummy-argument
+
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 
     io = 0 !> return status
@@ -691,6 +693,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: yy
     real(wp) :: t4,t5,t6,t8
 
+    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+
     t8 = topo%vbond(2,i)
     dr = rab-rij
     dum = topo%vbond(3,i)*exp(-t8*dr**2)
@@ -923,6 +927,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rcb2
     real(wp) :: theta,deda(3),vp(3)
 
+    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+
     kijk = fc/(cos(0.0d0)-cos(c0))**2
     va(1:3) = xyz(1:3,i)
     vb(1:3) = xyz(1:3,j)
@@ -962,62 +968,62 @@ contains  !> MODULE PROCEDURES START HERE
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine egbend_nci(j,i,k,c0,kijk,n,at,xyz,e,g,param)
-    implicit none
-    !Dummy
-    type(TGFFData),intent(in) :: param
-    integer n,at(n)
-    integer i,j,k
-    real(wp) :: c0,kijk
-    real(wp) :: xyz(3,n),g(3,3),e
-    !Stack
-    real(wp) ::  va(3),vb(3),vc(3),cosa
-    real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) :: theta,deda(3),vp(3)
-
-    va(1:3) = xyz(1:3,i)
-    vb(1:3) = xyz(1:3,j)
-    vc(1:3) = xyz(1:3,k)
-    call vsub(va,vb,vab,3)
-    call vsub(vc,vb,vcb,3)
-    rab2 = vab(1)*vab(1)+vab(2)*vab(2)+vab(3)*vab(3)
-    rcb2 = vcb(1)*vcb(1)+vcb(2)*vcb(2)+vcb(3)*vcb(3)
-    call crprod(vcb,vab,vp)
-    rp = vlen(vp)+1.d-14
-    call impsc(vab,vcb,cosa)
-    cosa = dble(min(1.0d0,max(-1.0d0,cosa)))
-    theta = dacos(cosa)
-
-    call gfnffdampa_nci(at(i),at(j),rab2,dampij,damp2ij,param)
-    call gfnffdampa_nci(at(k),at(j),rcb2,dampjk,damp2jk,param)
-    damp = dampij*dampjk
-
-    if (pi-c0 .lt. 1.d-6) then ! linear
-      dt = theta-c0
-      ea = kijk*dt**2
-      deddt = 2.d0*kijk*dt
-    else
-      ea = kijk*(cosa-cos(c0))**2
-      deddt = 2.0d0*kijk*sin(theta)*(cos(c0)-cosa)
-    end if
-
-    e = ea*damp
-    call crprod(vab,vp,deda)
-    rmul1 = -deddt/(rab2*rp)
-    deda = deda*rmul1
-    call crprod(vcb,vp,dedc)
-    rmul2 = deddt/(rcb2*rp)
-    dedc = dedc*rmul2
-    dedb = deda+dedc
-    term1(1:3) = ea*damp2ij*dampjk*vab(1:3)
-    term2(1:3) = ea*damp2jk*dampij*vcb(1:3)
-    g(1:3,1) = -dedb(1:3)*damp-term1(1:3)-term2(1:3)
-    g(1:3,2) = deda(1:3)*damp+term1(1:3)
-    g(1:3,3) = dedc(1:3)*damp+term2(1:3)
-
-  end subroutine egbend_nci
+!  subroutine egbend_nci(j,i,k,c0,kijk,n,at,xyz,e,g,param)
+!    implicit none
+!    !Dummy
+!    type(TGFFData),intent(in) :: param
+!    integer n,at(n)
+!    integer i,j,k
+!    real(wp) :: c0,kijk
+!    real(wp) :: xyz(3,n),g(3,3),e
+!    !Stack
+!    real(wp) ::  va(3),vb(3),vc(3),cosa
+!    real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
+!    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
+!    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
+!    real(wp) :: theta,deda(3),vp(3)
+!
+!    va(1:3) = xyz(1:3,i)
+!    vb(1:3) = xyz(1:3,j)
+!    vc(1:3) = xyz(1:3,k)
+!    call vsub(va,vb,vab,3)
+!    call vsub(vc,vb,vcb,3)
+!    rab2 = vab(1)*vab(1)+vab(2)*vab(2)+vab(3)*vab(3)
+!    rcb2 = vcb(1)*vcb(1)+vcb(2)*vcb(2)+vcb(3)*vcb(3)
+!    call crprod(vcb,vab,vp)
+!    rp = vlen(vp)+1.d-14
+!    call impsc(vab,vcb,cosa)
+!    cosa = dble(min(1.0d0,max(-1.0d0,cosa)))
+!    theta = dacos(cosa)
+!
+!    call gfnffdampa_nci(at(i),at(j),rab2,dampij,damp2ij,param)
+!    call gfnffdampa_nci(at(k),at(j),rcb2,dampjk,damp2jk,param)
+!    damp = dampij*dampjk
+!
+!    if (pi-c0 .lt. 1.d-6) then ! linear
+!      dt = theta-c0
+!      ea = kijk*dt**2
+!      deddt = 2.d0*kijk*dt
+!    else
+!      ea = kijk*(cosa-cos(c0))**2
+!      deddt = 2.0d0*kijk*sin(theta)*(cos(c0)-cosa)
+!    end if
+!
+!    e = ea*damp
+!    call crprod(vab,vp,deda)
+!    rmul1 = -deddt/(rab2*rp)
+!    deda = deda*rmul1
+!    call crprod(vcb,vp,dedc)
+!    rmul2 = deddt/(rcb2*rp)
+!    dedc = dedc*rmul2
+!    dedb = deda+dedc
+!    term1(1:3) = ea*damp2ij*dampjk*vab(1:3)
+!    term2(1:3) = ea*damp2jk*dampij*vcb(1:3)
+!    g(1:3,1) = -dedb(1:3)*damp-term1(1:3)-term2(1:3)
+!    g(1:3,2) = deda(1:3)*damp+term1(1:3)
+!    g(1:3,3) = dedc(1:3)*damp+term2(1:3)
+!
+!  end subroutine egbend_nci
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -1121,6 +1127,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),phi
     real(wp) :: rij,rkl,rjk
 
+    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+
     fc = (1.0d0-tshift)/2.0d0
     vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
     vcb(1:3) = xyz(1:3,j)-xyz(1:3,k)
@@ -1145,50 +1153,50 @@ contains  !> MODULE PROCEDURES START HERE
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine egtors_nci(i,j,k,l,rn,phi0,fc,n,at,xyz,e,g,param)
-    implicit none
-    !Dummy
-    type(TGFFData),intent(in) :: param
-    integer n,at(n)
-    integer i,j,k,l
-    integer rn
-    real(wp) :: phi0,fc
-    real(wp) :: xyz(3,n),g(3,4),e
-    !Stack
-    real(wp) :: term1(3),term2(3),vab(3),vcb(3)
-    real(wp) :: damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) :: et,dij,c1
-    real(wp) :: term3(3),x1sin,x1cos,dphi1,vdc(3)
-    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),phi
-    real(wp) :: rij,rkl,rjk,dampkl,damp2kl
-
-    vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
-    vcb(1:3) = xyz(1:3,j)-xyz(1:3,k)
-    vdc(1:3) = xyz(1:3,k)-xyz(1:3,l)
-    rij = vab(1)*vab(1)+vab(2)*vab(2)+vab(3)*vab(3)
-    rjk = vcb(1)*vcb(1)+vcb(2)*vcb(2)+vcb(3)*vcb(3)
-    rkl = vdc(1)*vdc(1)+vdc(2)*vdc(2)+vdc(3)*vdc(3)
-    call gfnffdampt_nci(at(i),at(j),rij,dampij,damp2ij,param)
-    call gfnffdampt_nci(at(k),at(j),rjk,dampjk,damp2jk,param)
-    call gfnffdampt_nci(at(k),at(l),rkl,dampkl,damp2kl,param)
-    damp = dampjk*dampij*dampkl
-    phi = valijklff(n,xyz,i,j,k,l)
-    call dphidr(n,xyz,i,j,k,l,phi,dda,ddb,ddc,ddd)
-    dphi1 = phi-phi0
-    c1 = rn*dphi1+pi
-    x1cos = cos(c1)
-    x1sin = sin(c1)
-    et = (1.+x1cos)*fc
-    dij = -rn*x1sin*fc*damp
-    term1(1:3) = et*damp2ij*dampjk*dampkl*vab(1:3)
-    term2(1:3) = et*damp2jk*dampij*dampkl*vcb(1:3)
-    term3(1:3) = et*damp2kl*dampij*dampjk*vdc(1:3)
-    g(1:3,1) = dij*dda(1:3)+term1
-    g(1:3,2) = dij*ddb(1:3)-term1+term2
-    g(1:3,3) = dij*ddc(1:3)+term3-term2
-    g(1:3,4) = dij*ddd(1:3)-term3
-    e = et*damp
-  end subroutine egtors_nci
+!  subroutine egtors_nci(i,j,k,l,rn,phi0,fc,n,at,xyz,e,g,param)
+!    implicit none
+!    !Dummy
+!    type(TGFFData),intent(in) :: param
+!    integer n,at(n)
+!    integer i,j,k,l
+!    integer rn
+!    real(wp) :: phi0,fc
+!    real(wp) :: xyz(3,n),g(3,4),e
+!    !Stack
+!    real(wp) :: term1(3),term2(3),vab(3),vcb(3)
+!    real(wp) :: damp,dampij,damp2ij,dampjk,damp2jk
+!    real(wp) :: et,dij,c1
+!    real(wp) :: term3(3),x1sin,x1cos,dphi1,vdc(3)
+!    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),phi
+!    real(wp) :: rij,rkl,rjk,dampkl,damp2kl
+!
+!    vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
+!    vcb(1:3) = xyz(1:3,j)-xyz(1:3,k)
+!    vdc(1:3) = xyz(1:3,k)-xyz(1:3,l)
+!    rij = vab(1)*vab(1)+vab(2)*vab(2)+vab(3)*vab(3)
+!    rjk = vcb(1)*vcb(1)+vcb(2)*vcb(2)+vcb(3)*vcb(3)
+!    rkl = vdc(1)*vdc(1)+vdc(2)*vdc(2)+vdc(3)*vdc(3)
+!    call gfnffdampt_nci(at(i),at(j),rij,dampij,damp2ij,param)
+!    call gfnffdampt_nci(at(k),at(j),rjk,dampjk,damp2jk,param)
+!    call gfnffdampt_nci(at(k),at(l),rkl,dampkl,damp2kl,param)
+!    damp = dampjk*dampij*dampkl
+!    phi = valijklff(n,xyz,i,j,k,l)
+!    call dphidr(n,xyz,i,j,k,l,phi,dda,ddb,ddc,ddd)
+!    dphi1 = phi-phi0
+!    c1 = rn*dphi1+pi
+!    x1cos = cos(c1)
+!    x1sin = sin(c1)
+!    et = (1.+x1cos)*fc
+!    dij = -rn*x1sin*fc*damp
+!    term1(1:3) = et*damp2ij*dampjk*dampkl*vab(1:3)
+!    term2(1:3) = et*damp2jk*dampij*dampkl*vcb(1:3)
+!    term3(1:3) = et*damp2kl*dampij*dampjk*vdc(1:3)
+!    g(1:3,1) = dij*dda(1:3)+term1
+!    g(1:3,2) = dij*ddb(1:3)-term1+term2
+!    g(1:3,3) = dij*ddc(1:3)+term3-term2
+!    g(1:3,4) = dij*ddd(1:3)-term3
+!    e = et*damp
+!  end subroutine egtors_nci
 
 !cccccccccccccccccccccccccccccccccccccccccccccc
 ! damping of bend and torsion for long
@@ -1217,27 +1225,27 @@ contains  !> MODULE PROCEDURES START HERE
     ddamp = -2.d0*2*rr/(r2*(1.0d0+rr)**2)
   end subroutine gfnffdampt
 
-  subroutine gfnffdampa_nci(ati,atj,r2,damp,ddamp,param)
-    implicit none
-    type(TGFFData),intent(in) :: param
-    integer ati,atj
-    real(wp) :: r2,damp,ddamp,rr,rcut
-    rcut = param%atcuta_nci*(param%rcov(ati)+param%rcov(atj))**2
-    rr = (r2/rcut)**2
-    damp = 1.0d0/(1.0d0+rr)
-    ddamp = -2.d0*2*rr/(r2*(1.0d0+rr)**2)
-  end subroutine gfnffdampa_nci
+!  subroutine gfnffdampa_nci(ati,atj,r2,damp,ddamp,param)
+!    implicit none
+!    type(TGFFData),intent(in) :: param
+!    integer ati,atj
+!    real(wp) :: r2,damp,ddamp,rr,rcut
+!    rcut = param%atcuta_nci*(param%rcov(ati)+param%rcov(atj))**2
+!    rr = (r2/rcut)**2
+!    damp = 1.0d0/(1.0d0+rr)
+!    ddamp = -2.d0*2*rr/(r2*(1.0d0+rr)**2)
+!  end subroutine gfnffdampa_nci
 
-  subroutine gfnffdampt_nci(ati,atj,r2,damp,ddamp,param)
-    implicit none
-    type(TGFFData),intent(in) :: param
-    integer ati,atj
-    real(wp) :: r2,damp,ddamp,rr,rcut
-    rcut = param%atcutt_nci*(param%rcov(ati)+param%rcov(atj))**2
-    rr = (r2/rcut)**2
-    damp = 1.0d0/(1.0d0+rr)
-    ddamp = -2.d0*2*rr/(r2*(1.0d0+rr)**2)
-  end subroutine gfnffdampt_nci
+!  subroutine gfnffdampt_nci(ati,atj,r2,damp,ddamp,param)
+!    implicit none
+!    type(TGFFData),intent(in) :: param
+!    integer ati,atj
+!    real(wp) :: r2,damp,ddamp,rr,rcut
+!    rcut = param%atcutt_nci*(param%rcov(ati)+param%rcov(atj))**2
+!    rr = (r2/rcut)**2
+!    damp = 1.0d0/(1.0d0+rr)
+!    ddamp = -2.d0*2*rr/(r2*(1.0d0+rr)**2)
+!  end subroutine gfnffdampt_nci
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Ref.: S. Alireza Ghasemi, Albert Hofstetter, Santanu Saha, and Stefan Goedecker
@@ -1328,8 +1336,8 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (single) then
       allocate (A4(m,m),x4(m))
-      A4 = A
-      x4 = x
+      A4 = real(A,4)
+      x4 = real(x,4)
       deallocate (A,x)
       call ssytrf_wrap(a4,ipiv,io1)
       call sytrs_wrap(a4,x4,ipiv,io2)
@@ -2386,490 +2394,490 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine abhgfnff_eg3
 
-!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
-!> this is the multiplicative version of incorporationg etors and ebend without neighbor LP
-  subroutine abhgfnff_eg3_mul(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
-    implicit none
-    type(TGFFData),intent(in) :: param
-    type(TGFFTopology),intent(in) :: topo
-    integer :: A,B,H,C,n,at(n)
-    real(wp) :: xyz(3,n),energy,gdr(3,n)
-    real(wp) :: q(n)
-    real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
-    real(wp) :: srab(n*(n+1)/2)    ! dist
-
-    real(wp) :: outl,dampl,damps,rdamp,damp
-    real(wp) :: ddamp,rabdamp,rbhdamp
-    real(wp) :: ratio1,ratio2,ratio3
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
-    real(wp) :: drah(3),drbh(3),drab(3)
-    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
-    real(wp) :: ga(3),gb(3),gh(3)
-    real(wp) :: phi,phi0,r0,fc,tshift,bshift
-    real(wp) :: eangl,etors,gangl(3,n),gtors(3,n)
-    real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
-    real(wp) :: qhoutl,radab
-    real(wp) :: gi
-    real(wp) :: tmp1
-    real(wp) :: rahprbh
-    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
-    real(wp) :: aterm,dterm,bterm,tterm
-    real(wp) :: qa,qb,qh
-    real(wp) :: ca(2),cb(2)
-    real(wp) :: shortcut
-    real(wp) :: const
-    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
-    real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
-
-!> proportion between Rbh und Rab distance dependencies
-    real(wp) :: p_bh
-    real(wp) :: p_ab
-
-    integer i,j,ii,jj,kk,ll,ij,lina
-    integer nbb,nbc
-    integer ntors,rn
-
-    lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
-
-    p_bh = 1.d0+param%hbabmix
-    p_ab = -param%hbabmix
-
-    gdr = 0
-    energy = 0
-    etors = 0
-    gtors = 0
-    eangl = 0
-    gangl = 0
-
-    call hbonds(A,B,ca,cb,param,topo)
-
-!> Determine all neighbors for torsion term
-!>   A
-!>    \         tors:
-!>     H        ll
-!>      :        \
-!>       O        jj
-!>       ||       |
-!>       C        kk
-!>      / \       \
-!>     R1  R2      ii
-!------------------------------------------
-    nbb = topo%nb(20,B)
-    C = topo%nb(nbb,B)
-    nbc = topo%nb(20,C)
-    ntors = nbc-nbb
-
-!> A-B distance
-    ij = lina(A,B)
-    rab2 = sqrab(ij)
-    rab = srab(ij)
-
-!> A-H distance
-    ij = lina(A,H)
-    rah2 = sqrab(ij)
-    rah = srab(ij)
-
-!> B-H distance
-    ij = lina(B,H)
-    rbh2 = sqrab(ij)
-    rbh = srab(ij)
-
-    rahprbh = rah+rbh+1.d-12
-    radab = param%rad(at(A))+param%rad(at(B))
-
-!> out-of-line damp: A-H...B
-    expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
-    if (expo .gt. 15.0d0) return ! avoid overflow
-    ratio2 = exp(expo)
-    outl = 2.d0/(1.d0+ratio2)
-
-!> long range damping
-    ratio1 = (rab2/param%hblongcut)**param%hbalp
-    dampl = 1.d0/(1.d0+ratio1)
-
-!> short range damping
-    shortcut = param%hbscut*radab
-    ratio3 = (shortcut/rab2)**param%hbalp
-    damps = 1.d0/(1.d0+ratio3)
-
-    damp = damps*dampl
-    ddamp = (-2.d0*param%hbalp*ratio1/(1.d0+ratio1))+(2.d0*param%hbalp*ratio3/(1.d0+ratio3))
-    rbhdamp = damp*((p_bh/rbh2/rbh))
-    rabdamp = damp*((p_ab/rab2/rab))
-    rdamp = rbhdamp+rabdamp
-
-!> Set up torsion paramter
-    j = 0
-    do i = 1,nbc
-      if (topo%nb(i,C) == B) cycle
-      j = j+1
-      tlist(1,j) = topo%nb(i,C)
-      tlist(2,j) = B
-      tlist(3,j) = C
-      tlist(4,j) = H
-      tlist(5,j) = 2
-      vtors(1,j) = pi/2.0
-      vtors(2,j) = 0.70
-    end do
-
-!> Calculate etors
-    do i = 1,ntors
-      ii = tlist(1,i)
-      jj = tlist(2,i)
-      kk = tlist(3,i)
-      ll = tlist(4,i)
-      rn = tlist(5,i)
-      phi0 = vtors(1,i)
-      tshift = vtors(2,i)
-      phi = valijklff(n,xyz,ii,jj,kk,ll)
-      call egtors_nci_mul(ii,jj,kk,ll,rn,phi0,tshift,n,at,xyz,etmp,g4tmp)
-      gtors(1:3,ii) = gtors(1:3,ii)+g4tmp(1:3,1)
-      gtors(1:3,jj) = gtors(1:3,jj)+g4tmp(1:3,2)
-      gtors(1:3,kk) = gtors(1:3,kk)+g4tmp(1:3,3)
-      gtors(1:3,ll) = gtors(1:3,ll)+g4tmp(1:3,4)
-      etors = etors+etmp
-    end do
-    etors = etors/ntors
-
-    r0 = 120
-    phi0 = r0*pi/180.
-    bshift = 0.1
-    fc = 1.0d0-bshift
-    call bangl(xyz,kk,jj,ll,phi)
-    call egbend_nci_mul(jj,kk,ll,phi0,fc,n,at,xyz,etmp,g3tmp)
-    gangl(1:3,jj) = gangl(1:3,jj)+g3tmp(1:3,1)
-    gangl(1:3,kk) = gangl(1:3,kk)+g3tmp(1:3,2)
-    gangl(1:3,ll) = gangl(1:3,ll)+g3tmp(1:3,3)
-    eangl = eangl+etmp
-
-!> hydrogen charge scaled term
-    ex1h = exp(param%hbst*q(H))
-    ex2h = ex1h+param%hbsf
-    qh = ex1h/ex2h
-
-!> hydrogen charge scaled term
-    ex1a = exp(-param%hbst*q(A))
-    ex2a = ex1a+param%hbsf
-    qa = ex1a/ex2a
-
-!> hydrogen charge scaled term
-    ex1b = exp(-param%hbst*q(B))
-    ex2b = ex1b+param%hbsf
-    qb = ex1b/ex2b
-
-!> max distance to neighbors excluded, would lead to linear C=O-H
-    qhoutl = qh*outl
-
-!> constant values, no gradient
-    const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
-
-!> energy
-    energy = -rdamp*qhoutl*const*eangl*etors
-
-!> gradient
-    drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
-    drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
-    drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
-
-    aterm = -rdamp*qh*etors*eangl*const
-    dterm = -qhoutl*etors*eangl*const
-    tterm = -rdamp*qhoutl*eangl*const/ntors
-    bterm = -rdamp*qhoutl*etors*const
-
-!------------------------------------------------------------------------------
-!> damping part: rab
-    gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
-    gi = gi*dterm
-    dg(1:3) = gi*drab(1:3)
-    ga(1:3) = dg(1:3)
-    gb(1:3) = -dg(1:3)
-
-!------------------------------------------------------------------------------
-!>  damping part: rbh
-    gi = -3.d0*rbhdamp/rbh2
-    gi = gi*dterm
-    dg(1:3) = gi*drbh(1:3)
-    gb(1:3) = gb(1:3)+dg(1:3)
-    gh(1:3) = -dg(1:3)
-
-!------------------------------------------------------------------------------
-!> angular A-H...B term
-!------------------------------------------------------------------------------
-!> out of line term: rab
-    tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
-    gi = -tmp1*rahprbh/rab2
-    dg(1:3) = gi*drab(1:3)
-    ga(1:3) = ga(1:3)+dg(1:3)
-    gb(1:3) = gb(1:3)-dg(1:3)
-
-!> out of line term: rah,rbh
-    gi = tmp1/rah
-    dga(1:3) = gi*drah(1:3)
-    ga(1:3) = ga(1:3)+dga(1:3)
-    gi = tmp1/rbh
-    dgb(1:3) = gi*drbh(1:3)
-    gb(1:3) = gb(1:3)+dgb(1:3)
-    dgh(1:3) = -dga(1:3)-dgb(1:3)
-    gh(1:3) = gh(1:3)+dgh(1:3)
-
-!------------------------------------------------------------------------------
-!> torsion term H...B=C<R1,R2
-!------------------------------------------------------------------------------
-    do i = 1,ntors
-      ii = tlist(1,i)
-      gdr(1:3,ii) = gdr(1:3,ii)+gtors(1:3,ii)*tterm
-    end do
-    gdr(1:3,jj) = gdr(1:3,jj)+gtors(1:3,jj)*tterm
-    gdr(1:3,kk) = gdr(1:3,kk)+gtors(1:3,kk)*tterm
-    gdr(1:3,ll) = gdr(1:3,ll)+gtors(1:3,ll)*tterm
-
-!------------------------------------------------------------------------------
-!> angle term H...B=C
-!------------------------------------------------------------------------------
-    gdr(1:3,jj) = gdr(1:3,jj)+gangl(1:3,jj)*bterm
-    gdr(1:3,kk) = gdr(1:3,kk)+gangl(1:3,kk)*bterm
-    gdr(1:3,ll) = gdr(1:3,ll)+gangl(1:3,ll)*bterm
-
-!------------------------------------------------------------------------------
-!> move gradients into place
-    gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
-    gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
-    gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
-
-  end subroutine abhgfnff_eg3_mul
-
-!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
-!> this is the additive version of incorporationg etors and ebend
-!> This subroutine is currently unused
-  subroutine abhgfnff_eg3_add(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
-    implicit none
-    type(TGFFData),intent(in) :: param
-    type(TGFFTopology),intent(in) :: topo
-    integer :: A,B,H,C,n,at(n)
-    real(wp) :: xyz(3,n),energy,gdr(3,n)
-    real(wp) :: q(n)
-    real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
-    real(wp) :: srab(n*(n+1)/2)    ! dist
-
-    real(wp) :: outl,dampl,damps,rdamp,damp
-    real(wp) :: ddamp,rabdamp,rbhdamp
-    real(wp) :: ratio1,ratio2,ratio3
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
-    real(wp) :: drah(3),drbh(3),drab(3)
-    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
-    real(wp) :: ga(3),gb(3),gh(3)
-    real(wp) :: phi,phi0,r0,fc
-    real(wp) :: eangl,etors
-    real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
-    real(wp) :: qhoutl,radab
-    real(wp) :: gi
-    real(wp) :: tmp1
-    real(wp) :: rahprbh
-    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
-    real(wp) :: aterm,dterm
-    real(wp) :: qa,qb,qh
-    real(wp) :: ca(2),cb(2)
-    real(wp) :: shortcut
-    real(wp) :: const
-    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
-    real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
-
-!> proportion between Rbh und Rab distance dependencies
-    real(wp) :: p_bh
-    real(wp) :: p_ab
-
-    integer :: i,j,ii,jj,kk,ll,ij,lina
-    integer :: nbb,nbc
-    integer :: ntors,rn
-
-    lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
-
-    p_bh = 1.d0+param%hbabmix
-    p_ab = -param%hbabmix
-
-    gdr = 0
-    energy = 0
-    etors = 0
-    eangl = 0
-
-    call hbonds(A,B,ca,cb,param,topo)
-
-!> Determine all neighbors for torsion term
-!>   A
-!>    \         tors:
-!>     H        ll
-!>      :        \
-!>       O        jj
-!>       ||       |
-!>       C        kk
-!>      / \       \
-!>     R1  R2      ii
-!------------------------------------------
-    nbb = topo%nb(20,B)
-    C = topo%nb(nbb,B)
-    nbc = topo%nb(20,C)
-    ntors = nbc-nbb
-
-!> A-B distance
-    ij = lina(A,B)
-    rab2 = sqrab(ij)
-    rab = srab(ij)
-
-!> A-H distance
-    ij = lina(A,H)
-    rah2 = sqrab(ij)
-    rah = srab(ij)
-
-!> B-H distance
-    ij = lina(B,H)
-    rbh2 = sqrab(ij)
-    rbh = srab(ij)
-
-    rahprbh = rah+rbh+1.d-12
-    radab = param%rad(at(A))+param%rad(at(B))
-
-!> out-of-line damp: A-H...B
-    expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
-    if (expo .gt. 15.0d0) return ! avoid overflow
-    ratio2 = exp(expo)
-    outl = 2.d0/(1.d0+ratio2)
-
-!> long range damping
-    ratio1 = (rab2/param%hblongcut)**param%hbalp
-    dampl = 1.d0/(1.d0+ratio1)
-
-!> short range damping
-    shortcut = param%hbscut*radab
-    ratio3 = (shortcut/rab2)**param%hbalp
-    damps = 1.d0/(1.d0+ratio3)
-
-    damp = damps*dampl
-    ddamp = (-2.d0*param%hbalp*ratio1/(1.d0+ratio1))+(2.d0*param%hbalp*ratio3/(1.d0+ratio3))
-    rbhdamp = damp*((p_bh/rbh2/rbh))
-    rabdamp = damp*((p_ab/rab2/rab))
-    rdamp = rbhdamp+rabdamp
-
-!> Set up torsion paramter
-    j = 0
-    do i = 1,nbc
-      if (topo%nb(i,C) == B) cycle
-      j = j+1
-      tlist(1,j) = topo%nb(i,C)
-      tlist(2,j) = B
-      tlist(3,j) = C
-      tlist(4,j) = H
-      tlist(5,j) = 2
-      vtors(1,j) = pi
-      vtors(2,j) = 0.30
-    end do
-
-!> Calculate etors
-    do i = 1,ntors
-      ii = tlist(1,i)
-      jj = tlist(2,i)
-      kk = tlist(3,i)
-      ll = tlist(4,i)
-      rn = tlist(5,i)
-      phi0 = vtors(1,i)
-      fc = vtors(2,i)
-      phi = valijklff(n,xyz,ii,jj,kk,ll)
-      call egtors_nci(ii,jj,kk,ll,rn,phi0,fc,n,at,xyz,etmp,g4tmp,param)
-      gdr(1:3,ii) = gdr(1:3,ii)+g4tmp(1:3,1)
-      gdr(1:3,jj) = gdr(1:3,jj)+g4tmp(1:3,2)
-      gdr(1:3,kk) = gdr(1:3,kk)+g4tmp(1:3,3)
-      gdr(1:3,ll) = gdr(1:3,ll)+g4tmp(1:3,4)
-      etors = etors+etmp
-    end do
-
-!> Calculate eangl + gangl
-    write (stdout,*) 'angle atoms          phi0   phi      FC'
-    r0 = 120
-    phi0 = r0*pi/180.
-    fc = 0.20
-    call bangl(xyz,kk,jj,ll,phi)
-    write (stdout,'(3i5,2x,3f8.3)') &
-    &   jj,kk,ll,phi0*180./pi,phi*180./pi,fc
-    call egbend_nci(jj,kk,ll,phi0,fc,n,at,xyz,etmp,g3tmp,param)
-    gdr(1:3,jj) = gdr(1:3,jj)+g3tmp(1:3,1)
-    gdr(1:3,kk) = gdr(1:3,kk)+g3tmp(1:3,2)
-    gdr(1:3,ll) = gdr(1:3,ll)+g3tmp(1:3,3)
-    eangl = eangl+etmp
-
-!> hydrogen charge scaled term
-    ex1h = exp(param%hbst*q(H))
-    ex2h = ex1h+param%hbsf
-    qh = ex1h/ex2h
-
-!> hydrogen charge scaled term
-    ex1a = exp(-param%hbst*q(A))
-    ex2a = ex1a+param%hbsf
-    qa = ex1a/ex2a
-
-!> hydrogen charge scaled term
-    ex1b = exp(-param%hbst*q(B))
-    ex2b = ex1b+param%hbsf
-    qb = ex1b/ex2b
-
-!> max distance to neighbors excluded, would lead to linear C=O-H
-    qhoutl = qh*outl
-
-!> constant values, no gradient
-    const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
-
-!> energy
-    energy = -rdamp*qhoutl*const+etors+eangl
-
-!> gradient
-    drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
-    drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
-    drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
-
-    aterm = -rdamp*qh*const
-    dterm = -qhoutl*const
-
-!------------------------------------------------------------------------------
-!> damping part: rab
-    gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
-    gi = gi*dterm
-    dg(1:3) = gi*drab(1:3)
-    ga(1:3) = dg(1:3)
-    gb(1:3) = -dg(1:3)
-
-!------------------------------------------------------------------------------
-!> damping part: rbh
-    gi = -3.d0*rbhdamp/rbh2
-    gi = gi*dterm
-    dg(1:3) = gi*drbh(1:3)
-    gb(1:3) = gb(1:3)+dg(1:3)
-    gh(1:3) = -dg(1:3)
-
-!------------------------------------------------------------------------------
-!> angular A-H...B term
-!------------------------------------------------------------------------------
-!> out of line term: rab
-    tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
-    gi = -tmp1*rahprbh/rab2
-    dg(1:3) = gi*drab(1:3)
-    ga(1:3) = ga(1:3)+dg(1:3)
-    gb(1:3) = gb(1:3)-dg(1:3)
-
-!> out of line term: rah,rbh
-    gi = tmp1/rah
-    dga(1:3) = gi*drah(1:3)
-    ga(1:3) = ga(1:3)+dga(1:3)
-    gi = tmp1/rbh
-    dgb(1:3) = gi*drbh(1:3)
-    gb(1:3) = gb(1:3)+dgb(1:3)
-    dgh(1:3) = -dga(1:3)-dgb(1:3)
-    gh(1:3) = gh(1:3)+dgh(1:3)
-
-!------------------------------------------------------------------------------
-!> move gradients into place
-    gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
-    gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
-    gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
-
-  end subroutine abhgfnff_eg3_add
+!!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
+!!> this is the multiplicative version of incorporationg etors and ebend without neighbor LP
+!  subroutine abhgfnff_eg3_mul(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
+!    implicit none
+!    type(TGFFData),intent(in) :: param
+!    type(TGFFTopology),intent(in) :: topo
+!    integer :: A,B,H,C,n,at(n)
+!    real(wp) :: xyz(3,n),energy,gdr(3,n)
+!    real(wp) :: q(n)
+!    real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
+!    real(wp) :: srab(n*(n+1)/2)    ! dist
+!
+!    real(wp) :: outl,dampl,damps,rdamp,damp
+!    real(wp) :: ddamp,rabdamp,rbhdamp
+!    real(wp) :: ratio1,ratio2,ratio3
+!    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
+!    real(wp) :: drah(3),drbh(3),drab(3)
+!    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
+!    real(wp) :: ga(3),gb(3),gh(3)
+!    real(wp) :: phi,phi0,r0,fc,tshift,bshift
+!    real(wp) :: eangl,etors,gangl(3,n),gtors(3,n)
+!    real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
+!    real(wp) :: qhoutl,radab
+!    real(wp) :: gi
+!    real(wp) :: tmp1
+!    real(wp) :: rahprbh
+!    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
+!    real(wp) :: aterm,dterm,bterm,tterm
+!    real(wp) :: qa,qb,qh
+!    real(wp) :: ca(2),cb(2)
+!    real(wp) :: shortcut
+!    real(wp) :: const
+!    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
+!    real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
+!
+!!> proportion between Rbh und Rab distance dependencies
+!    real(wp) :: p_bh
+!    real(wp) :: p_ab
+!
+!    integer i,j,ii,jj,kk,ll,ij,lina
+!    integer nbb,nbc
+!    integer ntors,rn
+!
+!    lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
+!
+!    p_bh = 1.d0+param%hbabmix
+!    p_ab = -param%hbabmix
+!
+!    gdr = 0
+!    energy = 0
+!    etors = 0
+!    gtors = 0
+!    eangl = 0
+!    gangl = 0
+!
+!    call hbonds(A,B,ca,cb,param,topo)
+!
+!!> Determine all neighbors for torsion term
+!!>   A
+!!>    \         tors:
+!!>     H        ll
+!!>      :        \
+!!>       O        jj
+!!>       ||       |
+!!>       C        kk
+!!>      / \       \
+!!>     R1  R2      ii
+!!------------------------------------------
+!    nbb = topo%nb(20,B)
+!    C = topo%nb(nbb,B)
+!    nbc = topo%nb(20,C)
+!    ntors = nbc-nbb
+!
+!!> A-B distance
+!    ij = lina(A,B)
+!    rab2 = sqrab(ij)
+!    rab = srab(ij)
+!
+!!> A-H distance
+!    ij = lina(A,H)
+!    rah2 = sqrab(ij)
+!    rah = srab(ij)
+!
+!!> B-H distance
+!    ij = lina(B,H)
+!    rbh2 = sqrab(ij)
+!    rbh = srab(ij)
+!
+!    rahprbh = rah+rbh+1.d-12
+!    radab = param%rad(at(A))+param%rad(at(B))
+!
+!!> out-of-line damp: A-H...B
+!    expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
+!    if (expo .gt. 15.0d0) return ! avoid overflow
+!    ratio2 = exp(expo)
+!    outl = 2.d0/(1.d0+ratio2)
+!
+!!> long range damping
+!    ratio1 = (rab2/param%hblongcut)**param%hbalp
+!    dampl = 1.d0/(1.d0+ratio1)
+!
+!!> short range damping
+!    shortcut = param%hbscut*radab
+!    ratio3 = (shortcut/rab2)**param%hbalp
+!    damps = 1.d0/(1.d0+ratio3)
+!
+!    damp = damps*dampl
+!    ddamp = (-2.d0*param%hbalp*ratio1/(1.d0+ratio1))+(2.d0*param%hbalp*ratio3/(1.d0+ratio3))
+!    rbhdamp = damp*((p_bh/rbh2/rbh))
+!    rabdamp = damp*((p_ab/rab2/rab))
+!    rdamp = rbhdamp+rabdamp
+!
+!!> Set up torsion paramter
+!    j = 0
+!    do i = 1,nbc
+!      if (topo%nb(i,C) == B) cycle
+!      j = j+1
+!      tlist(1,j) = topo%nb(i,C)
+!      tlist(2,j) = B
+!      tlist(3,j) = C
+!      tlist(4,j) = H
+!      tlist(5,j) = 2
+!      vtors(1,j) = pi/2.0
+!      vtors(2,j) = 0.70
+!    end do
+!
+!!> Calculate etors
+!    do i = 1,ntors
+!      ii = tlist(1,i)
+!      jj = tlist(2,i)
+!      kk = tlist(3,i)
+!      ll = tlist(4,i)
+!      rn = tlist(5,i)
+!      phi0 = vtors(1,i)
+!      tshift = vtors(2,i)
+!      phi = valijklff(n,xyz,ii,jj,kk,ll)
+!      call egtors_nci_mul(ii,jj,kk,ll,rn,phi0,tshift,n,at,xyz,etmp,g4tmp)
+!      gtors(1:3,ii) = gtors(1:3,ii)+g4tmp(1:3,1)
+!      gtors(1:3,jj) = gtors(1:3,jj)+g4tmp(1:3,2)
+!      gtors(1:3,kk) = gtors(1:3,kk)+g4tmp(1:3,3)
+!      gtors(1:3,ll) = gtors(1:3,ll)+g4tmp(1:3,4)
+!      etors = etors+etmp
+!    end do
+!    etors = etors/ntors
+!
+!    r0 = 120
+!    phi0 = r0*pi/180.
+!    bshift = 0.1
+!    fc = 1.0d0-bshift
+!    call bangl(xyz,kk,jj,ll,phi)
+!    call egbend_nci_mul(jj,kk,ll,phi0,fc,n,at,xyz,etmp,g3tmp)
+!    gangl(1:3,jj) = gangl(1:3,jj)+g3tmp(1:3,1)
+!    gangl(1:3,kk) = gangl(1:3,kk)+g3tmp(1:3,2)
+!    gangl(1:3,ll) = gangl(1:3,ll)+g3tmp(1:3,3)
+!    eangl = eangl+etmp
+!
+!!> hydrogen charge scaled term
+!    ex1h = exp(param%hbst*q(H))
+!    ex2h = ex1h+param%hbsf
+!    qh = ex1h/ex2h
+!
+!!> hydrogen charge scaled term
+!    ex1a = exp(-param%hbst*q(A))
+!    ex2a = ex1a+param%hbsf
+!    qa = ex1a/ex2a
+!
+!!> hydrogen charge scaled term
+!    ex1b = exp(-param%hbst*q(B))
+!    ex2b = ex1b+param%hbsf
+!    qb = ex1b/ex2b
+!
+!!> max distance to neighbors excluded, would lead to linear C=O-H
+!    qhoutl = qh*outl
+!
+!!> constant values, no gradient
+!    const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
+!
+!!> energy
+!    energy = -rdamp*qhoutl*const*eangl*etors
+!
+!!> gradient
+!    drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
+!    drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
+!    drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
+!
+!    aterm = -rdamp*qh*etors*eangl*const
+!    dterm = -qhoutl*etors*eangl*const
+!    tterm = -rdamp*qhoutl*eangl*const/ntors
+!    bterm = -rdamp*qhoutl*etors*const
+!
+!!------------------------------------------------------------------------------
+!!> damping part: rab
+!    gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
+!    gi = gi*dterm
+!    dg(1:3) = gi*drab(1:3)
+!    ga(1:3) = dg(1:3)
+!    gb(1:3) = -dg(1:3)
+!
+!!------------------------------------------------------------------------------
+!!>  damping part: rbh
+!    gi = -3.d0*rbhdamp/rbh2
+!    gi = gi*dterm
+!    dg(1:3) = gi*drbh(1:3)
+!    gb(1:3) = gb(1:3)+dg(1:3)
+!    gh(1:3) = -dg(1:3)
+!
+!!------------------------------------------------------------------------------
+!!> angular A-H...B term
+!!------------------------------------------------------------------------------
+!!> out of line term: rab
+!    tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
+!    gi = -tmp1*rahprbh/rab2
+!    dg(1:3) = gi*drab(1:3)
+!    ga(1:3) = ga(1:3)+dg(1:3)
+!    gb(1:3) = gb(1:3)-dg(1:3)
+!
+!!> out of line term: rah,rbh
+!    gi = tmp1/rah
+!    dga(1:3) = gi*drah(1:3)
+!    ga(1:3) = ga(1:3)+dga(1:3)
+!    gi = tmp1/rbh
+!    dgb(1:3) = gi*drbh(1:3)
+!    gb(1:3) = gb(1:3)+dgb(1:3)
+!    dgh(1:3) = -dga(1:3)-dgb(1:3)
+!    gh(1:3) = gh(1:3)+dgh(1:3)
+!
+!!------------------------------------------------------------------------------
+!!> torsion term H...B=C<R1,R2
+!!------------------------------------------------------------------------------
+!    do i = 1,ntors
+!      ii = tlist(1,i)
+!      gdr(1:3,ii) = gdr(1:3,ii)+gtors(1:3,ii)*tterm
+!    end do
+!    gdr(1:3,jj) = gdr(1:3,jj)+gtors(1:3,jj)*tterm
+!    gdr(1:3,kk) = gdr(1:3,kk)+gtors(1:3,kk)*tterm
+!    gdr(1:3,ll) = gdr(1:3,ll)+gtors(1:3,ll)*tterm
+!
+!!------------------------------------------------------------------------------
+!!> angle term H...B=C
+!!------------------------------------------------------------------------------
+!    gdr(1:3,jj) = gdr(1:3,jj)+gangl(1:3,jj)*bterm
+!    gdr(1:3,kk) = gdr(1:3,kk)+gangl(1:3,kk)*bterm
+!    gdr(1:3,ll) = gdr(1:3,ll)+gangl(1:3,ll)*bterm
+!
+!!------------------------------------------------------------------------------
+!!> move gradients into place
+!    gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
+!    gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
+!    gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
+!
+!  end subroutine abhgfnff_eg3_mul
+
+!!> subroutine for case 3: A-H...B, B is 0=C including two in plane LPs at B
+!!> this is the additive version of incorporationg etors and ebend
+!!> This subroutine is currently unused
+!  subroutine abhgfnff_eg3_add(n,A,B,H,at,xyz,q,sqrab,srab,energy,gdr,param,topo)
+!    implicit none
+!    type(TGFFData),intent(in) :: param
+!    type(TGFFTopology),intent(in) :: topo
+!    integer :: A,B,H,C,n,at(n)
+!    real(wp) :: xyz(3,n),energy,gdr(3,n)
+!    real(wp) :: q(n)
+!    real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
+!    real(wp) :: srab(n*(n+1)/2)    ! dist
+!
+!    real(wp) :: outl,dampl,damps,rdamp,damp
+!    real(wp) :: ddamp,rabdamp,rbhdamp
+!    real(wp) :: ratio1,ratio2,ratio3
+!    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
+!    real(wp) :: drah(3),drbh(3),drab(3)
+!    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
+!    real(wp) :: ga(3),gb(3),gh(3)
+!    real(wp) :: phi,phi0,r0,fc
+!    real(wp) :: eangl,etors
+!    real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
+!    real(wp) :: qhoutl,radab
+!    real(wp) :: gi
+!    real(wp) :: tmp1
+!    real(wp) :: rahprbh
+!    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
+!    real(wp) :: aterm,dterm
+!    real(wp) :: qa,qb,qh
+!    real(wp) :: ca(2),cb(2)
+!    real(wp) :: shortcut
+!    real(wp) :: const
+!    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
+!    real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
+!
+!!> proportion between Rbh und Rab distance dependencies
+!    real(wp) :: p_bh
+!    real(wp) :: p_ab
+!
+!    integer :: i,j,ii,jj,kk,ll,ij,lina
+!    integer :: nbb,nbc
+!    integer :: ntors,rn
+!
+!    lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
+!
+!    p_bh = 1.d0+param%hbabmix
+!    p_ab = -param%hbabmix
+!
+!    gdr = 0
+!    energy = 0
+!    etors = 0
+!    eangl = 0
+!
+!    call hbonds(A,B,ca,cb,param,topo)
+!
+!!> Determine all neighbors for torsion term
+!!>   A
+!!>    \         tors:
+!!>     H        ll
+!!>      :        \
+!!>       O        jj
+!!>       ||       |
+!!>       C        kk
+!!>      / \       \
+!!>     R1  R2      ii
+!!------------------------------------------
+!    nbb = topo%nb(20,B)
+!    C = topo%nb(nbb,B)
+!    nbc = topo%nb(20,C)
+!    ntors = nbc-nbb
+!
+!!> A-B distance
+!    ij = lina(A,B)
+!    rab2 = sqrab(ij)
+!    rab = srab(ij)
+!
+!!> A-H distance
+!    ij = lina(A,H)
+!    rah2 = sqrab(ij)
+!    rah = srab(ij)
+!
+!!> B-H distance
+!    ij = lina(B,H)
+!    rbh2 = sqrab(ij)
+!    rbh = srab(ij)
+!
+!    rahprbh = rah+rbh+1.d-12
+!    radab = param%rad(at(A))+param%rad(at(B))
+!
+!!> out-of-line damp: A-H...B
+!    expo = (param%hbacut/radab)*(rahprbh/rab-1.d0)
+!    if (expo .gt. 15.0d0) return ! avoid overflow
+!    ratio2 = exp(expo)
+!    outl = 2.d0/(1.d0+ratio2)
+!
+!!> long range damping
+!    ratio1 = (rab2/param%hblongcut)**param%hbalp
+!    dampl = 1.d0/(1.d0+ratio1)
+!
+!!> short range damping
+!    shortcut = param%hbscut*radab
+!    ratio3 = (shortcut/rab2)**param%hbalp
+!    damps = 1.d0/(1.d0+ratio3)
+!
+!    damp = damps*dampl
+!    ddamp = (-2.d0*param%hbalp*ratio1/(1.d0+ratio1))+(2.d0*param%hbalp*ratio3/(1.d0+ratio3))
+!    rbhdamp = damp*((p_bh/rbh2/rbh))
+!    rabdamp = damp*((p_ab/rab2/rab))
+!    rdamp = rbhdamp+rabdamp
+!
+!!> Set up torsion paramter
+!    j = 0
+!    do i = 1,nbc
+!      if (topo%nb(i,C) == B) cycle
+!      j = j+1
+!      tlist(1,j) = topo%nb(i,C)
+!      tlist(2,j) = B
+!      tlist(3,j) = C
+!      tlist(4,j) = H
+!      tlist(5,j) = 2
+!      vtors(1,j) = pi
+!      vtors(2,j) = 0.30
+!    end do
+!
+!!> Calculate etors
+!    do i = 1,ntors
+!      ii = tlist(1,i)
+!      jj = tlist(2,i)
+!      kk = tlist(3,i)
+!      ll = tlist(4,i)
+!      rn = tlist(5,i)
+!      phi0 = vtors(1,i)
+!      fc = vtors(2,i)
+!      phi = valijklff(n,xyz,ii,jj,kk,ll)
+!      call egtors_nci(ii,jj,kk,ll,rn,phi0,fc,n,at,xyz,etmp,g4tmp,param)
+!      gdr(1:3,ii) = gdr(1:3,ii)+g4tmp(1:3,1)
+!      gdr(1:3,jj) = gdr(1:3,jj)+g4tmp(1:3,2)
+!      gdr(1:3,kk) = gdr(1:3,kk)+g4tmp(1:3,3)
+!      gdr(1:3,ll) = gdr(1:3,ll)+g4tmp(1:3,4)
+!      etors = etors+etmp
+!    end do
+!
+!!> Calculate eangl + gangl
+!    write (stdout,*) 'angle atoms          phi0   phi      FC'
+!    r0 = 120
+!    phi0 = r0*pi/180.
+!    fc = 0.20
+!    call bangl(xyz,kk,jj,ll,phi)
+!    write (stdout,'(3i5,2x,3f8.3)') &
+!    &   jj,kk,ll,phi0*180./pi,phi*180./pi,fc
+!    call egbend_nci(jj,kk,ll,phi0,fc,n,at,xyz,etmp,g3tmp,param)
+!    gdr(1:3,jj) = gdr(1:3,jj)+g3tmp(1:3,1)
+!    gdr(1:3,kk) = gdr(1:3,kk)+g3tmp(1:3,2)
+!    gdr(1:3,ll) = gdr(1:3,ll)+g3tmp(1:3,3)
+!    eangl = eangl+etmp
+!
+!!> hydrogen charge scaled term
+!    ex1h = exp(param%hbst*q(H))
+!    ex2h = ex1h+param%hbsf
+!    qh = ex1h/ex2h
+!
+!!> hydrogen charge scaled term
+!    ex1a = exp(-param%hbst*q(A))
+!    ex2a = ex1a+param%hbsf
+!    qa = ex1a/ex2a
+!
+!!> hydrogen charge scaled term
+!    ex1b = exp(-param%hbst*q(B))
+!    ex2b = ex1b+param%hbsf
+!    qb = ex1b/ex2b
+!
+!!> max distance to neighbors excluded, would lead to linear C=O-H
+!    qhoutl = qh*outl
+!
+!!> constant values, no gradient
+!    const = ca(2)*qa*cb(1)*qb*param%xhaci_globabh
+!
+!!> energy
+!    energy = -rdamp*qhoutl*const+etors+eangl
+!
+!!> gradient
+!    drah(1:3) = xyz(1:3,A)-xyz(1:3,H)
+!    drbh(1:3) = xyz(1:3,B)-xyz(1:3,H)
+!    drab(1:3) = xyz(1:3,A)-xyz(1:3,B)
+!
+!    aterm = -rdamp*qh*const
+!    dterm = -qhoutl*const
+!
+!!------------------------------------------------------------------------------
+!!> damping part: rab
+!    gi = ((rabdamp+rbhdamp)*ddamp-3.d0*rabdamp)/rab2
+!    gi = gi*dterm
+!    dg(1:3) = gi*drab(1:3)
+!    ga(1:3) = dg(1:3)
+!    gb(1:3) = -dg(1:3)
+!
+!!------------------------------------------------------------------------------
+!!> damping part: rbh
+!    gi = -3.d0*rbhdamp/rbh2
+!    gi = gi*dterm
+!    dg(1:3) = gi*drbh(1:3)
+!    gb(1:3) = gb(1:3)+dg(1:3)
+!    gh(1:3) = -dg(1:3)
+!
+!!------------------------------------------------------------------------------
+!!> angular A-H...B term
+!!------------------------------------------------------------------------------
+!!> out of line term: rab
+!    tmp1 = -2.d0*aterm*ratio2*expo/(1+ratio2)**2/(rahprbh-rab)
+!    gi = -tmp1*rahprbh/rab2
+!    dg(1:3) = gi*drab(1:3)
+!    ga(1:3) = ga(1:3)+dg(1:3)
+!    gb(1:3) = gb(1:3)-dg(1:3)
+!
+!!> out of line term: rah,rbh
+!    gi = tmp1/rah
+!    dga(1:3) = gi*drah(1:3)
+!    ga(1:3) = ga(1:3)+dga(1:3)
+!    gi = tmp1/rbh
+!    dgb(1:3) = gi*drbh(1:3)
+!    gb(1:3) = gb(1:3)+dgb(1:3)
+!    dgh(1:3) = -dga(1:3)-dgb(1:3)
+!    gh(1:3) = gh(1:3)+dgh(1:3)
+!
+!!------------------------------------------------------------------------------
+!!> move gradients into place
+!    gdr(1:3,A) = gdr(1:3,A)+ga(1:3)
+!    gdr(1:3,B) = gdr(1:3,B)+gb(1:3)
+!    gdr(1:3,H) = gdr(1:3,H)+gh(1:3)
+!
+!  end subroutine abhgfnff_eg3_add
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ! XB energy and analytical gradient

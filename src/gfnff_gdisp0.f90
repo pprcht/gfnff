@@ -90,62 +90,62 @@ contains  !> MODULE PROCEDURES START HERE
 
 !> Calculate the weights of the reference system and the derivatives w.r.t.
 !  coordination number for later use.
-  subroutine weight_references(nat,atoms,wf,cn,gwvec,gwdcn)
-    use disp_dftd3param
-    !> Nr. of atoms (without periodic images)
-    integer,intent(in) :: nat
-    !> Atomic numbers of every atom.
-    integer,intent(in) :: atoms(:)
-    !> Exponent for the Gaussian weighting.
-    real(wp),intent(in) :: wf
-    !> Coordination number of every atom.
-    real(wp),intent(in) :: cn(:)
-    !> weighting for the atomic reference systems
-    real(wp),intent(out) :: gwvec(:,:)
-    !> derivative of the weighting function w.r.t. the coordination number
-    real(wp),intent(out) :: gwdcn(:,:)
-
-    integer :: iat,ati,iref
-    real(wp) :: norm,dnorm,gw,expw,expd,gwk,dgwk
-
-    gwvec = 0.0_wp
-    gwdcn = 0.0_wp
-
-    do iat = 1,nat
-      ati = atoms(iat)
-      norm = 0.0_wp
-      dnorm = 0.0_wp
-      do iref = 1,number_of_references(ati)
-        gw = weight_cn(wf,cn(iat),reference_cn(iref,ati))
-        norm = norm+gw
-        dnorm = dnorm+2*wf*(reference_cn(iref,ati)-cn(iat))*gw
-      end do
-      norm = 1.0_wp/norm
-      do iref = 1,number_of_references(ati)
-        expw = weight_cn(wf,cn(iat),reference_cn(iref,ati))
-        expd = 2*wf*(reference_cn(iref,ati)-cn(iat))*expw
-
-        gwk = expw*norm
-        if (gwk /= gwk) then
-          if (maxval(reference_cn(:number_of_references(ati),ati)) &
-             & == reference_cn(iref,ati)) then
-            gwk = 1.0_wp
-          else
-            gwk = 0.0_wp
-          end if
-        end if
-        gwvec(iref,iat) = gwk
-
-        dgwk = expd*norm-expw*dnorm*norm**2
-        if (dgwk /= dgwk) then
-          dgwk = 0.0_wp
-        end if
-        gwdcn(iref,iat) = dgwk
-
-      end do
-    end do
-
-  end subroutine weight_references
+!  subroutine weight_references(nat,atoms,wf,cn,gwvec,gwdcn)
+!    use disp_dftd3param
+!    !> Nr. of atoms (without periodic images)
+!    integer,intent(in) :: nat
+!    !> Atomic numbers of every atom.
+!    integer,intent(in) :: atoms(:)
+!    !> Exponent for the Gaussian weighting.
+!    real(wp),intent(in) :: wf
+!    !> Coordination number of every atom.
+!    real(wp),intent(in) :: cn(:)
+!    !> weighting for the atomic reference systems
+!    real(wp),intent(out) :: gwvec(:,:)
+!    !> derivative of the weighting function w.r.t. the coordination number
+!    real(wp),intent(out) :: gwdcn(:,:)
+!
+!    integer :: iat,ati,iref
+!    real(wp) :: norm,dnorm,gw,expw,expd,gwk,dgwk
+!
+!    gwvec = 0.0_wp
+!    gwdcn = 0.0_wp
+!
+!    do iat = 1,nat
+!      ati = atoms(iat)
+!      norm = 0.0_wp
+!      dnorm = 0.0_wp
+!      do iref = 1,number_of_references(ati)
+!        gw = weight_cn(wf,cn(iat),reference_cn(iref,ati))
+!        norm = norm+gw
+!        dnorm = dnorm+2*wf*(reference_cn(iref,ati)-cn(iat))*gw
+!      end do
+!      norm = 1.0_wp/norm
+!      do iref = 1,number_of_references(ati)
+!        expw = weight_cn(wf,cn(iat),reference_cn(iref,ati))
+!        expd = 2*wf*(reference_cn(iref,ati)-cn(iat))*expw
+!
+!        gwk = expw*norm
+!        if (gwk /= gwk) then
+!          if (maxval(reference_cn(:number_of_references(ati),ati)) &
+!             & == reference_cn(iref,ati)) then
+!            gwk = 1.0_wp
+!          else
+!            gwk = 0.0_wp
+!          end if
+!        end if
+!        gwvec(iref,iat) = gwk
+!
+!        dgwk = expd*norm-expw*dnorm*norm**2
+!        if (dgwk /= dgwk) then
+!          dgwk = 0.0_wp
+!        end if
+!        gwdcn(iref,iat) = dgwk
+!
+!      end do
+!    end do
+!
+!  end subroutine weight_references
 !========================================================================================!
 
 !> Calculate the weights of the reference system and the derivatives w.r.t.
@@ -210,49 +210,49 @@ contains  !> MODULE PROCEDURES START HERE
 
 !> calculate atomic dispersion coefficients and their derivatives w.r.t.
 !  the coordination number.
-  subroutine get_atomic_c6(nat,atoms,gwvec,gwdcn,c6,dc6dcn)
-    use disp_dftd3param
-    !> Nr. of atoms (without periodic images)
-    integer,intent(in) :: nat
-    !> numbers of every atom.
-    integer,intent(in) :: atoms(:)
-    !> weighting function for the atomic reference systems
-    real(wp),intent(in) :: gwvec(:,:)
-    !> derivative of the weighting function w.r.t. the coordination number
-    real(wp),intent(in) :: gwdcn(:,:)
-    !> C6 coefficients for all atom pairs.
-    real(wp),intent(out) :: c6(:,:)
-    !> derivative of the C6 w.r.t. the coordination number
-    real(wp),intent(out) :: dc6dcn(:,:)
-
-    integer :: iat,jat,ati,atj,iref,jref
-    real(wp) :: refc6,dc6,dc6dcni,dc6dcnj
-
-    c6 = 0.0_wp
-    dc6dcn = 0.0_wp
-
-    do iat = 1,nat
-      ati = atoms(iat)
-      do jat = 1,iat
-        atj = atoms(jat)
-        dc6 = 0.0_wp
-        dc6dcni = 0.0_wp
-        dc6dcnj = 0.0_wp
-        do iref = 1,number_of_references(ati)
-          do jref = 1,number_of_references(atj)
-            refc6 = get_c6(iref,jref,ati,atj)
-            dc6 = dc6+gwvec(iref,iat)*gwvec(jref,jat)*refc6
-            dc6dcni = dc6dcni+gwdcn(iref,iat)*gwvec(jref,jat)*refc6
-            dc6dcnj = dc6dcnj+gwvec(iref,iat)*gwdcn(jref,jat)*refc6
-          end do
-        end do
-        c6(iat,jat) = dc6
-        c6(jat,iat) = dc6
-        dc6dcn(iat,jat) = dc6dcni
-        dc6dcn(jat,iat) = dc6dcnj
-      end do
-    end do
-  end subroutine get_atomic_c6
+!  subroutine get_atomic_c6(nat,atoms,gwvec,gwdcn,c6,dc6dcn)
+!    use disp_dftd3param
+!    !> Nr. of atoms (without periodic images)
+!    integer,intent(in) :: nat
+!    !> numbers of every atom.
+!    integer,intent(in) :: atoms(:)
+!    !> weighting function for the atomic reference systems
+!    real(wp),intent(in) :: gwvec(:,:)
+!    !> derivative of the weighting function w.r.t. the coordination number
+!    real(wp),intent(in) :: gwdcn(:,:)
+!    !> C6 coefficients for all atom pairs.
+!    real(wp),intent(out) :: c6(:,:)
+!    !> derivative of the C6 w.r.t. the coordination number
+!    real(wp),intent(out) :: dc6dcn(:,:)
+!
+!    integer :: iat,jat,ati,atj,iref,jref
+!    real(wp) :: refc6,dc6,dc6dcni,dc6dcnj
+!
+!    c6 = 0.0_wp
+!    dc6dcn = 0.0_wp
+!
+!    do iat = 1,nat
+!      ati = atoms(iat)
+!      do jat = 1,iat
+!        atj = atoms(jat)
+!        dc6 = 0.0_wp
+!        dc6dcni = 0.0_wp
+!        dc6dcnj = 0.0_wp
+!        do iref = 1,number_of_references(ati)
+!          do jref = 1,number_of_references(atj)
+!            refc6 = get_c6(iref,jref,ati,atj)
+!            dc6 = dc6+gwvec(iref,iat)*gwvec(jref,jat)*refc6
+!            dc6dcni = dc6dcni+gwdcn(iref,iat)*gwvec(jref,jat)*refc6
+!            dc6dcnj = dc6dcnj+gwvec(iref,iat)*gwdcn(jref,jat)*refc6
+!          end do
+!        end do
+!        c6(iat,jat) = dc6
+!        c6(jat,iat) = dc6
+!        dc6dcn(iat,jat) = dc6dcni
+!        dc6dcn(jat,iat) = dc6dcnj
+!      end do
+!    end do
+!  end subroutine get_atomic_c6
 !========================================================================================!
 
 !> calculate atomic dispersion coefficients and their derivatives w.r.t.
@@ -403,14 +403,14 @@ contains  !> MODULE PROCEDURES START HERE
     cngw = exp(-wf*(cn-cnref)**2)
   end function weight_cn
 
-  real(wp) pure elemental function pair_scale(iat,jat) result(scale)
-    integer,intent(in) :: iat,jat
-    if (iat == jat) then
-      scale = 0.5_wp
-    else
-      scale = 1.0_wp
-    end if
-  end function pair_scale
+!  real(wp) pure elemental function pair_scale(iat,jat) result(scale)
+!    integer,intent(in) :: iat,jat
+!    if (iat == jat) then
+!      scale = 0.5_wp
+!    else
+!      scale = 1.0_wp
+!    end if
+!  end function pair_scale
 
   pure function trapzd(pol)
     real(wp),intent(in) :: pol(23)

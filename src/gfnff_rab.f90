@@ -136,6 +136,8 @@ contains  !> MODULE PROCEDURES START HERE
     p(6,2)=    -1.30000000
 !&>
 
+    if(.false.) write(*,*) xyz  ! silences -Wunused-dummy-argument
+
     do k = 1,nsrb
       i = srblist(1,k)
       j = srblist(2,k)

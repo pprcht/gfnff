@@ -118,6 +118,8 @@ contains   !> MODULE PROCEDURES START HERE
     type(TGFFTopology),intent(inout) :: topo
     ! Stack
 
+    if(.false.) write(*,*) at,xyz ! silences -Wunused-dummy-argument  
+
     if (.not.allocated(topo%nb)) allocate (topo%nb(20,nat),source=0)
     if (.not.allocated(topo%qfrag)) allocate (topo%qfrag(nat),source=0.0d0)
     if (.not.allocated(topo%fraglist)) allocate (topo%fraglist(nat),source=0)

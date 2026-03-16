@@ -432,7 +432,7 @@ contains  !> MODULE PROCEDURES START HERE
         rabd(i,i) = 0.0
         do j = 1,topo%nb(20,i)
           k = topo%nb(j,i)
-          rabd(k,i) = param%rad(at(i))+param%rad(at(k))
+          rabd(k,i) = real((param%rad(at(i))+param%rad(at(k))),4)
           rabd(i,k) = rabd(k,i)
         end do
       end do

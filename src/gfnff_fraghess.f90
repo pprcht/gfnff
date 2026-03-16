@@ -215,7 +215,7 @@ contains  !> MODULE PROCEDURES START HERE
         do k = j,nspinsyst(i)
           ati = ispinsyst(j,i)
           atj = ispinsyst(k,i)
-          rmaxab(atj,ati) = jab(lin(atj,ati))/1.2
+          rmaxab(atj,ati) = real(jab(lin(atj,ati))/1.2,4)
           rmaxab(ati,atj) = rmaxab(atj,ati)
         end do
       end do
@@ -526,6 +526,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer               :: i
     real(wp)              :: sumw
     real(wp)              :: sumwx,sumwy,sumwz
+
+    if(.false.)  i = at(1) ! silences -Wunused-dummy-argument
 
     sumw = 0
     sumwx = 0.d0

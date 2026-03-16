@@ -454,6 +454,8 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     integer   :: i,j,k
     real(wp)  :: dum
 
+    if(.false.) write(*,*) n  ! silences -Wunused-dummy-argument 
+
     call newGFNFFGenerator(gen)
 
     param%cnmax = 4.4         ! max. CN considered ie all larger values smoothly set to this val

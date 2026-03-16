@@ -132,15 +132,15 @@ contains  !> MODULE PROCEDURES START HERE
       count = exp(param%cnmax)/(exp(param%cnmax)+exp(cn))
     end function create_dlogCN
 
-    pure elemental function create_erfCN(k,r,r0) result(count)
-      real(wp),intent(in) :: k
-      real(wp),intent(in) :: r
-      real(wp),intent(in) :: r0
-      real(wp) :: count
-      real(wp) :: dr
-      dr = (r-r0)/r0
-      count = 0.5_wp*(1.0_wp+erf(kn*dr))
-    end function create_erfCN
+!    pure elemental function create_erfCN(k,r,r0) result(count)
+!      real(wp),intent(in) :: k
+!      real(wp),intent(in) :: r
+!      real(wp),intent(in) :: r0
+!      real(wp) :: count
+!      real(wp) :: dr
+!      dr = (r-r0)/r0
+!      count = 0.5_wp*(1.0_wp+erf(kn*dr))
+!    end function create_erfCN
 
     pure elemental function create_derfCN(k,r,r0) result(count)
       real(wp),intent(in) :: k
@@ -153,23 +153,23 @@ contains  !> MODULE PROCEDURES START HERE
       count = k/sqrtpi*exp(-k**2*dr*dr)/r0
     end function create_derfCN
 
-    pure elemental function create_expCN(k,r,r0) result(count)
-      real(wp),intent(in) :: k
-      real(wp),intent(in) :: r
-      real(wp),intent(in) :: r0
-      real(wp) :: count
-      count = 1.0_wp/(1.0_wp+exp(-k*(r0/r-1.0_wp)))
-    end function create_expCN
+!    pure elemental function create_expCN(k,r,r0) result(count)
+!      real(wp),intent(in) :: k
+!      real(wp),intent(in) :: r
+!      real(wp),intent(in) :: r0
+!      real(wp) :: count
+!      count = 1.0_wp/(1.0_wp+exp(-k*(r0/r-1.0_wp)))
+!    end function create_expCN
 
-    pure elemental function create_dexpCN(k,r,r0) result(count)
-      real(wp),intent(in) :: k
-      real(wp),intent(in) :: r
-      real(wp),intent(in) :: r0
-      real(wp) :: count
-      real(wp) :: expterm
-      expterm = exp(-k*(r0/r-1._wp))
-      count = (-k*r0*expterm)/(r**2*((expterm+1._wp)**2))
-    end function create_dexpCN
+!    pure elemental function create_dexpCN(k,r,r0) result(count)
+!      real(wp),intent(in) :: k
+!      real(wp),intent(in) :: r
+!      real(wp),intent(in) :: r0
+!      real(wp) :: count
+!      real(wp) :: expterm
+!      expterm = exp(-k*(r0/r-1._wp))
+!      count = (-k*r0*expterm)/(r**2*((expterm+1._wp)**2))
+!    end function create_dexpCN
 
   end subroutine gfnff_dlogcoord
 
