@@ -117,23 +117,6 @@ contains   !> MODULE PROCEDURES START HERE
     integer,intent(inout)  :: ichrg
     type(TGFFTopology),intent(inout) :: topo
     ! Stack
-    integer           :: i,j,k
-    integer           :: ni
-    integer           :: ns
-    integer           :: nf
-    integer           :: ich
-    integer           :: iatom
-    integer           :: iresidue
-    integer           :: ifrag
-    integer           :: ibond
-    integer           :: bond_ij(3)
-    real(wp)          :: r
-    real(wp)          :: dum1
-    real(wp)          :: floats(10)
-    logical           :: ex
-    character(len=80) :: atmp
-    character(len=80) :: s(10)
-    integer,allocatable :: rn(:)
 
     if (.not.allocated(topo%nb)) allocate (topo%nb(20,nat),source=0)
     if (.not.allocated(topo%qfrag)) allocate (topo%qfrag(nat),source=0.0d0)

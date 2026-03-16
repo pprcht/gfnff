@@ -171,7 +171,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),parameter :: kB = 3.166808578545117e-06_wp
     real(wp),parameter :: boltz = kB*autoev
     real(wp),parameter :: thr = 1.d-9
-    integer :: ncycle,i,j,m,k,i1,i2
+    integer :: ncycle,i
 
     bkt = boltz*t
 

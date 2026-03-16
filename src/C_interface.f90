@@ -76,7 +76,7 @@ contains  !> MODULE PROCEDURES START HERE
     character(len=:),allocatable :: solvent
     logical :: verbose,pr
     integer :: iunit,printlevel,iostatus
-    integer :: i,ichrg
+    integer :: ichrg
 
     !> Convert C arguments to Fortran types
     nat = c_nat
@@ -151,7 +151,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),pointer :: xyz(:,:)
     real(wp),pointer :: grad(:,:)
     real(wp) :: energy
-    integer :: iostat,i,j
+    integer :: iostat
 
     !> Convert C pointers to Fortran pointers
     call c_f_pointer(c_calculator%ptr,calc_ptr)

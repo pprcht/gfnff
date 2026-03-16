@@ -25,6 +25,7 @@ project(
     'default_library=static',  # gfnff is a dependency library; always build static
     'c_std=gnu11',
     'cpp_std=c++11',
+    'warnlevel=1',
   ],
 )
 

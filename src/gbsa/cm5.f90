@@ -40,7 +40,7 @@ contains
     real(wp),intent(out) :: cm5(nat)
     real(wp),intent(out) :: dcm5dr(3,nat,nat)
     real(wp) :: d(mz,mz)
-    real(wp) :: dist,bkk,bkkd,bkkda
+    real(wp) :: dist, bkk, bkkda
     integer  :: iat,jat
     real(wp) :: alp,rab(3),pij,pji
 !

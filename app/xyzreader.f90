@@ -70,7 +70,7 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     integer,intent(out) :: nat
     integer,allocatable,intent(out) :: at(:)
     real(wp),allocatable,intent(out) :: xyz(:,:)
-    integer :: i,j,k,ich,io
+    integer :: i,j,ich,io
     character(len=80) :: atmp
     character(len=2) :: symb
 !>--- reset
@@ -107,7 +107,7 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     real(wp),intent(in) :: xyz(3,nat)
     integer :: i
     write (chnl,'(2x,i0)') nat
-    write(chnl,*)
+    write (chnl,*)
     do i = 1,nat
       write (chnl,'(a2,3F20.13)') i2e(at(i),'nc'),xyz(1:3,i)*autoaa
     end do
@@ -123,8 +123,7 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     character(len=*),intent(in) :: cin
     character(len=:),allocatable :: c
     integer :: iout
-    integer :: i,j,k,ich,io,Z
-    logical :: ex
+    integer :: i,j,io,Z
     c = trim(convertlable(cin))
     read (cin,*,iostat=io) j
     if (io == 0) Z = j

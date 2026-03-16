@@ -204,8 +204,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> LOCAL
     character(len=:),allocatable :: fname
     integer :: ich,io,myunit
-    logical :: ex,okbas,pr,pr2
-    logical :: exitRun
+    logical :: ex,pr,pr2
     logical :: restart
 
 !> mapping of optional instuctions

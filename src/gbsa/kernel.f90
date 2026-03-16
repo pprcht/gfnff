@@ -97,14 +97,13 @@ contains
     !> Deriatives of Born solvation energy
     real(wp),intent(inout) :: gradient(:,:)
 
-    integer :: i,j,k,nnj
+    integer :: i,j
     integer :: kk
     real(wp),parameter :: a13 = 1._wp/3._wp
     real(wp),parameter :: a4 = 0.25_wp
-    real(wp) :: aa,r2,fgb,fgb2,br3
-    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,egb,ap,bp,qfg
+    real(wp) :: aa,r2,fgb
+    real(wp) :: qq,dd,expd,dfgb,dfgb3,egb,ap,bp,qfg
     real(wp) :: gg,expa
-    real(wp) :: r0vdw,r01,r02,ar02
     real(wp) :: grddbi,grddbj
     real(wp) :: dr(3),r
     real(wp),allocatable :: grddb(:)
@@ -204,14 +203,12 @@ contains
     !> Deriatives of Born solvation energy
     real(wp),intent(inout) :: gradient(:,:)
 
-    integer :: i,j,k,nnj
+    integer :: i,j
     integer :: kk
     real(wp),parameter :: a13 = 1._wp/3._wp
     real(wp),parameter :: a4 = 0.25_wp
-    real(wp) :: aa,r2,fgb,fgb2,br3
-    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,egb,ap,bp,qfg
-    real(wp) :: gg,expa
-    real(wp) :: r0vdw,r01,r02,ar02
+    real(wp) :: aa,r2,fgb2
+    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,egb,ap,bp
     real(wp) :: grddbi,grddbj
     real(wp) :: dr(3),r
     real(wp),allocatable :: grddb(:)
@@ -309,8 +306,8 @@ contains
     real(wp),intent(inout) :: gradient(:,:)
 
     integer :: iat,jat,kk
-    real(wp) :: vec(3),r2,r1,ab,arg1,arg16,qq,fgb,fgb2,dfgb,dfgb2,egb
-    real(wp) :: dEdbri,dEdbrj,dG(3),ap,bp,dS(3,3)
+    real(wp) :: vec(3),r2,r1,ab,arg1,arg16,qq,fgb,dfgb,dfgb2,egb
+    real(wp) :: dEdbri,dEdbrj,dG(3),ap,bp
     real(wp),allocatable :: dEdbr(:)
 
     allocate (dEdbr(nat),source=0.0_wp)
@@ -414,15 +411,14 @@ contains
     real(wp),intent(inout) :: Afac(:,:)
     real(wp),intent(out)   :: gborn
 
-    integer :: i,j,k,nnj
+    integer :: i,j
     integer :: kk
     real(wp),parameter :: a13 = 1._wp/3._wp
     real(wp),parameter :: a4 = 0.25_wp
     real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-    real(wp) :: aa,r2,fgb,fgb2,br3
+    real(wp) :: aa,r2,fgb,fgb2
     real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,ap,bp,qfg
-    real(wp) :: gg,expa,aii,egb
-    real(wp) :: r0vdw,r01,r02,ar02
+    real(wp) :: gg,expa,egb
     real(wp) :: grddbi,grddbj
     real(wp) :: dr(3),r
 
@@ -517,15 +513,14 @@ contains
     real(wp),intent(inout) :: Afac(:,:)
     real(wp),intent(out)   :: gborn
 
-    integer :: i,j,k,nnj
+    integer :: i,j
     integer :: kk
     real(wp),parameter :: a13 = 1._wp/3._wp
     real(wp),parameter :: a4 = 0.25_wp
     real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-    real(wp) :: aa,r2,fgb,fgb2,br3
-    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,ap,bp,qfg
-    real(wp) :: gg,expa,aii,egb
-    real(wp) :: r0vdw,r01,r02,ar02
+    real(wp) :: aa,r2,fgb2
+    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,ap,bp
+    real(wp) :: egb
     real(wp) :: grddbi,grddbj
     real(wp) :: dr(3),r
 
@@ -609,12 +604,12 @@ contains
     !> Interaction matrix
     real(wp),intent(inout) :: Amat(:,:)
 
-    integer  :: i,j,nnj
+    integer :: i,j
     integer  :: kk
     real(wp),parameter :: a13 = 1.0_wp/3.0_wp
     real(wp),parameter :: a4 = 0.25_wp
     real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-    real(wp) :: aa,r2,gg,arg,bp
+    real(wp) :: aa,r2,gg
     real(wp) :: dd,expd,fgb,fgb2,dfgb
 
     ! compute energy and Amat direct and radii derivatives
@@ -667,13 +662,13 @@ contains
     !> Interaction matrix
     real(wp),intent(inout) :: Amat(:,:)
 
-    integer  :: i,j,nnj
+    integer :: i,j
     integer  :: kk
     real(wp),parameter :: a13 = 1.0_wp/3.0_wp
     real(wp),parameter :: a4 = 0.25_wp
     real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-    real(wp) :: aa,r2,gg,arg,bp
-    real(wp) :: dd,expd,fgb,fgb2,dfgb
+    real(wp) :: aa,r2,bp
+    real(wp) :: dd,expd,fgb2,dfgb
 
     ! compute energy and Amat direct and radii derivatives
     do kk = 1,ntpair
@@ -725,7 +720,7 @@ contains
 
     integer :: kk
     integer :: iat,jat
-    real(wp) :: r1,ab,arg,eab,fgb,dfgb,bp
+    real(wp) :: r1,ab,arg,fgb,dfgb,bp
 
     ! omp parallel do default(none) shared(Amat, ntpair, ppind, ddpair, brad, keps) &
     ! omp private(kk, iat, jat, r1, ab, arg, fgb, dfgb)

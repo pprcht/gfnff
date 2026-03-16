@@ -26,9 +26,9 @@ contains  !> Unit tests for PV calculations
     testsuite = [ &
     new_unittest("GFN-FF singlepoint calculation ",test_gfnff_sp), &
 #ifdef WITH_GBSA
-    new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb), & 
+    new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb), &
 #else
-    new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb,should_fail=.true.), &   
+    new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb,should_fail=.true.), &
 #endif
 !    new_unittest("GFN-FF OpenMP parallel SP      ",test_gfnff_openmp), &
     new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad) &
@@ -46,7 +46,6 @@ contains  !> Unit tests for PV calculations
     integer,allocatable :: at(:)
     integer :: nat,io,ichrg
     logical :: pr
-    character(len=:),allocatable :: alpbsolvent
     type(gfnff_data) :: calculator
 
 !&<
@@ -143,8 +142,8 @@ contains  !> Unit tests for PV calculations
     !> calculation
     call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
     call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,pr,iostat=io)
-   ! write (*,'(F25.15)') energy
-   ! write (*,'(3(F20.15,"_wp,")," &")') grad
+    ! write (*,'(F25.15)') energy
+    ! write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
     if (allocated(error)) return
 
@@ -233,7 +232,7 @@ contains  !> Unit tests for PV calculations
     at = testat
     xyz = testxyz
     ichrg = 0 !> mol. charge
-    alpbsolvent='h2o'
+    alpbsolvent = 'h2o'
     pr = .false.
     energy = 0.0_wp
     allocate (grad(3,nat),source=0.0_wp)
@@ -269,11 +268,8 @@ contains  !> Unit tests for PV calculations
     real(wp) :: energy
     real(wp),allocatable :: xyz(:,:),grad(:,:)
     integer,allocatable :: at(:)
-    integer :: nat,io,i,j,ntimes,ichrg
+    integer :: nat,ichrg
     logical :: pr
-    type(gfnff_data) :: calculator
-    type(gfnff_timer) :: timer
-    character(len=40) :: atmp
     logical :: speedup
 !&<
     real(wp),parameter :: e_ref = -4.672792533926004_wp
@@ -310,8 +306,8 @@ contains  !> Unit tests for PV calculations
     allocate (at(nat),xyz(3,nat))
     at = testat
     xyz = testxyz
-    ichrg=0
-    pr=.false.
+    ichrg = 0
+    pr = .false.
     energy = 0.0_wp
     allocate (grad(3,nat),source=0.0_wp)
 

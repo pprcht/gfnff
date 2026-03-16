@@ -123,14 +123,12 @@ contains  !> MODULE PROCEDURES START HERE
 
     integer  :: i,j,k,l,m,ij,nd3
     integer  :: ati,atj,iat,jat
-    integer  :: hbA,hbB
-    integer  :: lin
-    logical  :: ex,require_update
+    logical :: require_update
     integer  :: nhb1,nhb2,nxb
-    real(wp) ::  r2,rab,qq0,erff,dd,dum1,r3(3),t8,dum,t22,t39
-    real(wp) ::  dx,dy,dz,yy,t4,t5,t6,alpha,t20
-    real(wp) ::  repab,t16,t19,t26,t27,xa,ya,za,cosa,de,t28
-    real(wp) ::  gammij,eesinf,etmp,phi
+    real(wp) :: r2,rab,erff,dd,r3(3),t8,dum
+    real(wp) :: dx,dy,dz,yy,t4,t5,t6,alpha
+    real(wp) :: repab,t16,t19,t26,t27,xa,ya,za,de
+    real(wp) :: gammij,eesinf,etmp
     real(wp) ::  rn,dr,g3tmp(3,3),g4tmp(3,4)
     real(wp) :: rij,drij(3,n)
 
@@ -687,7 +685,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(inout) :: e
     real(wp),intent(inout) :: g(3,n)
     !Stack
-    integer j,k
+    integer :: k
     real(wp) :: dr,dum
     real(wp) :: dx,dy,dz
     real(wp) :: yy
@@ -809,12 +807,10 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(out) :: cn(nat)
     real(wp),intent(out) :: dcn(3,nat,nat)
     real(wp),intent(in),optional :: thr
-    real(wp) :: cn_thr
     !Stack
     integer  :: i,j
-    integer  :: lin,linAH
     integer  :: iat,jat
-    integer  :: iA,jA,jH
+    integer :: iA
     integer  :: ati,atj
     real(wp) :: r,r2,rij(3)
     real(wp) :: rcovij
@@ -865,11 +861,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
     real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
     real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) ::  dampjl,damp2jl,rn
+    real(wp) :: theta,deda(3),vp(3)
 
     c0 = topo%vangl(1,m)
     kijk = topo%vangl(2,m)
@@ -927,13 +919,9 @@ contains  !> MODULE PROCEDURES START HERE
     !Stack
     real(wp) ::  kijk,va(3),vb(3),vc(3),cosa
     real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) ::  dampjl,damp2jl,rn
+    real(wp) :: rab2,vab(3),vcb(3),rp
+    real(wp) :: rcb2
+    real(wp) :: theta,deda(3),vp(3)
 
     kijk = fc/(cos(0.0d0)-cos(c0))**2
     va(1:3) = xyz(1:3,i)
@@ -987,11 +975,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
     real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
     real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) ::  dampjl,damp2jl,rn
+    real(wp) :: theta,deda(3),vp(3)
 
     va(1:3) = xyz(1:3,i)
     vb(1:3) = xyz(1:3,j)
@@ -1045,14 +1029,12 @@ contains  !> MODULE PROCEDURES START HERE
     integer i,j,k,l
     real(wp) :: xyz(3,n),g(3,4),e
 
-    real(wp) ::  c0,kijk,va(3),vb(3),vc(3),cosa
-    real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
+    real(wp) :: term1(3),term2(3),vab(3),vcb(3)
+    real(wp) :: damp,dampij,damp2ij,dampjk,damp2jk
+    real(wp) :: et,dij,c1
+    real(wp) :: term3(3),x1sin,x1cos,dphi1,vdc(3)
     real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
+    real(wp) :: rij,phi0,rkl,rjk,dampkl,damp2kl
     real(wp) ::  dampjl,damp2jl,rn
 
     rn = dble(topo%tlist(5,m))
@@ -1132,15 +1114,12 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: phi0,tshift
     real(wp) :: xyz(3,n),g(3,4),e
     !Stack
-    real(wp) ::  c0,fc,kijk,va(3),vb(3),vc(3),cosa
-    real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,rkl,rjk,dampkl,damp2kl
-    real(wp) ::  dampjl,damp2jl
+    real(wp) :: fc
+    real(wp) :: vab(3),vcb(3)
+    real(wp) :: et,dij,c1
+    real(wp) :: x1sin,x1cos,dphi1,vdc(3)
+    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),phi
+    real(wp) :: rij,rkl,rjk
 
     fc = (1.0d0-tshift)/2.0d0
     vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
@@ -1176,15 +1155,12 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: phi0,fc
     real(wp) :: xyz(3,n),g(3,4),e
     !Stack
-    real(wp) ::  c0,kijk,va(3),vb(3),vc(3),cosa
-    real(wp) ::  dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) ::  term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) ::  rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) ::  theta,deda(3),vp(3),et,dij,c1
-    real(wp) ::  term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ::  ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) ::  rij,rijk,rkl,rjk,dampkl,damp2kl
-    real(wp) ::  dampjl,damp2jl
+    real(wp) :: term1(3),term2(3),vab(3),vcb(3)
+    real(wp) :: damp,dampij,damp2ij,dampjk,damp2jk
+    real(wp) :: et,dij,c1
+    real(wp) :: term3(3),x1sin,x1cos,dphi1,vdc(3)
+    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),phi
+    real(wp) :: rij,rkl,rjk,dampkl,damp2kl
 
     vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
     vcb(1:3) = xyz(1:3,j)-xyz(1:3,k)
@@ -1291,7 +1267,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer :: m,i,j,k,ii,ij
     integer :: io1,io2
     integer,allocatable :: ipiv(:)
-    real(wp) :: gammij,tsqrt2pi,r2,tmp
+    real(wp) :: gammij,tsqrt2pi,tmp
     real(wp),allocatable :: A(:,:),x(:)
     real(sp),allocatable :: A4(:,:),x4(:)
 !>  parameter
@@ -1406,19 +1382,16 @@ contains  !> MODULE PROCEDURES START HERE
 
     real(wp) :: outl,dampl,damps,rdamp,damp,dd24a,dd24b
     real(wp) :: ratio1,ratio2,ratio3
-    real(wp) :: xm,ym,zm
     real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3)
+    real(wp) :: drah(3),drbh(3),drab(3)
     real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
     real(wp) :: ga(3),gb(3),gh(3)
-    real(wp) :: gi,denom,ratio,tmp,qhoutl,radab,rahprbh
+    real(wp) :: gi,denom,tmp,qhoutl,radab,rahprbh
     real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
     real(wp) :: bas,aci
-    real(wp) :: eabh
     real(wp) :: aterm,rterm,dterm,sterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: caa,cbb
     real(wp) :: shortcut
 
@@ -1571,23 +1544,20 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
     real(wp) :: ratio1,ratio2,ratio2_nb(topo%nb(20,B)),ratio3
-    real(wp) :: xm,ym,zm
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
+    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
     real(wp) :: ranb(topo%nb(20,B)),ranb2(topo%nb(20,B)),rbnb(topo%nb(20,B)),rbnb2(topo%nb(20,B))
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3)
+    real(wp) :: drah(3),drbh(3),drab(3)
     real(wp) :: dranb(3,topo%nb(20,B)),drbnb(3,topo%nb(20,B))
     real(wp) :: dg(3),dga(3),dgb(3),dgh(3),dgnb(3)
     real(wp) :: ga(3),gb(3),gh(3),gnb(3,topo%nb(20,B))
-    real(wp) :: denom,ratio,qhoutl,radab
+    real(wp) :: qhoutl,radab
     real(wp) :: gi,gi_nb(topo%nb(20,B))
     real(wp) :: tmp1,tmp2(topo%nb(20,B))
     real(wp) :: rahprbh,ranbprbnb(topo%nb(20,B))
     real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo,expo_nb(topo%nb(20,B))
-    real(wp) :: eabh
     real(wp) :: aterm,dterm,nbterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: shortcut
     real(wp) :: const
     real(wp) :: outl_nb(topo%nb(20,B)),outl_nb_tot
@@ -1805,23 +1775,20 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
     real(wp) :: ratio1,ratio2,ratio2_lp,ratio2_nb(topo%nb(20,B)),ratio3
-    real(wp) :: xm,ym,zm
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
+    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
     real(wp) :: ranb(topo%nb(20,B)),ranb2(topo%nb(20,B)),rbnb(topo%nb(20,B)),rbnb2(topo%nb(20,B))
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3),dralp(3),drblp(3)
+    real(wp) :: drah(3),drbh(3),drab(3),dralp(3),drblp(3)
     real(wp) :: dranb(3,topo%nb(20,B)),drbnb(3,topo%nb(20,B))
     real(wp) :: dg(3),dga(3),dgb(3),dgh(3),dgnb(3)
     real(wp) :: ga(3),gb(3),gh(3),gnb(3,topo%nb(20,B)),gnb_lp(3),glp(3)
-    real(wp) :: denom,ratio,qhoutl,radab
+    real(wp) :: qhoutl,radab
     real(wp) :: gi,gi_nb(topo%nb(20,B))
     real(wp) :: tmp1,tmp2(topo%nb(20,B)),tmp3
     real(wp) :: rahprbh,ranbprbnb(topo%nb(20,B))
     real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo,expo_lp,expo_nb(topo%nb(20,B))
-    real(wp) :: eabh
     real(wp) :: aterm,dterm,nbterm,lpterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: shortcut
     real(wp) :: const
     real(wp) :: outl_nb(topo%nb(20,B)),outl_nb_tot,outl_lp
@@ -2103,41 +2070,38 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
     real(wp) :: ratio1,ratio2,ratio2_nb(topo%nb(20,B)),ratio3
-    real(wp) :: xm,ym,zm
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
+    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
     real(wp) :: ranb(topo%nb(20,B)),ranb2(topo%nb(20,B)),rbnb(topo%nb(20,B)),rbnb2(topo%nb(20,B))
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3)
+    real(wp) :: drah(3),drbh(3),drab(3)
     real(wp) :: dranb(3,topo%nb(20,B)),drbnb(3,topo%nb(20,B))
     real(wp) :: dg(3),dga(3),dgb(3),dgh(3),dgnb(3)
     real(wp) :: ga(3),gb(3),gh(3),gnb(3,topo%nb(20,B))
     real(wp) :: phi,phi0,r0,t0,fc,tshift,bshift
     real(wp) :: eangl,etors,gangl(3,n),gtors(3,n)
     real(wp) :: etmp(20),g3tmp(3,3),g4tmp(3,4,20)
-    real(wp) :: ratio,qhoutl,radab
+    real(wp) :: qhoutl,radab
     real(wp) :: gi,gi_nb(topo%nb(20,B))
     real(wp) :: tmp1,tmp2(topo%nb(20,B))
     real(wp) :: rahprbh,ranbprbnb(topo%nb(20,B))
     real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo,expo_nb(topo%nb(20,B))
-    real(wp) :: eabh
     real(wp) :: aterm,dterm,nbterm,bterm,tterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: shortcut
-    real(wp) :: tlist(5,topo%nb(20,topo%nb(1,B)))
+    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
     real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
     real(wp) :: const
     real(wp) :: outl_nb(topo%nb(20,B)),outl_nb_tot
-    logical mask_nb(topo%nb(20,B)),t_mask(20)
+    logical :: mask_nb(topo%nb(20,B)),t_mask(20)
 
 !> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
 
-    integer C,D
-    integer i,j,ii,jj,kk,ll,ij,lina
-    integer nbb,nbc
-    integer ntors,rn
+    integer :: C
+    integer :: i,j,ii,jj,kk,ll,ij,lina
+    integer :: nbb,nbc
+    integer :: ntors,rn
 
     lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
 
@@ -2428,7 +2392,7 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
-    integer A,B,H,C,D,n,at(n)
+    integer :: A,B,H,C,n,at(n)
     real(wp) :: xyz(3,n),energy,gdr(3,n)
     real(wp) :: q(n)
     real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
@@ -2436,32 +2400,26 @@ contains  !> MODULE PROCEDURES START HERE
 
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
-    real(wp) :: ratio1,ratio2,ratio2_nb(topo%nb(20,B)),ratio3
-    real(wp) :: xm,ym,zm
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
-    real(wp) :: ranb(topo%nb(20,B)),ranb2(topo%nb(20,B)),rbnb(topo%nb(20,B)),rbnb2(topo%nb(20,B))
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3)
-    real(wp) :: dranb(3,topo%nb(20,B)),drbnb(3,topo%nb(20,B))
-    real(wp) :: dg(3),dga(3),dgb(3),dgh(3),dgnb(3)
-    real(wp) :: ga(3),gb(3),gh(3),gnb(3,topo%nb(20,B))
+    real(wp) :: ratio1,ratio2,ratio3
+    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
+    real(wp) :: drah(3),drbh(3),drab(3)
+    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
+    real(wp) :: ga(3),gb(3),gh(3)
     real(wp) :: phi,phi0,r0,fc,tshift,bshift
     real(wp) :: eangl,etors,gangl(3,n),gtors(3,n)
     real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
-    real(wp) :: denom,ratio,qhoutl,radab
-    real(wp) :: gi,gi_nb(topo%nb(20,B))
-    real(wp) :: tmp1,tmp2(topo%nb(20,B))
-    real(wp) :: rahprbh,ranbprbnb(topo%nb(20,B))
-    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo,expo_nb(topo%nb(20,B))
-    real(wp) :: eabh
+    real(wp) :: qhoutl,radab
+    real(wp) :: gi
+    real(wp) :: tmp1
+    real(wp) :: rahprbh
+    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
     real(wp) :: aterm,dterm,bterm,tterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: shortcut
     real(wp) :: const
-    real(wp) :: tlist(5,topo%nb(20,topo%nb(1,B)))
+    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
     real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
-    logical mask_nb(topo%nb(20,B))
 
 !> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
@@ -2687,7 +2645,7 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
-    integer A,B,H,C,D,n,at(n)
+    integer :: A,B,H,C,n,at(n)
     real(wp) :: xyz(3,n),energy,gdr(3,n)
     real(wp) :: q(n)
     real(wp) :: sqrab(n*(n+1)/2)   ! squared dist
@@ -2695,41 +2653,34 @@ contains  !> MODULE PROCEDURES START HERE
 
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ddamp,rabdamp,rbhdamp
-    real(wp) :: ratio1,ratio2,ratio2_nb(topo%nb(20,B)),ratio3
-    real(wp) :: xm,ym,zm
-    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2,rah4,rbh4
-    real(wp) :: ranb(topo%nb(20,B)),ranb2(topo%nb(20,B)),rbnb(topo%nb(20,B)),rbnb2(topo%nb(20,B))
-    real(wp) :: drah(3),drbh(3),drab(3),drm(3)
-    real(wp) :: dranb(3,topo%nb(20,B)),drbnb(3,topo%nb(20,B))
-    real(wp) :: dg(3),dga(3),dgb(3),dgh(3),dgnb(3)
-    real(wp) :: ga(3),gb(3),gh(3),gnb(3,topo%nb(20,B))
+    real(wp) :: ratio1,ratio2,ratio3
+    real(wp) :: rab,rah,rbh,rab2,rah2,rbh2
+    real(wp) :: drah(3),drbh(3),drab(3)
+    real(wp) :: dg(3),dga(3),dgb(3),dgh(3)
+    real(wp) :: ga(3),gb(3),gh(3)
     real(wp) :: phi,phi0,r0,fc
     real(wp) :: eangl,etors
     real(wp) :: etmp,g3tmp(3,3),g4tmp(3,4)
-    real(wp) :: denom,ratio,qhoutl,radab
-    real(wp) :: gi,gi_nb(topo%nb(20,B))
-    real(wp) :: tmp1,tmp2(topo%nb(20,B))
-    real(wp) :: rahprbh,ranbprbnb(topo%nb(20,B))
-    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo,expo_nb(topo%nb(20,B))
-    real(wp) :: eabh
-    real(wp) :: aterm,dterm,nbterm
+    real(wp) :: qhoutl,radab
+    real(wp) :: gi
+    real(wp) :: tmp1
+    real(wp) :: rahprbh
+    real(wp) :: ex1a,ex2a,ex1b,ex2b,ex1h,ex2h,expo
+    real(wp) :: aterm,dterm
     real(wp) :: qa,qb,qh
     real(wp) :: ca(2),cb(2)
-    real(wp) :: gqa,gqb,gqh
     real(wp) :: shortcut
     real(wp) :: const
-    real(wp) :: outl_nb(topo%nb(20,B)),outl_nb_tot
-    real(wp) :: tlist(5,topo%nb(20,topo%nb(1,B)))
+    integer  :: tlist(5,topo%nb(20,topo%nb(1,B)))
     real(wp) :: vtors(2,topo%nb(20,topo%nb(1,B)))
-    logical mask_nb(topo%nb(20,B))
 
 !> proportion between Rbh und Rab distance dependencies
     real(wp) :: p_bh
     real(wp) :: p_ab
 
-    integer i,j,ii,jj,kk,ll,ij,lina
-    integer nbb,nbc
-    integer ntors,rn
+    integer :: i,j,ii,jj,kk,ll,ij,lina
+    integer :: nbb,nbc
+    integer :: ntors,rn
 
     lina(i,j) = min(i,j)+max(i,j)*(max(i,j)-1)/2
 
@@ -2934,18 +2885,15 @@ contains  !> MODULE PROCEDURES START HERE
 
     real(wp) :: outl,dampl,damps,rdamp,damp
     real(wp) :: ratio1,ratio2,ratio3
-    real(wp) :: rab,rax,rbx,rab2,rax2,rbx2,rax4,rbx4
-    real(wp) :: drax(3),drbx(3),drab(3),drm(3)
+    real(wp) :: rab,rax,rbx,rab2,rax2,rbx2
+    real(wp) :: drax(3),drbx(3),drab(3)
     real(wp) :: dg(3),dga(3),dgb(3),dgx(3)
     real(wp) :: gi,ga(3),gb(3),gx(3)
-    real(wp) :: ex1_a,ex2_a,ex1_b,ex2_b,ex1_x,ex2_x,expo
+    real(wp) :: ex1_b,ex2_b,ex1_x,ex2_x,expo
     real(wp) :: aterm,dterm
-    real(wp) :: qa,qb,qx
+    real(wp) :: qb,qx
     real(wp) :: cx,cb
-    real(wp) :: gqa,gqb,gqx
     real(wp) :: shortcut,const
-
-    integer i,j
 
     gdr = 0
     energy = 0

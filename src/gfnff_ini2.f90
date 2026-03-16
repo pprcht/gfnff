@@ -63,12 +63,12 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: f_in,f2_in               ! radius scaling for atoms/metal atoms recpectively
     real(wp) :: lintr                    ! threshold for linearity
 
-    logical :: etacoord,da,strange_iat,metal_iat
+    logical :: etacoord
     integer,allocatable :: nbdum(:,:)
     real(wp),allocatable :: cn(:),rtmp(:)
-    integer :: iat,i,j,k,ni,ii,jj,kk,ll,ati,nb20i,nbdiff,hc_crit,nbmdiff,nnf,nni,nh,nm
+    integer :: i,j,k,jj,kk,ll,ati,nb20i,nbdiff,nbmdiff,nni,nh,nm
     integer :: ai,aj,nn,im,ncm,l,no
-    real(wp) r,pi,a1,f,f1,phi,f2,rco,fat(86)
+    real(wp) :: pi,f1,phi,f2,rco,fat(86)
     data pi/3.1415926535897932384626433832795029d0/
     data fat/86*1.0d0/
 
@@ -453,7 +453,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine ringsatom(n,i,c,s,rings)
     implicit none
-    integer n,i,k,l,c(10,20,n),s(20,n),rings,rings1
+    integer :: n,i,k,c(10,20,n),s(20,n),rings
 
     rings = 99
     do k = 1,s(20,i)    ! all rings of atom i
@@ -702,15 +702,15 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     type(TGFFTopology),intent(in) :: topo
     type(TGFFNeighbourList),intent(inout) :: nlist
-    integer n
-    integer at(n)
-    real(wp) sqrab(n*(n+1)/2)
-    real(wp) xyz(3,n)
+    integer :: n
+    integer :: at(n)
+    real(wp) :: sqrab(n*(n+1)/2)
+    real(wp) :: xyz(3,n)
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer i,j,k,nh,ia,ix,ij,inh,jnh
-    real(wp) rab,rmsd
-    logical ijnonbond
+    integer :: i,j,k,nh,ix,ij,inh,jnh
+    real(wp) :: rab,rmsd
+    logical :: ijnonbond
 
     rmsd = sqrt(sum((xyz-nlist%hbrefgeo)**2))/dble(n)
 
@@ -780,10 +780,10 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,n)
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer i,j,k,nh,ia,ix,ij,inh,jnh
-    integer bond_nr
-    real(wp) rab
-    logical ijnonbond
+    integer :: i,j,k,nh,ix,ij,inh,jnh
+    integer :: bond_nr
+    real(wp) :: rab
+    logical :: ijnonbond
 
     bond_nr = 0
     bond_hbl = 0
@@ -826,9 +826,9 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,n)
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer i,j,k,nh,ia,ix,ij,inh,jnh
-    real(wp) rab
-    logical ijnonbond
+    integer :: i,j,k,nh,ix,ij,inh,jnh
+    real(wp) :: rab
+    logical :: ijnonbond
 
     bond_hbn = 0
     do ix = 1,topo%nathbAB
@@ -1067,15 +1067,15 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(out) :: nhb1
     integer,intent(out) :: nhb2
     integer,intent(out) :: nxb
-    integer n
-    integer at(n)
-    real(wp) sqrab(n*(n+1)/2)
-    real(wp) xyz(3,n)
+    integer :: n
+    integer :: at(n)
+    real(wp) :: sqrab(n*(n+1)/2)
+    real(wp) :: xyz(3,n)
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer i,j,k,nh,ia,ix,ij,inh,jnh
-    logical ijnonbond
-    real(wp) rab
+    integer :: i,j,k,nh,ix,ij,inh,jnh
+    logical :: ijnonbond
+    real(wp) :: rab
 
     nhb1 = 0
     nhb2 = 0
@@ -1122,9 +1122,8 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     type(TGFFTopology),intent(in) :: topo
     type(TGFFData),intent(in) :: param
-    integer i,j
-    integer ati,atj
-    real(wp) ci(2),cj(2)
+    integer :: i,j
+    real(wp) :: ci(2),cj(2)
     ci(1) = topo%hbbas(i)
     cj(1) = topo%hbbas(j)
     ci(2) = topo%hbaci(i)
@@ -1154,15 +1153,15 @@ contains  !> MODULE PROCEDURES START HERE
 
 !  local variables
     logical :: exitRun
-    integer  :: m,i,j,k,l,ii,jj,kk
-    integer  :: ij,lj
+    integer :: m,i,j,ii
+    integer :: ij
     integer,allocatable :: ipiv(:)
 
     integer :: info1,info2
-    real(wp) :: gammij,sief1,sief2
-    real(wp) :: r2,r0
+    real(wp) :: gammij
+    real(wp) :: r2
     real(wp) :: rij
-    real(wp) :: tsqrt2pi,bohr
+    real(wp) :: tsqrt2pi
     real(wp) :: tmp
     real(wp),allocatable :: A(:,:)
     real(wp),allocatable :: x(:)
@@ -1284,9 +1283,9 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nb(20,n)
     integer,intent(out) ::  pair(n*(n+1)/2)
 !     Stack
-    integer i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,jj,k
+    integer :: i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,k
     integer,allocatable :: list(:,:),nlist(:,:),nnn(:),nn(:)
-    logical da
+    logical :: da
 
     allocate (nnn(n),nn(n),list(5*n,n),nlist(5*n,n))
 
@@ -1428,8 +1427,8 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   logical function alphaCO(n,at,hyb,nb,pi,a,b)
-    integer n,a,b,at(n),hyb(n),nb(20,n),pi(n)
-    integer i,j,no,nc
+    integer :: n,a,b,at(n),hyb(n),nb(20,n),pi(n)
+    integer :: i,j,no
 
     alphaCO = .false.
     if (pi(a) .ne. 0.and.hyb(b) .eq. 3.and.at(a) .eq. 6.and.at(b) .eq. 6) then

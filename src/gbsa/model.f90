@@ -191,7 +191,6 @@ contains
     integer,intent(in) :: level
 
     character(len=:),allocatable :: solvent
-    logical :: exist
 
     self%TSolvInput = input
     call normalizeSolventName(solvent,input%solvent)
@@ -248,9 +247,7 @@ contains
 
     !> I/O handling
 
-    integer :: iostat
-
-    type(gbsa_parameter),allocatable :: param,stub
+    type(gbsa_parameter),allocatable :: param
 
     select case (self%kernel)
     case (gbKernel%still)

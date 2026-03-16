@@ -98,7 +98,6 @@ contains  !> MODULE PROCEDURES START HERE
     integer  :: eq_frag
     integer  :: maxdistatoms(2)
     integer  :: max_linkatoms(2)
-    integer  :: assigned_to_frag(nspin)
     integer  :: precessor(nspin)
     integer  :: path(nspin)
     integer  :: fragvec(nspin)
@@ -353,7 +352,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nsystem                            ! # of fragments
     !Stack
     integer                  :: isystem
-    integer                  :: i,j,ii,jj,k
+    integer :: i,j,ii,jj
     integer                  :: nat3                         ! # of atoms in the system * 3
     integer                  :: nat_cur                      ! # of atoms in fragment
     integer                  :: nat3_cur                     ! nat in fragments * 3

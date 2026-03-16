@@ -101,9 +101,9 @@ contains !> MODULE PROCEDURES START HERE
     integer :: cout(10,20),irout(20)  ! output: atomlist, ringsize, # of rings in irout(20)
     integer :: at(n)
     integer :: n,nbin(20,n),a0,i,nb(20,n),a0_in
-    integer :: i1,i2,i3,i4,i5,i6,i7,i8,i9,i10
-    integer :: n0,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10
-    integer :: a1,a2,a3,a4,a5,a6,a7,a8,a9,a10
+    integer :: i1,i2,i3,i4,i5,i6
+    integer :: n0,n1,n2,n3,n4,n5,n6
+    integer :: a1,a2,a3,a4,a5,a6
     integer :: list(n),m,mm,nn,c(10),cdum(10,600),iring
     integer :: adum1(0:n),adum2(0:n),kk,j,idum(600),same(600),k
     real(wp) :: w(n),av,sd
@@ -266,7 +266,7 @@ contains !> MODULE PROCEDURES START HERE
 
   subroutine ssort(n,edum,ind)
     implicit none
-    integer :: n,ii,k,j,m,i,sc1
+    integer :: n,ii,k,j,i,sc1
     real(wp) :: edum(n),pp
     integer :: ind(n)
 
@@ -321,8 +321,8 @@ contains !> MODULE PROCEDURES START HERE
     integer :: ic,i,j,k,l,natoms
     real(wp) :: xyz(3,natoms)
     real(wp) :: ra(3),rb(3),rc(3),na(3),nb(3)
-    real(wp) :: rab,rbc,thab,thbc
-    real(wp) :: nan,nbn,rcn,snanb,deter
+    real(wp) :: thab,thbc
+    real(wp) :: nan,nbn,snanb,deter
 
     real(wp),parameter :: eps = 1.0d-14
     real(wp),parameter :: pi = 3.1415926535897932384626433832795029d0
@@ -431,7 +431,7 @@ contains !> MODULE PROCEDURES START HERE
 
     real(wp) :: xyz(3,nat)
     real(wp) :: rd(3),re(3),rn(3),rv(3),rnv
-    real(wp) :: rkjn,rljn,rnn,rvn
+    real(wp) :: rnn,rvn
 
     do ic = 1,3
       re(ic) = xyz(ic,i)-xyz(ic,j)
@@ -517,12 +517,12 @@ contains !> MODULE PROCEDURES START HERE
 
     implicit none
     integer :: ic,i,j,k,l,nat
-    real(wp) :: sinphi,cosphi,onenner,thab,thbc
+    real(wp) :: sinphi,cosphi,onenner
     real(wp) :: ra(3),rb(3),rc(3),rab(3),rac(3),rbc(3),rbb(3)
     real(wp) :: raa(3),rba(3),rapba(3),rapbb(3),rbpca(3),rbpcb(3)
     real(wp) :: rapb(3),rbpc(3),na(3),nb(3),nan,nbn
     real(wp) :: dphidri(3),dphidrj(3),dphidrk(3),dphidrl(3)
-    real(wp) :: xyz(3,nat),phi,nenner,eps,vz
+    real(wp) :: xyz(3,nat),phi,nenner,eps
 
     parameter(eps=1.d-14)
 

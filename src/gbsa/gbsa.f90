@@ -845,10 +845,10 @@ contains
     integer,intent(out) :: nnlistr(:,:)
     real(wp),intent(out) :: ddpair(:,:)
 
-    integer kk,i1,i2
-    real(wp) rcutn2,lrcut2,srcut2
-    real(wp) x,y,z,dr2
-    integer ip,ip2,thrid,nproc
+    integer :: kk,i1,i2
+    real(wp) :: lrcut2,srcut2
+    real(wp) :: x,y,z,dr2
+    integer :: ip,ip2,thrid,nproc
     integer,allocatable :: npid(:)
     integer,allocatable :: plisttr(:,:,:)
     integer,allocatable :: nntmp(:)
@@ -942,10 +942,10 @@ contains
     integer,intent(out) :: nnlistr(:,:)
     real(wp),intent(out) :: ddpair(:,:)
 
-    integer kk,i1,i2
-    real(wp) rcutn2,lrcut2,srcut2
-    real(wp) x,y,z,dr2
-    integer ip,ip2
+    integer :: kk,i1,i2
+    real(wp) :: lrcut2,srcut2
+    real(wp) :: x,y,z,dr2
+    integer :: ip,ip2
 
     lrcut2 = lrcut*lrcut
     srcut2 = srcut*srcut
@@ -1005,12 +1005,7 @@ contains
     real(wp),intent(out) :: dhbdw(:)
 
     integer  :: i
-    integer  :: iz,nhb
-    real(wp) :: hbed,dhbed
-    real(wp) :: smaxd,sasad,sasaw
-    real(wp) :: sfw,dsfw,w3,w2,w1
-    integer  :: j
-    real(wp) :: wbh,wah
+    real(wp) :: smaxd,sasad
 
     hbw(:) = 0.0_wp
     dhbdw(:) = 0.0_wp
@@ -1083,17 +1078,10 @@ contains
     real(wp),intent(out)   :: gborn
     real(wp),intent(out)   :: ghb
 
-    integer :: i,j,k,nnj
-    integer :: kk
     real(wp),parameter :: a13 = 1._wp/3._wp
     real(wp),parameter :: a4 = 0.25_wp
     real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
-    real(wp) :: aa,r2,fgb,fgb2,br3
-    real(wp) :: qq,dd,expd,dfgb,dfgb2,dfgb3,ap,bp,qfg
-    real(wp) :: gg,expa,aii,egb
-    real(wp) :: r0vdw,r01,r02,ar02
-    real(wp) :: grddbi,grddbj
-    real(wp) :: dr(3),r
+    real(wp) :: egb
 
     egb = 0._wp
 
@@ -1127,7 +1115,7 @@ contains
     real(wp),intent(out) :: ghb
     real(wp),intent(inout) :: dAmatdr(:,:,:)
 
-    integer  :: i,j
+    integer :: i
     real(wp) :: dhbed
     real(wp) :: qq
 

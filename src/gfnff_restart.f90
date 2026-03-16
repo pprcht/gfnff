@@ -82,7 +82,6 @@ contains  !> MODULE PROCEDURES START HERE
 
     integer :: ich ! file handle
     integer :: err
-    logical :: exist
 
     success = .false.
     open (file=fname,newunit=ich,status='old',action='read', &

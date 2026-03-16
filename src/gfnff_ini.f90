@@ -63,32 +63,30 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in),optional :: iunit    ! printout unit
 !--------------------------------------------------------------------------------------------------
 
-    integer :: ati,atj,atk,i,j,k,l,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no
-    integer :: ineig,jneig,nrot,bbtyp,ringtyp,nn1,nn2,hybi,hybj,pis,ka,nh,jdum,hcalc,nc
+    integer :: ati,atj,atk,i,j,k,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no
+    integer :: ineig,jneig,nrot,bbtyp,hybi,hybj,pis,nh,hcalc,nc
     integer :: ringsi,ringsj,ringsk,ringl,npi,nelpi,picount,npiall,maxtors,rings4,nheav
-    integer :: nm,maxhb,ki,n13,current,ncarbo,mtyp1,mtyp2,nbi
+    integer :: nm,ncarbo,mtyp1,mtyp2,nbi
     integer :: ind3(3),sr(20),cr(10,20),niel(86)
     integer :: qloop_count,nf,nsi,nmet,nhi,nhj,ifrag
-    integer :: hbA,hbH,Bat,atB,Aat,Hat
     integer :: AHB_nr
     integer :: bond_hbn
     integer :: myunit
 
     real(wp) :: r0,ff,f1,f2,phi,ringf,fcn
-    real(wp) :: shift,dum,dum1,dum2,dum4,qafac,fqq,feta
+    real(wp) :: shift,dum,dum1,dum2,qafac,fqq,feta
     real(wp) :: sumppi,fpi,fxh,fijk,fsrb2,ees
     real(wp) :: fheavy,fn,eold,fctot,fij
     real(wp) :: hbpi(2),hbpj(2),sdum3(3)
     real(wp) :: bstrength
-    real(wp) :: xx(20)
-    real(wp) :: fkl,qreps,fbsmall,bohr
+    real(wp) :: fkl,fbsmall,bohr
 
     parameter(bohr=1.0_wp/0.52917726_wp)
 
     real(wp),parameter :: rabd_cutoff = 13.0_wp
 
-    logical :: lring,picon,notpicon,bridge,sp3ij,ccij,success
-    logical :: heavy,triple,piat,sp3kl,ex,cnij,frag_charges_known
+    logical :: lring,picon,notpicon,bridge,sp3ij,ccij
+    logical :: triple,piat,sp3kl,ex,frag_charges_known
     logical :: pr2
 
     integer,allocatable :: btyp(:),imetal(:),nbm(:,:),nbf(:,:)
@@ -112,7 +110,6 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),allocatable:: pispop(:),pisea(:),pisip(:),apisave(:,:)
     real(sp),allocatable:: rabd(:,:)
 
-    character(len=255) atmp
     integer  :: ich,err
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
     logical :: exitRun
@@ -591,6 +588,7 @@ contains  !> MODULE PROCEDURES START HERE
           qah = topo%qa
           call qheavy(nat,at,topo%nb,qah) ! heavy atoms only ie H condensed to neighbor
           do pis = 1,picount ! loop over pi systems
+            ifrag = 1
             do k = 1,npiall
               if (pimvec(k) .eq. pis) then
                 kk = piadr(k)

@@ -323,7 +323,7 @@ contains
   pure subroutine ld0006(x,w,n)
     real(wp),intent(out) :: x(3,6),w(6)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: v
     n = 1
     v = 0.1666666666666667e+0_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -333,7 +333,7 @@ contains
   pure subroutine ld0014(x,w,n)
     real(wp),intent(out) :: x(3,14),w(14)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: v
     n = 1
     v = 0.6666666666666667e-1_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -345,7 +345,7 @@ contains
   pure subroutine ld0026(x,w,n)
     real(wp),intent(out) :: x(3,26),w(26)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: v
     n = 1
     v = 0.4761904761904762e-1_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -359,7 +359,7 @@ contains
   pure subroutine ld0038(x,w,n)
     real(wp),intent(out) :: x(3,38),w(38)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: a,v
     n = 1
     v = 0.9523809523809524e-2_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -374,7 +374,7 @@ contains
   pure subroutine ld0050(x,w,n)
     real(wp),intent(out) :: x(3,50),w(50)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: a,v
     n = 1
     v = 0.1269841269841270e-1_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -391,7 +391,7 @@ contains
   pure subroutine ld0074(x,w,n)
     real(wp),intent(out) :: x(3,74),w(74)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: a,v
     n = 1
     v = 0.5130671797338464e-3_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -411,7 +411,7 @@ contains
   pure subroutine ld0086(x,w,n)
     real(wp),intent(out) :: x(3,86),w(86)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: a,v
     n = 1
     v = 0.1154401154401154e-1_wp
     call genOh1(n,x(1,n),w(n),v)
@@ -432,7 +432,7 @@ contains
   pure subroutine ld0110(x,w,n)
     real(wp),intent(out) :: x(3,110),w(110)
     integer,intent(out) :: n
-    real(wp) :: a,b,v
+    real(wp) :: a,v
     n = 1
     v = 0.3828270494937162e-2_wp
     call genOh1(n,x(1,n),w(n),v)

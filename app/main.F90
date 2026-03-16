@@ -28,15 +28,14 @@ program gfnff_main_tester
   integer :: nat
   integer,allocatable :: at(:)
   real(wp),allocatable :: xyz(:,:)
-  integer :: i,j,k,l
-  character(len=50) :: atmp
+  integer :: i
 !========================================================================================!
   integer :: ichrg
   character(len=:),allocatable :: alpbsolvent
   real(wp) :: energy
   real(wp),allocatable :: gradient(:,:)
   real(wp) :: gnorm
-  logical :: fail,pr
+  logical :: pr
   integer :: io
   type(gfnff_data) :: calculator
   type(gfnff_timer) :: timer
@@ -169,7 +168,7 @@ subroutine ParseCommandLineArgs(threads,inputfile,ichrg,alpbsolvent)
   use xyzreader
   implicit none
   character(len=256) :: arg,arg2 ! Buffer to hold each argument
-  integer :: numArgs,i,j     ! Variables to store argument count and loop index
+  integer :: numArgs,i ! Variables to store argument count and loop index
   integer :: io,dumi
   real(wp) :: dum
   !> IN/OUTPUTS

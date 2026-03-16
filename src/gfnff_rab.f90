@@ -46,7 +46,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rab(nsrb)        ! output bond lengths estimates, input the predetermined bond shifts
     real(wp) :: grab(3,n,nsrb)    ! output bond lengths gradients
     !> LOCAL
-    integer  :: m,i,j,k,ii,jj,ati,atj,ir,jr
+    integer :: m,i,j,k,ati,atj,ir,jr
     real(wp) :: ra,rb,k1,k2,den,ff
 
 !  fitted on PBExa-3c geom set by SG, 9/2018
@@ -193,7 +193,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: cn(n)             ! D3 CN
     real(wp) :: rab(n*(n+1)/2)    ! output bond lengths estimates
     !> LOCAL
-    integer :: m,i,j,k,ii,jj,ati,atj,ir,jr
+    integer :: i,j,k,ati,atj,ir,jr
     real(wp) :: cnfak(86),r0(86),en(86)
     real(wp) :: ra,rb,k1,k2,den,ff,p(6,2)
 !&<

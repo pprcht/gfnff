@@ -43,8 +43,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat
     integer,intent(in)  :: at(nat)
 
-    integer  :: i,ia,is,icn,j,ja,ii,jj,ij
-    integer  :: cncount(0:18)
+    integer :: i,ia,is,j,ii,jj
     real(wp) :: alpha(23),c6
 
     intrinsic :: nint
@@ -106,7 +105,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> derivative of the weighting function w.r.t. the coordination number
     real(wp),intent(out) :: gwdcn(:,:)
 
-    integer :: iat,ati,iref,icount
+    integer :: iat,ati,iref
     real(wp) :: norm,dnorm,gw,expw,expd,gwk,dgwk
 
     gwvec = 0.0_wp
@@ -166,7 +165,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> derivative of the weighting function w.r.t. the coordination number
     real(wp),intent(out) :: gwdcn(:,:)
 
-    integer :: iat,ati,iref,icount
+    integer :: iat,ati,iref
     real(wp) :: norm,dnorm,gw,expw,expd,gwk,dgwk
 
     gwvec = 0.0_wp
@@ -417,7 +416,6 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: pol(23)
     real(wp)            :: trapzd
 
-    real(wp)            :: tmp1,tmp2
     real(wp),parameter  :: freq(23) = (/ &
  &   0.000001_wp,0.050000_wp,0.100000_wp, &
  &   0.200000_wp,0.300000_wp,0.400000_wp, &

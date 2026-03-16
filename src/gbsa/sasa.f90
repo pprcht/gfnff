@@ -79,7 +79,7 @@ contains
     !> Derivative of surface area w.r.t. cartesian coordinates
     real(wp),intent(out) :: dsdrt(:,:,:)
 
-    integer :: iat,jat,ip,jj,nnj,nnk,nni,nno
+    integer :: iat,ip,jj,nnj,nni,nno
     real(wp) :: rsas,sasai,xyza(3),xyzp(3),sasap,wr,wsa,drjj(3)
     real(wp),allocatable :: grds(:,:),grads(:,:)
     integer,allocatable :: grdi(:)
@@ -158,7 +158,7 @@ contains
 
     integer  :: i,ia
     real(wp) :: tj(3),tj2,sqtj
-    real(wp) :: uj,uj3,ah3uj2
+    real(wp) :: uj,ah3uj2
     real(wp) :: sasaij,dsasaij
 
     ! initialize storage
