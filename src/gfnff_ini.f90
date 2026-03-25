@@ -34,9 +34,10 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,accuracy,io,verbose,iunit)
+  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,accuracy,io,verbose,iunit)
     use gfnff_param,only:efield,gfnff_thresholds,pse
-    use gfnff_data_types,only:TGFFData,TGFFTopology,TGFFGenerator
+    use gfnff_data_types,only:TGFFData,TGFFTopology,TGFFGenerator,TCell
+    use gfnff_neighbor,only:TNeigh
 
     use gfnff_ini2
     use gfnff_cn,only:gfnff_dlogcoord
@@ -51,6 +52,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,nat)
 
     type(TGFFTopology),intent(inout) :: topo
+    type(TNeigh),intent(inout) :: neigh
+    type(TCell),intent(inout) :: cell
     type(TGFFGenerator),intent(in) :: gen
     type(TGFFData),intent(in) :: param
     real(wp),intent(in) :: accuracy
@@ -117,6 +120,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),parameter :: pi = 3.1415926535897932385_wp
 
 !> initialization
+    if(.false.) write(*,*) cell%npbc ! silences -Wunused-dummy-argument for cell
     io = 0
     exitRun = .false.
     if (present(iunit)) then
@@ -262,8 +266,17 @@ contains  !> MODULE PROCEDURES START HERE
         write (myunit,'(2x,"----------------------------------------")')
         write (myunit,'(2x,"generating topology and atomic info file ...")')
       end if
+      call neigh%init_n(nat,0,io)
+      if (io /= 0) return
       call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
-         & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,nbm,nbf,param,topo,myunit,pr)
+         & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,param,topo,neigh,myunit,pr)
+      ! Extract nbf and nbm from TNeigh for downstream use
+      nbf(1:18,:) = neigh%nbf(1:18,:,1)
+      nbf(19,:)   = neigh%nbf(neigh%numnb-1,:,1) ! cluster flag
+      nbf(20,:)   = neigh%nbf(neigh%numnb,:,1)   ! count
+      nbm(1:18,:) = neigh%nbm(1:18,:,1)
+      nbm(19,:)   = neigh%nbm(neigh%numnb-1,:,1)
+      nbm(20,:)   = neigh%nbm(neigh%numnb,:,1)
 
       do i = 1,nat
         imetal(i) = param%metal(at(i))
@@ -1924,7 +1937,7 @@ contains  !> MODULE PROCEDURES START HERE
 !> all done
 
     topo%maxsystem = 5000
-    call fragmentize(nat,at,xyz,topo%maxsystem,500,rab,topo%nb, &
+    call fragmentize(nat,at,xyz,topo%maxsystem,500,rab,neigh, &
        & topo%ispinsyst,topo%nspinsyst,topo%nsystem)
 
     if (pr) write (myunit,'(1x,"#optfrag :",3x,i0)') topo%nfrag

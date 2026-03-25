@@ -8,6 +8,7 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 list(APPEND srcs
    "${dir}/gfnff_math_wrapper.f90"
    "${dir}/gfnff_data_types.f90"
+   "${dir}/gfnff_neighbor.f90"
    "${dir}/gfnff_param.f90"
    "${dir}/dftd3param.f90"
    "${dir}/dftd4param.f90"

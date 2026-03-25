@@ -23,7 +23,8 @@
 module gfnff_setup_mod
   use iso_fortran_env,only:wp => real64,stdout => output_unit
   use gfnff_ini_mod,only:gfnff_ini
-  use gfnff_data_types,only:TGFFData,TGFFTopology,TGFFGenerator
+  use gfnff_data_types,only:TGFFData,TGFFTopology,TGFFGenerator,TCell
+  use gfnff_neighbor,only:TNeigh
   implicit none
   private
   public :: gfnff_setup,gfnff_input
@@ -35,7 +36,7 @@ contains   !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   subroutine gfnff_setup(nat,at,xyz,ichrg,pr,restart,write_topo, &
-  &                      gen,param,topo,accuracy,version,io,verbose,iunit)
+  &                      gen,param,topo,neigh,cell,accuracy,version,io,verbose,iunit)
     use gfnff_restart
     use gfnff_param,only:ini,gfnff_set_param
     implicit none
@@ -47,6 +48,8 @@ contains   !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: ichrg
 
     type(TGFFTopology),intent(inout) :: topo
+    type(TNeigh),intent(inout) :: neigh
+    type(TCell),intent(inout) :: cell
     type(TGFFGenerator),intent(inout) :: gen
     type(TGFFData),intent(inout) :: param
     integer,intent(in) :: version
@@ -93,7 +96,7 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,accuracy,io,verbose=verbose,iunit=myunit)
+    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,accuracy,io,verbose=verbose,iunit=myunit)
     if (io /= 0) then
       write (myunit,'("Failed to generate topology ",a)') source
       return

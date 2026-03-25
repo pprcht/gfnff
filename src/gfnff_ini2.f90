@@ -23,15 +23,16 @@
 module gfnff_ini2
   use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
 
-  use gfnff_data_types,only:TGFFData,TGFFNeighbourList,TGFFTopology
+  use gfnff_data_types,only:TGFFData,TGFFNeighbourList,TGFFTopology,TCell
   use gfnff_helpers,only:lin,bangl
+  use gfnff_neighbor,only:TNeigh
   implicit none
   private
 
-  public :: gfnff_neigh,getnb,nbondmat
+  public :: gfnff_neigh,getnb,nbondmat,nbondmat_pbc
   public :: pairsbond,pilist,nofs,xatom,ctype,amide,amideH,alphaCO
   public :: ringsatom,ringsbond,ringsbend,ringstors,ringstorl
-  public :: chktors,hbonds,goedeckera,qheavy
+  public :: chktors,hbonds,goedeckera,goedeckera_PBC,qheavy
   public :: gfnff_hbset,gfnff_hbset0,bond_hbset,bond_hbset0
   public :: bond_hb_AHB_set,bond_hb_AHB_set1,bond_hb_AHB_set0
 
@@ -41,21 +42,48 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,mchar,hyb,itag,nbm,nbf,param,topo,myunit,pr)
+  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,mchar,hyb,itag,param,topo,neigh,myunit,pr)
+    !**********************************************************************
+    !* Determine hybridization states and neighbour lists.
+    !* Fills topo%nb, topo%hyb, itag, hyb.
+    !* Stores results in neigh%nb/nbf/nbm for the molecular path
+    !* (neigh%numctr==1); for the PBC path (neigh%numctr>1) the
+    !* neighbour arrays must already be filled by neigh%get_nb before
+    !* calling this routine.
+    !*
+    !* Input:
+    !*   makeneighbor - rebuild neighbour lists from scratch if .true.
+    !*   natoms       - number of atoms
+    !*   at(natoms)   - atomic numbers
+    !*   xyz(3,nat)   - Cartesian coordinates [Bohr]
+    !*   rab(nat*(nat+1)/2) - pairwise distances
+    !*   fq           - global radius scale factor
+    !*   f_in, f2_in  - radius scaling for regular / metal atoms
+    !*   lintr        - linearity angle threshold [deg]
+    !*   mchar(nat)   - metal character (>0.25 = metal)
+    !*   param        - GFN-FF parameters
+    !*   topo         - topology (qa, nb, hyb updated on output)
+    !*   neigh        - TNeigh object (nb/nbf/nbm populated on output)
+    !*   myunit       - I/O unit for warnings
+    !*   pr           - print warnings if .true.
+    !*
+    !* Output (via intent(inout) arguments):
+    !*   hyb(natoms)  - hybridization state (1=sp, 2=sp2, 3=sp3, etc.)
+    !*   itag(natoms) - special hybridization tags
+    !**********************************************************************
     use gfnff_param
     use gfnff_rab
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_neigh'
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(inout) :: topo
+    type(TNeigh),intent(inout) :: neigh
     integer,intent(in) :: myunit
     logical,intent(in) :: pr
     logical :: makeneighbor
     integer :: at(natoms),natoms
     integer :: hyb(natoms)
     integer :: itag(natoms)
-    integer :: nbm(20,natoms)                 ! needed for ring assignment (done without metals)
-    integer :: nbf(20,natoms)                 ! full needed for fragment assignment
     real(wp) :: rab(natoms*(natoms+1)/2)
     real(wp) :: xyz(3,natoms)
     real(wp) :: mchar(natoms)
@@ -64,7 +92,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: lintr                    ! threshold for linearity
 
     logical :: etacoord
-    integer,allocatable :: nbdum(:,:)
+    integer,allocatable :: nbdum(:,:),nbf_l(:,:),nbm_l(:,:)
     real(wp),allocatable :: cn(:),rtmp(:)
     integer :: i,j,k,jj,kk,ll,ati,nb20i,nbdiff,nbmdiff,nni,nh,nm
     integer :: ai,aj,nn,im,ncm,l,no
@@ -97,13 +125,15 @@ contains  !> MODULE PROCEDURES START HERE
     fat(83) = 0.95
 
     allocate (cn(natoms),rtmp(natoms*(natoms+1)/2),nbdum(20,natoms))
+    allocate (nbf_l(20,natoms),source=0)
+    allocate (nbm_l(20,natoms),source=0)
 
 ! determine the neighbor list
     if (makeneighbor) then
 
       topo%nb = 0  ! without highly coordinates atoms
-      nbm = 0  ! without any metal
-      nbf = 0  ! full
+      nbm_l = 0  ! without any metal
+      nbf_l = 0  ! full
 
       do i = 1,natoms
         cn(i) = dble(param%normcn(at(i)))
@@ -125,15 +155,15 @@ contains  !> MODULE PROCEDURES START HERE
         end do
       end do
 
-      call getnb(natoms,at,rtmp,rab,mchar,1,f_in,f2_in,nbdum,nbf,param) ! full
-      call getnb(natoms,at,rtmp,rab,mchar,2,f_in,f2_in,nbf,topo%nb,param) ! no highly coordinates atoms
-      call getnb(natoms,at,rtmp,rab,mchar,3,f_in,f2_in,nbf,nbm,param) ! no metals and unusually coordinated stuff
+      call getnb(natoms,at,rtmp,rab,mchar,1,f_in,f2_in,nbdum,nbf_l,param) ! full
+      call getnb(natoms,at,rtmp,rab,mchar,2,f_in,f2_in,nbf_l,topo%nb,param) ! no highly coordinates atoms
+      call getnb(natoms,at,rtmp,rab,mchar,3,f_in,f2_in,nbf_l,nbm_l,param) ! no metals and unusually coordinated stuff
 
 ! take the input
     else
 
-      nbf = topo%nb
-      nbm = topo%nb
+      nbf_l = topo%nb
+      nbm_l = topo%nb
 
     end if
 ! done
@@ -142,18 +172,18 @@ contains  !> MODULE PROCEDURES START HERE
 
 ! tag atoms in nb(19,i) if they belong to a cluster (which avoids the ring search)
     do i = 1,natoms
-      if (nbf(20,i) .eq. 0.and.param%group(at(i)) .ne. 8.and.pr) then
+      if (nbf_l(20,i) .eq. 0.and.param%group(at(i)) .ne. 8.and.pr) then
         write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
         write (myunit,'(''  warning: no bond partners for atom'',i4)') i
         write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
       end if
-      if (at(i) .lt. 11.and.nbf(20,i) .gt. 2) then
-        do k = 1,nbf(20,i)
-          kk = nbf(k,i)
+      if (at(i) .lt. 11.and.nbf_l(20,i) .gt. 2) then
+        do k = 1,nbf_l(20,i)
+          kk = nbf_l(k,i)
           if (param%metal(at(kk)) .ne. 0.or.topo%nb(20,kk) .gt. 4) then
             topo%nb(19,i) = 1
-            nbf(19,i) = 1
-            nbm(19,i) = 1
+            nbf_l(19,i) = 1
+            nbm_l(19,i) = 1
           end if
         end do
       end if
@@ -169,11 +199,11 @@ contains  !> MODULE PROCEDURES START HERE
 !        the hyb must be obtained from the reduced (wo metals) neighbor list
       etacoord = .false.
       if (ati .le. 10) then
-        if (ati .eq. 6.and.nbf(20,i) .ge. 4.and.nbm(20,i) .eq. 3) etacoord = .true.  ! CP case
-        if (ati .eq. 6.and.nbf(20,i) .eq. 3.and.nbm(20,i) .eq. 2) etacoord = .true.  ! alkyne case
+        if (ati .eq. 6.and.nbf_l(20,i) .ge. 4.and.nbm_l(20,i) .eq. 3) etacoord = .true.  ! CP case
+        if (ati .eq. 6.and.nbf_l(20,i) .eq. 3.and.nbm_l(20,i) .eq. 2) etacoord = .true.  ! alkyne case
         nm = 0
-        do k = 1,nbf(20,i)  ! how many metals ? and which
-          kk = nbf(k,i)
+        do k = 1,nbf_l(20,i)  ! how many metals ? and which
+          kk = nbf_l(k,i)
           if (param%metal(at(kk)) .ne. 0) then
             nm = nm+1
             im = kk
@@ -183,11 +213,11 @@ contains  !> MODULE PROCEDURES START HERE
           etacoord = .false.  ! etacoord makes no sense without metals!
         elseif (nm .eq. 1) then  ! distinguish M-CR2-R i.e. not an eta coord.
           ncm = 0
-          do k = 1,nbf(20,i)  !
-            if (nbf(k,i) .ne. im) then ! all neighbors that are not the metal im
-              kk = nbf(k,i)
-              do l = 1,nbf(20,kk)
-                if (nbf(l,kk) .eq. im) ncm = ncm+1 ! ncm=1 is alkyne, =2 is cp
+          do k = 1,nbf_l(20,i)  !
+            if (nbf_l(k,i) .ne. im) then ! all neighbors that are not the metal im
+              kk = nbf_l(k,i)
+              do l = 1,nbf_l(20,kk)
+                if (nbf_l(l,kk) .eq. im) ncm = ncm+1 ! ncm=1 is alkyne, =2 is cp
               end do
             end if
           end do
@@ -196,17 +226,17 @@ contains  !> MODULE PROCEDURES START HERE
       end if
       if (etacoord) then
         itag(i) = -1
-        nbdum(1:20,i) = nbm(1:20,i)
+        nbdum(1:20,i) = nbm_l(1:20,i)
       else
-        nbdum(1:20,i) = nbf(1:20,i) ! take full set of neighbors by default
+        nbdum(1:20,i) = nbf_l(1:20,i) ! take full set of neighbors by default
       end if
     end do
 
     do i = 1,natoms
       ati = at(i)
       hyb(i) = 0    ! don't know it
-      nbdiff = nbf(20,i)-topo%nb(20,i)
-      nbmdiff = nbf(20,i)-nbm(20,i)
+      nbdiff = nbf_l(20,i)-topo%nb(20,i)
+      nbmdiff = nbf_l(20,i)-nbm_l(20,i)
       nb20i = nbdum(20,i)
       nh = 0
       no = 0
@@ -351,6 +381,28 @@ contains  !> MODULE PROCEDURES START HERE
     if (dble(j)/dble(natoms) .gt. 0.3.and.pr) then
       write (myunit,*) 'too many atoms with extreme high CN',source
     end if
+
+    ! Populate TNeigh from local arrays (molecular path, numctr=1).
+    ! Convention: positions 1..numnb-2 hold neighbour indices,
+    !             position numnb-1 holds the cluster flag (old position 19),
+    !             position numnb   holds the count        (old position 20).
+    if (.not.allocated(neigh%nb)) &
+      & allocate(neigh%nb(neigh%numnb,natoms,neigh%numctr),source=0)
+    if (.not.allocated(neigh%nbf)) &
+      & allocate(neigh%nbf(neigh%numnb,natoms,neigh%numctr),source=0)
+    if (.not.allocated(neigh%nbm)) &
+      & allocate(neigh%nbm(neigh%numnb,natoms,neigh%numctr),source=0)
+    neigh%nb(1:18,:,1)          = topo%nb(1:18,:)
+    neigh%nb(neigh%numnb-1,:,1) = topo%nb(19,:)   ! cluster flag
+    neigh%nb(neigh%numnb,:,1)   = topo%nb(20,:)   ! count
+    neigh%nbf(1:18,:,1)          = nbf_l(1:18,:)
+    neigh%nbf(neigh%numnb-1,:,1) = nbf_l(19,:)
+    neigh%nbf(neigh%numnb,:,1)   = nbf_l(20,:)
+    neigh%nbm(1:18,:,1)          = nbm_l(1:18,:)
+    neigh%nbm(neigh%numnb-1,:,1) = nbm_l(19,:)
+    neigh%nbm(neigh%numnb,:,1)   = nbm_l(20,:)
+
+    deallocate(nbf_l,nbm_l)
 
   end subroutine gfnff_neigh
 
@@ -1256,6 +1308,307 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine goedeckera
+!========================================================================================!
+
+  subroutine goedeckera_PBC(nat,at,pair,topo,cell,q,es,io)
+    !**********************************************************************
+    !* PBC-aware EEQ partial-charge solver.  Solves the same linear system
+    !* as goedeckera but accepts a TCell for the unit-cell geometry.
+    !* The direct-space and reciprocal-space translation sets (rTrans,
+    !* gTrans) are built for potential future full Ewald summation; for now
+    !* the A-matrix elements use the pairwise distances in pair(:) exactly
+    !* as in the molecular version (rij = 1e12 for non-bonded pairs).
+    !*
+    !* Input:
+    !*   nat        - number of atoms
+    !*   at(nat)    - atomic numbers (unused; kept for API uniformity)
+    !*   pair(nat*(nat+1)/2) - pairwise distances [Bohr]; 1e12 if non-bonded
+    !*   topo       - topology (chieeq, gameeq, alpeeq, fraglist, qfrag)
+    !*   cell       - unit-cell geometry (lattice, rec_lat, volume, npbc)
+    !* Output:
+    !*   q(nat)     - EEQ partial charges
+    !*   es         - electrostatic energy [Hartree]
+    !*   io         - 0 on success, 1 on LAPACK failure
+    !**********************************************************************
+    use gfnff_math_wrapper,only:sytrf_wrap,sytrs_wrap
+    implicit none
+    character(len=*),parameter :: source = 'gfnff_ini2_goedeckera_PBC'
+    type(TGFFTopology),intent(in) :: topo
+    type(TCell),intent(in) :: cell
+    integer,intent(in)  :: nat
+    integer,intent(in)  :: at(nat)
+    real(wp),intent(in)  :: pair(nat*(nat+1)/2)
+    real(wp),intent(out) :: q(nat)
+    real(wp),intent(out) :: es
+    integer,intent(out)  :: io
+
+    logical :: exitRun
+    integer :: m,i,j,ij,ii
+    integer :: iRp,iT1,iT2,iT3,iG1,iG2,iG3
+    integer,allocatable :: ipiv(:)
+    integer,parameter :: ewaldCutD(3) = 2
+    integer,parameter :: ewaldCutR(3) = 2
+    real(wp),parameter :: sqrtpi = 1.772453850905516_wp
+    real(wp),parameter :: tsqrt2pi = 0.797884560802866_wp
+    real(wp) :: gammij,rij,tmp,cf
+    real(wp) :: vec(3)
+    real(wp),allocatable :: A(:,:),x(:)
+    real(wp),allocatable :: rTrans(:,:),gTrans(:,:)
+    integer :: info1,info2
+
+    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+
+    io = 0
+
+    ! Build reciprocal-space translation vectors (for future Ewald)
+    iRp = 0
+    allocate(gTrans(3,product(2*ewaldCutR+1)-1))
+    do iG1 = -ewaldCutR(1),ewaldCutR(1)
+      do iG2 = -ewaldCutR(2),ewaldCutR(2)
+        do iG3 = -ewaldCutR(3),ewaldCutR(3)
+          if (iG1 == 0.and.iG2 == 0.and.iG3 == 0) cycle
+          iRp = iRp+1
+          vec(:) = [real(iG1,wp),real(iG2,wp),real(iG3,wp)]
+          gTrans(:,iRp) = matmul(cell%rec_lat,vec)
+        end do
+      end do
+    end do
+
+    ! Build real-space translation vectors (for future Ewald)
+    iRp = 0
+    allocate(rTrans(3,product(2*ewaldCutD+1)))
+    do iT1 = -ewaldCutD(1),ewaldCutD(1)
+      do iT2 = -ewaldCutD(2),ewaldCutD(2)
+        do iT3 = -ewaldCutD(3),ewaldCutD(3)
+          iRp = iRp+1
+          vec(:) = [real(iT1,wp),real(iT2,wp),real(iT3,wp)]
+          rTrans(:,iRp) = matmul(cell%lattice,vec)
+        end do
+      end do
+    end do
+
+    ! Ewald convergence factor
+    if (cell%volume > 0.0_wp) then
+      cf = sqrtpi/cell%volume**(1.0_wp/3.0_wp)
+    else
+      cf = 1.0_wp
+    end if
+    if(.false.) write(*,*) cf,gTrans,rTrans ! suppress unused-variable warnings
+
+    m = nat+topo%nfrag
+    allocate(A(m,m),x(m),ipiv(m))
+    A = 0.0_wp
+
+    ! setup RHS
+    do i = 1,nat
+      x(i) = topo%chieeq(i)
+      A(i,i) = topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i))
+    end do
+
+    ! setup A matrix
+    do i = 1,nat
+      do j = 1,i-1
+        ij = i*(i-1)/2+j
+        rij = pair(ij)
+        gammij = 1.0_wp/sqrt(topo%alpeeq(i)+topo%alpeeq(j))
+        tmp = erf(gammij*rij)/rij
+        A(j,i) = tmp
+        A(i,j) = tmp
+      end do
+    end do
+
+    ! fragment charge constraints
+    do i = 1,topo%nfrag
+      x(nat+i) = topo%qfrag(i)
+      do j = 1,nat
+        if (topo%fraglist(j) .eq. i) then
+          A(nat+i,j) = 1.0_wp
+          A(j,nat+i) = 1.0_wp
+        end if
+      end do
+    end do
+
+    call sytrf_wrap(A,ipiv,info1)
+    call sytrs_wrap(A,x,ipiv,info2)
+
+    exitRun = (info1 /= 0).or.(info2 /= 0)
+    if (exitRun) then
+      write(stdout,'("Solving linear equations failed ",a)') source
+      io = 1
+      return
+    end if
+
+    q(1:nat) = x(1:nat)
+    if (nat .eq. 1) q(1) = topo%qfrag(1)
+
+    ! electrostatic energy
+    es = 0.0_wp
+    do i = 1,nat
+      ii = i*(i-1)/2
+      do j = 1,i-1
+        ij = ii+j
+        rij = pair(ij)
+        gammij = 1.0_wp/sqrt(topo%alpeeq(i)+topo%alpeeq(j))
+        tmp = erf(gammij*rij)/rij
+        es = es+q(i)*q(j)*tmp/rij
+      end do
+      es = es-q(i)*topo%chieeq(i) &
+       &      +q(i)*q(i)*0.5_wp*(topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i)))
+    end do
+
+  end subroutine goedeckera_PBC
+!========================================================================================!
+
+  subroutine nbondmat_pbc(n,numnb,numctr,nb,iTrNeg,neigh,pair)
+    !**********************************************************************
+    !* PBC bond-topology matrix.  For each atom pair (j,i,iTr) set
+    !* pair(j,i,iTr) to the shortest number of covalent bonds separating
+    !* them (1, 2, or 3); pairs further apart receive 5.
+    !* Considers only "paired" bonds (both atoms have each other as nb).
+    !*
+    !* Input:
+    !*   n, numnb, numctr   - dimensions
+    !*   nb(numnb,n,numctr) - neighbour list (count at position numnb)
+    !*   iTrNeg(numctr)     - lookup: index of negated translation vector
+    !*   neigh              - TNeigh object (for fTrSum, numnb, numctr)
+    !* Output:
+    !*   pair(n,n,numctr)   - allocatable bond-count matrix (allocated here)
+    !**********************************************************************
+    implicit none
+    type(TNeigh),intent(in) :: neigh
+    integer,intent(in) :: n,numnb,numctr
+    integer,intent(in) :: nb(numnb,n,numctr)
+    integer,intent(in) :: iTrNeg(numctr)
+    integer,allocatable,intent(out) :: pair(:,:,:)
+
+    integer :: nnbi,nbi(2,numnb)
+    integer :: i,inew,j,inb,ixnb,iTr,iTrnew,sumiTr,k,iTr2,l
+    integer :: cval
+    integer :: nbr(numnb,n,numctr)
+    logical :: hasnb
+    integer :: tmpp(3,10*n),nt
+
+    ! Remove unpaired (one-sided) bonds to build a reduced list nbr
+    tmpp = 0
+    nt = 0
+    nbr = nb
+    do i = 1,n
+      do iTr = 1,numctr
+        do j = 1,nb(numnb,i,iTr)
+          k = nb(j,i,iTr)
+          hasnb = .false.
+          do iTr2 = 1,numctr
+            do l = 1,nb(numnb,k,iTr2)
+              if (nb(l,k,iTr2) .eq. i) hasnb = .true.
+            end do
+          end do
+          if (.not.hasnb) then
+            do l = j,numnb-2
+              nbr(l,i,iTr) = nb(l+1,i,iTr)
+            end do
+            nbr(numnb,i,iTr) = nbr(numnb,i,iTr)-1
+            nt = nt+1
+            tmpp(1,nt) = k
+            tmpp(2,nt) = i
+            tmpp(3,nt) = iTr
+          end if
+        end do
+      end do
+    end do
+
+    allocate(pair(n,n,numctr),source=0)
+
+    do i = 1,n
+      ! direct bonds (tag=1)
+      do iTr = 1,numctr
+        do inb = 1,nbr(numnb,i,iTr)
+          j = nbr(inb,i,iTr)
+          pair(j,i,iTr) = 1
+        end do
+      end do
+      ! 2nd and 3rd neighbours
+      do cval = 1,2
+        call countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
+        do ixnb = 1,nnbi
+          inew = nbi(1,ixnb)
+          iTrnew = nbi(2,ixnb)
+          if (iTrnew .eq. 1) then
+            do iTr = 1,numctr
+              do inb = 1,nbr(numnb,inew,iTr)
+                j = nbr(inb,inew,iTr)
+                if (pair(j,i,iTr) .ne. 0) cycle
+                if (j .eq. i.and.iTr .eq. 1) cycle
+                pair(j,i,iTr) = cval+1
+              end do
+            end do
+          else
+            do inb = 1,nbr(numnb,inew,1)
+              j = nbr(inb,inew,1)
+              if (pair(j,i,iTrnew) .ne. 0) cycle
+              pair(j,i,iTrnew) = cval+1
+            end do
+            do iTr = 2,numctr
+              do inb = 1,nbr(numnb,inew,iTr)
+                j = nbr(inb,inew,iTr)
+                sumiTr = neigh%fTrSum(iTr,iTrnew)
+                if (sumiTr .eq. -1.or.(sumiTr .eq. 1.and.j .eq. i)) cycle
+                if (sumiTr .gt. 27) cycle
+                if (pair(j,i,sumiTr) .ne. 0) cycle
+                pair(j,i,sumiTr) = cval+1
+              end do
+            end do
+          end if
+        end do
+      end do
+    end do
+
+    ! set far-apart pairs to 5
+    do i = 1,n
+      do j = 1,n
+        do iTr = 1,numctr
+          if (pair(j,i,iTr) .eq. 0.and.j .ne. i) pair(j,i,iTr) = 5
+        end do
+      end do
+    end do
+
+    ! restore one-sided bonds (saved in tmpp)
+    do l = 1,10*n
+      if (tmpp(1,l) .eq. 0) exit
+      k = tmpp(1,l)
+      i = tmpp(2,l)
+      iTr = tmpp(3,l)
+      pair(k,i,iTr) = 1
+      pair(i,k,iTrNeg(iTr)) = 1
+    end do
+
+  end subroutine nbondmat_pbc
+!========================================================================================!
+
+  subroutine countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
+    !**********************************************
+    !* Collect all atoms j in cells m such that
+    !* pair(j,i,m) == cval.  Used by nbondmat_pbc.
+    !**********************************************
+    implicit none
+    integer,intent(in)    :: n,numctr,numnb,i,cval
+    integer,intent(in)    :: pair(n,n,numctr)
+    integer,intent(inout) :: nnbi
+    integer,intent(inout) :: nbi(2,numnb)
+    integer :: k,l
+
+    nnbi = 0
+    nbi = 0
+    do l = 1,n
+      do k = 1,numctr
+        if (pair(l,i,k) .eq. cval) then
+          nnbi = nnbi+1
+          nbi(1,nnbi) = l
+          nbi(2,nnbi) = k
+        end if
+      end do
+    end do
+
+  end subroutine countf
 !========================================================================================!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

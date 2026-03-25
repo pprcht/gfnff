@@ -25,7 +25,7 @@ module gfnff_gdisp0
   use gfnff_data_types,only:TDispersionData,initgffdispersion
   use gfnff_helpers,only:lin
   implicit none
-  public :: d3_gradient,newD3Model
+  public :: d3_gradient,d3_gradientPBC,newD3Model
   private
 
 !========================================================================================!
@@ -327,7 +327,6 @@ contains  !> MODULE PROCEDURES START HERE
 
     integer :: max_ref
     integer :: iat,jat,ati,atj,ij,img
-
     real(wp) :: r4r2ij,r0,rij(3),r2,t6,t8,t10,d6,d8,d10
     real(wp) :: dE,dG(3),dS(3,3),disp,ddisp
 
@@ -335,6 +334,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),allocatable :: c6(:,:),dc6dcn(:,:)
     real(wp),allocatable :: energies(:),dEdcn(:)
 
+    sigma = 0.0_wp
     max_ref = maxval(dispm%nref(at))
     allocate (gw(max_ref,nat),dgwdcn(max_ref,nat),c6(nat,nat), &
        &     dc6dcn(nat,nat),energies(nat),dEdcn(nat),source=0.0_wp)
@@ -396,6 +396,112 @@ contains  !> MODULE PROCEDURES START HERE
     energy = sum(energies)
 
   end subroutine d3_gradient
+
+!========================================================================================!
+
+  subroutine d3_gradientPBC(dispm,nat,at,xyz,ntrans,trans,fraglist, &
+        & zeta_scale,radii,r4r2,weighting_factor,dispscale,cutoff, &
+        & cn,dcndr,dcndL,energy,gradient,sigma)
+    !**********************************************
+    !* PBC D3-BJ dispersion energy, gradient and
+    !* stress tensor.  Loops over all atom pairs
+    !* and all lattice translation vectors.
+    !* fraglist: fragment index per atom (inter-
+    !*   fragment pairs are skipped when fraglist
+    !*   is all-equal, i.e. single-fragment crystal).
+    !**********************************************
+    use disp_dftd3param
+    type(TDispersionData),intent(in) :: dispm
+    integer,intent(in)  :: nat
+    integer,intent(in)  :: at(:)
+    real(wp),intent(in) :: xyz(:,:)
+    integer,intent(in)  :: ntrans
+    real(wp),intent(in) :: trans(:,:)  ! (3,ntrans)
+    integer,intent(in)  :: fraglist(:) ! (nat)
+    real(wp),intent(in) :: zeta_scale(:)
+    real(wp),intent(in) :: radii(:)
+    real(wp),intent(in) :: r4r2(:)
+    real(wp),intent(in) :: weighting_factor
+    real(wp),intent(in) :: dispscale
+    real(wp),intent(in) :: cutoff
+
+    real(wp),intent(in)    :: cn(:)
+    real(wp),intent(inout) :: dcndr(:,:,:)
+    real(wp),intent(inout) :: dcndL(:,:,:)  ! (3,3,nat)
+
+    real(wp),intent(inout) :: energy
+    real(wp),intent(inout) :: gradient(:,:)
+    real(wp),intent(inout) :: sigma(:,:)
+
+    integer :: max_ref,iat,jat,ati,atj,itr,ij
+    real(wp) :: cutoff2
+    real(wp) :: r4r2ij,r0,rij(3),r2,t6,t8,d6,d8,disp,ddisp
+    real(wp) :: dE,dG(3),dS(3,3)
+
+    real(wp),allocatable :: gw(:,:),dgwdcn(:,:)
+    real(wp),allocatable :: c6(:,:),dc6dcn(:,:)
+    real(wp),allocatable :: energies(:),dEdcn(:)
+
+    cutoff2 = cutoff**2
+
+    max_ref = maxval(dispm%nref(at))
+    allocate(gw(max_ref,nat),dgwdcn(max_ref,nat),c6(nat,nat), &
+       &     dc6dcn(nat,nat),energies(nat),dEdcn(nat),source=0.0_wp)
+
+    call weight_references_d4(dispm,nat,at,weighting_factor,cn,gw,dgwdcn)
+    call get_atomic_c6_d4(dispm,nat,at,gw,dgwdcn,c6,dc6dcn)
+
+    !$omp parallel do default(none) schedule(runtime) &
+    !$omp reduction(+:energies, gradient, sigma, dEdcn) &
+    !$omp shared(nat, at, xyz, ntrans, trans, cutoff2, dispscale, radii, r4r2, &
+    !$omp&       c6, dc6dcn, zeta_scale) &
+    !$omp private(itr, iat, jat, ij, ati, atj, r2, rij, r4r2ij, r0, t6, t8, &
+    !$omp&        d6, d8, disp, ddisp, dE, dG, dS)
+    do iat = 1,nat
+      ati = at(iat)
+      do jat = 1,iat
+        ij = lin(jat,iat)
+        atj = at(jat)
+        r4r2ij = 3.0_wp*r4r2(ati)*r4r2(atj)
+        r0 = sqrt(radii(lin(ati,atj)))
+        do itr = 1,ntrans
+          rij = xyz(:,iat) - xyz(:,jat) - trans(:,itr)
+          r2 = sum(rij**2)
+          if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
+          t6 = 1.0_wp/(r2**3 + r0**6)
+          t8 = 1.0_wp/(r2**4 + r0**8)
+          d6 = -6.0_wp*r2**2*t6**2
+          d8 = -8.0_wp*r2**3*t8**2
+          disp  = (t6 + 2.0_wp*r4r2ij*t8)*zeta_scale(ij)*dispscale
+          ddisp = (d6 + 2.0_wp*r4r2ij*d8)*zeta_scale(ij)*dispscale
+          dE = -c6(iat,jat)*disp*0.5_wp
+          dG = -c6(iat,jat)*ddisp*rij
+          dS = spread(dG,1,3)*spread(rij,2,3)*0.5_wp
+          energies(iat) = energies(iat) + dE
+          dEdcn(iat) = dEdcn(iat) - dc6dcn(iat,jat)*disp
+          sigma = sigma + dS
+          if (iat .ne. jat .or. itr .ne. 1) then
+            energies(jat) = energies(jat) + dE
+            dEdcn(jat) = dEdcn(jat) - dc6dcn(jat,iat)*disp
+            gradient(:,iat) = gradient(:,iat) + dG
+            gradient(:,jat) = gradient(:,jat) - dG
+            sigma = sigma + dS
+          end if
+        end do
+      end do
+    end do
+    !$omp end parallel do
+
+    ! Cartesian CN-gradient contribution
+    call dgemv('n',3*nat,nat,1.0_wp,dcndr,3*nat,dEdcn,1,1.0_wp,gradient,1)
+    ! Lattice CN-gradient contribution to stress
+    call dgemv('n',9,nat,1.0_wp,dcndL,9,dEdcn,1,1.0_wp,sigma,1)
+
+    energy = energy + sum(energies)
+
+  end subroutine d3_gradientPBC
+
+!========================================================================================!
 
   real(wp) pure elemental function weight_cn(wf,cn,cnref) result(cngw)
     real(wp),intent(in) :: wf,cn,cnref

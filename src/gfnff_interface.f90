@@ -19,6 +19,7 @@
 module gfnff_interface
   use iso_fortran_env,only:wp => real64,stdout => output_unit
   use gfnff_data_types
+  use gfnff_neighbor,only:TNeigh
   use gfnff_engrad_module
   use gfnff_gbsa
   use gfnff_param
@@ -51,6 +52,8 @@ module gfnff_interface
     type(TGFFGenerator),allocatable     :: gen
     type(TGFFData),allocatable          :: param
     type(TGFFTopology),allocatable      :: topo
+    type(TNeigh),allocatable            :: neigh
+    type(TCell),allocatable             :: cell
     type(TGFFNeighbourList),allocatable :: nlist
     type(TBorn),allocatable             :: solvation
     type(gfnff_results),allocatable     :: res
@@ -75,7 +78,22 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,verbose,iostat)
+  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,verbose,iostat,sigma)
+    !*************************************************************
+    !* GFN-FF single-point energy and gradient calculation.
+    !*
+    !* INPUT:
+    !*   nat          - number of atoms
+    !*   at(nat)      - atomic numbers
+    !*   xyz(3,nat)   - Cartesian coordinates (Bohr)
+    !*   dat          - bundled GFN-FF data and settings
+    !*   verbose      - optional printout flag
+    !* OUTPUT:
+    !*   energy       - total energy (Eh)
+    !*   gradient     - gradient (Eh/Bohr)
+    !*   iostat       - optional error status
+    !*   sigma(3,3)   - optional stress tensor (Eh); zero for non-PBC
+    !*************************************************************
     implicit none
     !> INPUT
     integer,intent(in)  :: nat        !> number of atoms
@@ -87,9 +105,11 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(out) :: energy
     real(wp),intent(out) :: gradient(3,nat)
     integer,intent(out),optional  :: iostat
+    real(wp),intent(out),optional :: sigma(3,3) !> stress tensor (zero for non-PBC)
     !> LOCAL
     integer :: io
     logical :: pr
+    real(wp) :: sigma_loc(3,3)
 
     !> printout activation via verbosity
     if (present(verbose)) then
@@ -101,10 +121,12 @@ contains  !> MODULE PROCEDURES START HERE
     energy = 0.0_wp
     gradient(:,:) = 0.0_wp
     io = 0
+    sigma_loc = 0.0_wp
 
     call gfnff_eg(pr,nat,dat%ichrg,at,xyz,dat%make_chrg,gradient,energy,   &
-    &             dat%res,dat%param,dat%topo,dat%nlist,dat%solvation, &
-    &             dat%update,dat%version,dat%accuracy,io)
+    &             dat%res,dat%param,dat%topo,dat%neigh,dat%cell,dat%nlist,dat%solvation, &
+    &             dat%update,dat%version,dat%accuracy,io,sigma=sigma_loc)
+    if (present(sigma)) sigma = sigma_loc
 
     if (present(iostat)) then
       iostat = io
@@ -183,7 +205,26 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   subroutine gfnff_initialize(nat,at,xyz,dat, &
-  &                 print,verbose,iunit,version,iostat,ichrg)
+  &                 print,verbose,iunit,version,iostat,ichrg,lattice,npbc)
+    !*************************************************************
+    !* Initialize a GFN-FF calculation: load parameters, build
+    !* topology, and optionally set up periodic boundary conditions.
+    !*
+    !* INPUT:
+    !*   nat         - number of atoms
+    !*   at(nat)     - atomic numbers
+    !*   xyz(3,nat)  - Cartesian coordinates (Bohr)
+    !*   dat         - bundled GFN-FF data (modified in-place)
+    !*   print       - optional: enable standard printout
+    !*   verbose     - optional: enable extended printout
+    !*   iunit       - optional: output unit (default: stdout)
+    !*   version     - optional: GFN-FF parametrisation version
+    !*   ichrg       - optional: total molecular charge (default: 0)
+    !*   lattice(3,3)- optional: lattice vectors in Bohr (column-major)
+    !*   npbc        - optional: number of periodic dimensions (0-3)
+    !* OUTPUT:
+    !*   iostat      - optional: error status (0=success)
+    !*************************************************************
     use gfnff_param
     use gfnff_setup_mod,only:gfnff_setup
     use gfnff_gdisp0,only:newD3Model
@@ -199,6 +240,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in),optional  :: version
     integer,intent(out),optional :: iostat
     integer,intent(in),optional  :: ichrg
+    real(wp),intent(in),optional :: lattice(3,3) !> lattice vectors (Bohr)
+    integer,intent(in),optional  :: npbc         !> number of periodic dims (0-3)
     !> OUTPUT
     type(gfnff_data),intent(inout) :: dat
     !> LOCAL
@@ -229,6 +272,33 @@ contains  !> MODULE PROCEDURES START HERE
     call dat%type_init()
     if (present(ichrg)) then
       dat%ichrg = ichrg
+    end if
+
+!> Periodic boundary conditions setup
+    dat%cell%npbc = 0
+    dat%cell%pbc = .false.
+    dat%cell%lattice = 0.0_wp
+    dat%cell%rec_lat = 0.0_wp
+    dat%cell%volume = 0.0_wp
+    if (present(npbc)) dat%cell%npbc = npbc
+    if (present(lattice)) then
+      dat%cell%lattice = lattice
+      dat%cell%pbc(1:dat%cell%npbc) = .true.
+      !> cell volume = |det(lattice)| via cofactor expansion along first row
+      dat%cell%volume = abs( lattice(1,1)*(lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3)) &
+                           & -lattice(1,2)*(lattice(2,1)*lattice(3,3)-lattice(3,1)*lattice(2,3)) &
+                           & +lattice(1,3)*(lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2)) )
+      !> reciprocal lattice = inverse transpose of lattice (without 2pi factor)
+      !> rec_lat(:,i) = (a_j x a_k) / V, computed via cofactor matrix / V
+      dat%cell%rec_lat(1,1) = (lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3))/dat%cell%volume
+      dat%cell%rec_lat(2,1) = (lattice(3,2)*lattice(1,3)-lattice(1,2)*lattice(3,3))/dat%cell%volume
+      dat%cell%rec_lat(3,1) = (lattice(1,2)*lattice(2,3)-lattice(2,2)*lattice(1,3))/dat%cell%volume
+      dat%cell%rec_lat(1,2) = (lattice(2,3)*lattice(3,1)-lattice(3,3)*lattice(2,1))/dat%cell%volume
+      dat%cell%rec_lat(2,2) = (lattice(3,3)*lattice(1,1)-lattice(1,3)*lattice(3,1))/dat%cell%volume
+      dat%cell%rec_lat(3,2) = (lattice(1,3)*lattice(2,1)-lattice(2,3)*lattice(1,1))/dat%cell%volume
+      dat%cell%rec_lat(1,3) = (lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2))/dat%cell%volume
+      dat%cell%rec_lat(2,3) = (lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/dat%cell%volume
+      dat%cell%rec_lat(3,3) = (lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/dat%cell%volume
     end if
 !> except restart-related options
     restart = dat%restart
@@ -279,7 +349,7 @@ contains  !> MODULE PROCEDURES START HERE
     call newD3Model(dat%topo%dispm,nat,at)
 
     call gfnff_setup(nat,at,xyz,dat%ichrg,pr,restart,dat%write_topo, &
-    &        dat%gen,dat%param,dat%topo,dat%accuracy,dat%version,io, &
+    &        dat%gen,dat%param,dat%topo,dat%neigh,dat%cell,dat%accuracy,dat%version,io, &
     &        verbose=verbose,iunit=myunit)
 
     !> Optional, ALPB solvation
@@ -301,7 +371,7 @@ contains  !> MODULE PROCEDURES START HERE
   end subroutine gfnff_initialize
 
   subroutine gfnff_initialize_wrapper(self,nat,at,xyz, &
-     &                 print,verbose,iunit,version,iostat,ichrg,solvent)
+     &                 print,verbose,iunit,version,iostat,ichrg,solvent,lattice,npbc)
 !******************************************************************
 !* A wrapper to the initialize routine, allowing
 !* the energy routine to be called with "call dat%init(...)"
@@ -319,6 +389,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(out),optional :: iostat
     integer,intent(in),optional  :: ichrg
     character(len=*),intent(in),optional :: solvent
+    real(wp),intent(in),optional :: lattice(3,3) !> lattice vectors (Bohr)
+    integer,intent(in),optional  :: npbc         !> number of periodic dims (0-3)
 
     if (present(solvent)) then
       if (solvent .ne. 'none'.and.len_trim(solvent) > 0) self%solvent = solvent
@@ -326,7 +398,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     call gfnff_initialize(nat,at,xyz,self, &
     &       print=print,verbose=verbose,iunit=iunit,&
-    &       version=version,iostat=iostat,ichrg=ichrg)
+    &       version=version,iostat=iostat,ichrg=ichrg,lattice=lattice,npbc=npbc)
   end subroutine gfnff_initialize_wrapper
 
 !========================================================================================!
@@ -343,6 +415,8 @@ contains  !> MODULE PROCEDURES START HERE
     if (allocated(self%gen)) deallocate (self%gen)
     if (allocated(self%param)) deallocate (self%param)
     if (allocated(self%topo)) deallocate (self%topo)
+    if (allocated(self%neigh)) deallocate (self%neigh)
+    if (allocated(self%cell)) deallocate (self%cell)
     if (allocated(self%nlist)) deallocate (self%nlist)
     if (allocated(self%solvation)) deallocate (self%solvation)
     if (allocated(self%res)) deallocate (self%res)
@@ -353,6 +427,8 @@ contains  !> MODULE PROCEDURES START HERE
     if (allocated(self%gen)) deallocate (self%gen)
     if (allocated(self%param)) deallocate (self%param)
     if (allocated(self%topo)) deallocate (self%topo)
+    if (allocated(self%neigh)) deallocate (self%neigh)
+    if (allocated(self%cell)) deallocate (self%cell)
     if (allocated(self%nlist)) deallocate (self%nlist)
     if (allocated(self%solvation)) deallocate (self%solvation)
     if (allocated(self%res)) deallocate (self%res)
@@ -364,6 +440,8 @@ contains  !> MODULE PROCEDURES START HERE
     allocate (self%gen)
     allocate (self%param)
     allocate (self%topo)
+    allocate (self%neigh)
+    allocate (self%cell)
     allocate (self%nlist)
     allocate (self%res)
   end subroutine gfnff_data_make_types

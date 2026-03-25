@@ -23,7 +23,8 @@
 module gfnff_engrad_module
   use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
   use gfnff_ini2
-  use gfnff_data_types,only:TGFFData,TGFFNeighbourList,new,TGFFTopology
+  use gfnff_data_types,only:TGFFData,TGFFNeighbourList,new,TGFFTopology,TCell
+  use gfnff_neighbor,only:TNeigh
   use gfnff_gbsa,only:TBorn
   use gfnff_param,only:sqrtZr4r2
   use gfnff_helpers
@@ -90,7 +91,34 @@ contains  !> MODULE PROCEDURES START HERE
 !>
 !---------------------------------------------------
   subroutine gfnff_eg(pr,n,ichrg,at,xyz,makeq,g,etot,res_gff, &
-  &          param,topo,nlist,solvation,update,version,accuracy,io)
+  &          param,topo,neigh,cell,nlist,solvation,update,version,accuracy,io,sigma)
+    !*************************************************************
+    !* GFN-FF energy and analytical gradient for given xyz and
+    !* charge ichrg. Requires prior topology setup via gfnff_ini.
+    !*
+    !* INPUT:
+    !*   pr       - printout flag
+    !*   n        - number of atoms
+    !*   ichrg    - total molecular charge
+    !*   at(n)    - atomic numbers
+    !*   xyz(3,n) - Cartesian coordinates (Bohr)
+    !*   makeq    - recompute EEQ charges flag
+    !*   param    - GFN-FF parameters
+    !*   topo     - GFN-FF topology
+    !*   neigh    - neighbour list (TNeigh); used for PBC
+    !*   cell     - unit-cell geometry (TCell); npbc=0 for molecular
+    !*   nlist    - H-bond/X-bond neighbour list
+    !*   solvation- GBSA solvation (optional allocation)
+    !*   update   - rebuild neighbour lists flag
+    !*   version  - GFN-FF version flag
+    !*   accuracy - accuracy threshold factor
+    !* OUTPUT:
+    !*   g(3,n)   - gradient (Eh/Bohr)
+    !*   etot     - total energy (Eh)
+    !*   res_gff  - energy component breakdown
+    !*   io       - error status (0=success)
+    !*   sigma    - stress tensor (Eh); optional, zero for non-PBC
+    !*************************************************************
 
     use gfnff_param,only:efield,gffVersion,gfnff_thresholds
     use gfnff_gdisp0
@@ -102,6 +130,8 @@ contains  !> MODULE PROCEDURES START HERE
 
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh
+    type(TCell),intent(in) :: cell
     type(TGFFNeighbourList),intent(inout) :: nlist
 
     type(TBorn),allocatable,intent(inout) :: solvation
@@ -117,6 +147,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(inout) :: etot
     logical,intent(in) :: pr
     logical,intent(in) :: makeq
+    real(wp),intent(out),optional :: sigma(3,3)  !> stress tensor (zero for non-PBC)
 
     real(wp) :: edisp,ees,ebond,eangl,etors,erep,ehb,exb,ebatm,eext
     real(wp) :: gsolv,gborn,ghb,gsasa,gshift
@@ -141,7 +172,9 @@ contains  !> MODULE PROCEDURES START HERE
     !type(tb_timer) :: timer
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
 
-    if(.false.) write(*,*) makeq  ! silences -Wunused-dummy-argument
+    if(.false.) write(*,*) makeq   ! silences -Wunused-dummy-argument
+    if(.false.) write(*,*) neigh%numnb,cell%npbc ! silences -Wunused-dummy-argument
+    if (present(sigma)) sigma = 0.0_wp
 
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 

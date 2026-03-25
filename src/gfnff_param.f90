@@ -46,6 +46,9 @@ module gfnff_param
     !> Harmonic potential version of the Angew. Chem. 2020
     integer :: harmonic2020 = -1
 
+    !> MC-GFN-FF with periodic boundary conditions (2023)
+    integer :: mcgfnff2023 = 4
+
   end type TGFFVersionEnum
 
   !> Actual enumerator for force field versions

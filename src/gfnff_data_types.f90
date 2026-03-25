@@ -27,11 +27,34 @@ module gfnff_data_types
   private
 
   !> public types and routines
+  public :: TCell
   public :: TGFFTopology
   public :: TGFFNeighbourList,new
   public :: TGFFData,init
   public :: TDispersionData,initgffdispersion
   public :: TGFFGenerator
+
+!========================================================================================!
+
+  !> Periodic cell / lattice data for a given system
+  type :: TCell
+
+    !> Number of periodic dimensions (0=molecule, 1/2/3=periodic)
+    integer :: npbc = 0
+
+    !> Which Cartesian dimensions are periodic
+    logical :: pbc(3) = .false.
+
+    !> Direct lattice vectors (columns), in Bohr
+    real(wp) :: lattice(3,3) = 0.0_wp
+
+    !> Reciprocal lattice vectors (columns), in 1/Bohr (without 2pi factor)
+    real(wp) :: rec_lat(3,3) = 0.0_wp
+
+    !> Unit-cell volume, in Bohr^3
+    real(wp) :: volume = 0.0_wp
+
+  end type TCell
 
 !========================================================================================!
 

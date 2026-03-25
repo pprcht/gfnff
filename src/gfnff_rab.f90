@@ -32,7 +32,7 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnffdrab(n,at,xyz,cn,dcn,nsrb,srblist,rab,grab)
+  subroutine gfnffdrab(n,at,xyz,cn,dcn,nsrb,srblist,rab,grab,rabdcn)
     implicit none
     !> INPUT
     integer  :: n                ! number of atoms
@@ -44,7 +44,9 @@ contains  !> MODULE PROCEDURES START HERE
     integer  :: srblist(2,nsrb)  ! list of atom pairs
     !> OUTPUT
     real(wp) :: rab(nsrb)        ! output bond lengths estimates, input the predetermined bond shifts
-    real(wp) :: grab(3,n,nsrb)    ! output bond lengths gradients
+    real(wp) :: grab(3,n,nsrb)   ! output bond lengths gradients
+    !> OPTIONAL OUTPUT
+    real(wp),optional :: rabdcn(2,nsrb)  ! d(rab)/d(CN_i) and d(rab)/d(CN_j)
     !> LOCAL
     integer :: m,i,j,k,ati,atj,ir,jr
     real(wp) :: ra,rb,k1,k2,den,ff
@@ -153,6 +155,10 @@ contains  !> MODULE PROCEDURES START HERE
       k2 = 0.005d0*(p(ir,2)+p(jr,2))
       ff = 1.0d0-k1*den-k2*den**2
       rab(k) = (ra+rb+rab(k))*ff
+      if (present(rabdcn)) then
+        rabdcn(1,k) = cnfak(ati)*ff
+        rabdcn(2,k) = cnfak(atj)*ff
+      end if
       do m = 1,n
         grab(1:3,m,k) = ff*(cnfak(ati)*dcn(1:3,m,i)  &
     &                    +cnfak(atj)*dcn(1:3,m,j))
