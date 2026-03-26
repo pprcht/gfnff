@@ -18,11 +18,11 @@ contains
   subroutine collect_pbc_ini(testsuite)
     type(unittest_type),allocatable,intent(out) :: testsuite(:)
     testsuite = [ &
-      new_unittest("PBC ini: numctr=27 for 3D box        ",test_pbc_numctr), &
-      new_unittest("PBC ini: bpair/alphanb_pbc allocated  ",test_pbc_alloc), &
-      new_unittest("PBC ini: EEQ charges charge-conserved ",test_pbc_charges), &
-      new_unittest("PBC ini: bond list has iTr column     ",test_pbc_blist), &
-      new_unittest("PBC ini: H2O in box, single fragment  ",test_pbc_h2o_frag) &
+      new_unittest("PBC ini: numctr=27 for 3D box          ",test_pbc_numctr), &
+      new_unittest("PBC ini: bpair/alphanb_pbc allocated   ",test_pbc_alloc), &
+      new_unittest("PBC ini: EEQ charges charge-conserved  ",test_pbc_charges), &
+      new_unittest("PBC ini: bond list has iTr column      ",test_pbc_blist), &
+      new_unittest("PBC ini: H2O in box, single fragment   ",test_pbc_h2o_frag) &
     ]
   end subroutine collect_pbc_ini
 
