@@ -2,7 +2,6 @@ set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 list(APPEND srcs
   "${dir}/born.f90"
-  "${dir}/bisectsearch.f90"
   "${dir}/cm5.f90"
   "${dir}/gbsa.f90"
   "${dir}/input.F90"

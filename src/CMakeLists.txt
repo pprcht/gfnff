@@ -19,6 +19,7 @@ list(APPEND srcs
    "${dir}/gfnff_gdisp0.f90"
    "${dir}/gfnff_qm.f90"
    "${dir}/gfnff_ini2.f90"
+   "${dir}/gfnff_latticepoint.f90"
    "${dir}/gfnff_ini.f90"
    "${dir}/gfnff_alpb.F90"
    "${dir}/gfnff_engrad.F90"

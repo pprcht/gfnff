@@ -20,6 +20,7 @@ srcs += files(
   'gfnff_qm.f90',
   'gfnff_ini2.f90',
   'gfnff_ini.f90',
+  'gfnff_latticepoint.f90',
   'gfnff_alpb.F90',
   'gfnff_engrad.F90',
   'gfnff_restart.f90',

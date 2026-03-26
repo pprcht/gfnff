@@ -1,6 +1,5 @@
 srcs += files(
   'born.f90',
-  'bisectsearch.f90',
   'cm5.f90',
   'gbsa.f90',
   'input.F90',
