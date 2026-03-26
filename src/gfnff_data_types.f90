@@ -98,20 +98,21 @@ module gfnff_data_types
     character(len=:),allocatable :: filename
     character(len=:),allocatable :: refcharges
 
-    !> number of terms
+    !number of terms
     integer  :: nbond
     integer  :: nangl
     integer  :: ntors
+    integer  :: nstors
     integer  :: nathbH
     integer  :: nathbAB
     integer  :: natxbAB
     integer  :: nbatm
     integer  :: nfrag
-    integer  :: maxsystem   !> max. number of fragmentsfor hessian
-    integer  :: bond_hb_nr  !> number of unique AH...B HB/bond terms
-    integer  :: b_max       !> number of B atoms per unique AH bond
+    integer  :: maxsystem   ! max. number of fragmentsfor hessian
+    integer  :: bond_hb_nr  ! number of unique AH...B HB/bond terms
+    integer  :: b_max      ! number of B atoms per unique AH bond
 
-    !> numbers that are rewritten, so must be stored for allocation
+    !numbers that are rewritten, so must be stored for allocation
     integer  :: nbond_blist
     integer  :: nbond_vbond
     integer  :: nangl_alloc
@@ -121,46 +122,46 @@ module gfnff_data_types
     integer  :: read_file_type
 
     !> lists
-    integer,allocatable ::     nb(:,:)   ! neighbors nb(20,i) is the # neigbors
-    integer,allocatable ::      hyb(:)   ! hybridization of every atom
-    integer,allocatable ::    bpair(:)   ! # of cov. between atoms
+    integer,allocatable ::     hyb(:)   ! hybridization of every atom
     integer,allocatable ::  blist(:,:)   ! bonded atoms
     integer,allocatable ::  alist(:,:)   ! angles
     integer,allocatable ::  tlist(:,:)   ! torsions
     integer,allocatable :: b3list(:,:)   ! bond atm
-    integer,allocatable :: sTorsl(:,:)   ! triple bonded carbon potential
-    real(wp),allocatable::      pbo(:)   ! bond order from Hückel
+    integer,allocatable :: sTorsl(:,:)
     !-----------------------------------------------
-    integer,allocatable :: nr_hb(:)        ! Nr. of H bonds per O-H or N-H bond
+    integer,allocatable :: nr_hb(:)      ! Nr. of H bonds per O-H or N-H bond
     integer,allocatable :: bond_hb_AH(:,:) ! A, H atoms in bonds that are also part of HBs
-    integer,allocatable :: bond_hb_B(:,:)  ! B atoms in bonds that are also part of HBs
+    integer,allocatable :: bond_hb_B(:,:,:)  ! B atoms in bonds that are also part of HBs
     integer,allocatable :: bond_hb_Bn(:)   ! Nr. of B atoms for one AH bond pair
     !-----------------------------------------------
-    integer,allocatable :: hbatABl(:,:) ! AB atoms for HB
-    integer,allocatable :: xbatABl(:,:) ! AB atoms for XB
-    integer,allocatable :: hbatHl(:)    ! H  atoms for HB
-    integer,allocatable :: fraglist(:)  ! atoms in molecular fragments (for EEQ)
-    integer,allocatable :: qpdb(:)      ! atomic charge in residues from PDB file
+    integer,allocatable :: hbatABl(:,:)  ! AB atoms for HB
+    integer,allocatable :: xbatABl(:,:)  ! AB atoms for XB
+    integer,allocatable :: hbatHl(:,:)    ! H  atoms for HB
+    integer,allocatable :: fraglist(:)   ! atoms in molecular fragments (for EEQ)
+    integer,allocatable :: qpdb(:)     ! atomic charge in residues from PDB file
 
-    !potential parameters used in energy-gradient routine
-    real(wp),allocatable :: vbond(:,:) ! bonds
-    real(wp),allocatable :: vangl(:,:) ! angles
-    real(wp),allocatable :: vtors(:,:) ! torsions
-    real(wp),allocatable :: chieeq(:)  ! atomic ENs for EEQ
-    real(wp),allocatable :: gameeq(:)  ! atomic gamma for EEQ
-    real(wp),allocatable :: alpeeq(:)  ! atomic alpha for EEQ, squared
-    real(wp),allocatable :: alphanb(:)       ! non-bonded exponent for atom pairs (molecular)
-    real(wp),allocatable :: alphanb_pbc(:,:,:) ! (nat,nat,numctr+1) non-bonded exponent for PBC
-    real(wp),allocatable :: qa(:)      ! estimated atomic charges (fixed and obtained from topology EEQ)
-    real(wp),allocatable :: xyze0(:,:) ! atom xyz, starting geom. (for Efield energy)
-    real(wp),allocatable :: zetac6(:)  ! D4 scaling factor product
-    real(wp),allocatable :: qfrag(:)   ! fragment charge (for EEQ)
-    real(wp),allocatable :: hbbas(:)   ! HB donor atom basicity
-    real(wp),allocatable :: hbaci(:)   ! HB acceptor atom acidity
+    !> potential parameters used in energy-gradient routine
+    real(wp),allocatable:: vbond(:,:)     ! bonds
+    real(wp),allocatable:: vangl(:,:)     ! angles
+    real(wp),allocatable:: vtors(:,:)     ! torsions
+    real(wp),allocatable:: chieeq(:)      ! atomic ENs for EEQ
+    real(wp),allocatable:: gameeq(:)      ! atomic gamma for EEQ
+    real(wp),allocatable:: alpeeq(:)      ! atomic alpha for EEQ, squared
+    real(wp),allocatable:: alphanb(:,:,:)    ! non-bonded exponent for atom pairs
+    real(wp),allocatable:: qa(:)          ! estimated atomic charges (fixed and obtained from topology EEQ)
+    real(wp),allocatable:: xyze0(:,:)     ! atom xyz, starting geom. (for Efield energy)
+    real(wp),allocatable:: zetac6(:)      ! D4 scaling factor product
+    real(wp),allocatable:: qfrag(:)       ! fragment charge (for EEQ)
+    real(wp),allocatable:: hbbas(:)       ! HB donor atom basicity
+    real(wp),allocatable:: hbaci(:)       ! HB acceptor atom acidity
+    integer,allocatable:: hb_mapABH(:)    ! mapping of indices from all atoms to only AB and H separately
+    logical,allocatable:: isABH(:)        ! logical set to true if the atom is part of a hydrogen bond
+    integer :: hb_mapNAB                  ! number of AB atoms that are part of a hydrogen bond
+    integer :: hb_mapNH                   ! number of H atoms that are part of a hydrogen bond
 
     integer,allocatable  :: ispinsyst(:,:)
     integer,allocatable  :: nspinsyst(:)
-    integer              :: nsystem
+    integer               :: nsystem
 
     type(TDispersionData) :: dispm
 
@@ -169,6 +170,7 @@ module gfnff_data_types
     procedure :: zero
 
   end type TGFFTopology
+
 !========================================================================================!
 
   !> Neighbourlist storage
@@ -489,14 +491,14 @@ module gfnff_data_types
 
   end type TGFFGenerator
 
-!========================================================================================!
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
+! ══════════════════════════════════════════════════════════════════════════════
 contains  !> MODULE PROCEDURES START HERE
-!========================================================================================!
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
+! ══════════════════════════════════════════════════════════════════════════════
 
   subroutine zero(self)
-    class(TGFFTopology),intent(inout) :: self
+    class(TGFFTopology),intent(out) :: self
 
     self%nbond = 0
     self%nangl = 0
@@ -516,6 +518,7 @@ contains  !> MODULE PROCEDURES START HERE
     self%ntors_alloc = 0
 
     self%read_file_type = 0
+
   end subroutine zero
 !========================================================================================!
 

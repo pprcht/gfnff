@@ -37,8 +37,17 @@ module gfnff_helpers
   interface crprod
     module procedure crossprod
   end interface crprod
+  public :: crossproduct
 
   public :: readl
+
+  public :: bisectSearch
+  interface bisectSearch
+    module procedure :: bisectSearchReal
+    module procedure :: bisectSearchInteger
+  end interface bisectSearch
+
+  public :: indexHeapSort
 
 !========================================================================================!
 !========================================================================================!
@@ -111,7 +120,7 @@ contains !> MODULE PROCEDURES START HERE
     real(wp),allocatable :: bond(:,:,:)
     logical,allocatable  :: taken(:)
 
-    allocate(taken(nat),bond(nat,nat,numctr))
+    allocate (taken(nat),bond(nat,nat,numctr))
     bond = 0.0_wp
     do i = 1,nat
       do iTr = 1,numctr
@@ -122,10 +131,10 @@ contains !> MODULE PROCEDURES START HERE
     end do
 
     if (int(sum(bond)) .ne. sum(nb(numnb,:,:))) then
-      write(*,*)
-      write(*,'(a,2i10)') ' Warning (mrecgffPBC): bond sum mismatch', &
+      write (*,*)
+      write (*,'(a,2i10)') ' Warning (mrecgffPBC): bond sum mismatch', &
         & int(sum(bond)),sum(nb(numnb,:,:))
-      write(*,*)
+      write (*,*)
     end if
 
     molvec = 0
@@ -136,10 +145,10 @@ contains !> MODULE PROCEDURES START HERE
         molvec(i) = molcount
         taken(i) = .true.
         call mrecgff2PBC(numctr,numnb,nat,nb,i,taken,bond,molvec,molcount)
-        molcount = molcount + 1
+        molcount = molcount+1
       end if
     end do
-    molcount = molcount - 1
+    molcount = molcount-1
   end subroutine mrecgffPBC
 
   recursive subroutine mrecgff2PBC(numctr,numnb,nat,nb,i,taken,bond,molvec,molcnt)
@@ -156,10 +165,10 @@ contains !> MODULE PROCEDURES START HERE
     icn = sum(nb(numnb,i,:))
     do k = 1,icn
       j_iTr = maxloc(bond(:,i,:))
-      j   = j_iTr(1)
+      j = j_iTr(1)
       iTr = j_iTr(2)
       bond(j,i,iTr) = 0.0_wp
-      if (i .eq. j .and. iTr .eq. 1) cycle
+      if (i .eq. j.and.iTr .eq. 1) cycle
       if (.not.taken(j)) then
         molvec(j) = molcnt
         taken(j) = .true.
@@ -463,6 +472,12 @@ contains !> MODULE PROCEDURES START HERE
     rab(2) = ra(3)*rb(1)-ra(1)*rb(3)
     rab(3) = ra(1)*rb(2)-ra(2)*rb(1)
   end Subroutine crossprod
+
+  function crossproduct(ra,rb) result(rab)
+    implicit none                  
+    real(wp) :: ra(3),rb(3),rab(3) 
+    call crossprod(ra,rb,rab)
+  end function crossproduct
 
   real(wp) Function vecnorm(r,n,inorm)
     implicit none
@@ -790,5 +805,177 @@ contains !> MODULE PROCEDURES START HERE
       end if
     end subroutine checktype
   end subroutine getfloats
+
+!================================================================================!
+
+!> Integer case for bisection search
+  pure subroutine bisectSearchInteger(j,xx,x)
+
+    !> Located element such that xx(j) <= x < xx(j+1)
+    integer,intent(out) :: j
+
+    !> Array of values in monotonic order to search through
+    integer,intent(in) :: xx(:)
+
+    !> Value to locate j for
+    integer,intent(in) :: x
+
+    integer :: n
+    integer :: jlower,jupper,jcurr
+
+    n = size(xx)
+    if (n == 0) then
+      j = 0
+      return
+    end if
+
+    if (x < xx(1)) then
+      j = 0
+    else if (x == xx(1)) then
+      j = 1
+    else if (x == xx(n)) then
+      j = n-1
+    else if (x > xx(n)) then
+      j = n
+    else
+      jlower = 0
+      jcurr = n+1
+      do while ((jcurr-jlower) > 1)
+        jupper = (jcurr+jlower)/2
+        if ((xx(n) >= xx(1)).eqv.(x >= xx(jupper))) then
+          jlower = jupper
+        else
+          jcurr = jupper
+        end if
+      end do
+      j = jlower
+    end if
+
+  end subroutine bisectSearchInteger
+
+!> Real case for bisection search
+  pure subroutine bisectSearchReal(j,xx,x,tol)
+
+    !> Located element such that xx(j) <= x < xx(j+1)
+    integer,intent(out) :: j
+
+    !> Array of values in monotonic order to search through
+    real(wp),intent(in) :: xx(:)
+
+    !> Value to locate j for
+    real(wp),intent(in) :: x
+
+    !> Tolerance for equality comparision
+    real(wp),intent(in),optional :: tol
+
+    integer :: n
+    integer :: jlower,jupper,jcurr
+    real(wp) :: rTol
+    logical :: ascending
+
+    n = size(xx)
+    if (n == 0) then
+      j = 0
+      return
+    end if
+
+    if (present(tol)) then
+      rTol = tol
+    else
+      rTol = epsilon(0.0_wp)
+    end if
+
+    if (x < xx(1)-rTol) then
+      j = 0
+    else if (abs(x-xx(1)) <= rTol) then
+      j = 1
+    else if (abs(x-xx(n)) <= rTol) then
+      j = n-1
+    else if (x > xx(n)+rTol) then
+      j = n
+    else
+      ascending = (xx(n) >= xx(1))
+      jlower = 0
+      jcurr = n+1
+      do while ((jcurr-jlower) > 1)
+        jupper = (jcurr+jlower)/2
+        if (ascending.eqv.(x >= xx(jupper)+rTol)) then
+          jlower = jupper
+        else
+          jcurr = jupper
+        end if
+      end do
+      j = jlower
+    end if
+
+  end subroutine bisectSearchReal
+
+! ──────────────────────────────────────────────────────────────────────────────
+
+!> Real case heap sort returning an index.
+!  Based on Numerical Recipes Software 1986-92
+  pure subroutine indexHeapSort(indx,array,tolerance)
+    !> Indexing array on return
+    integer,intent(out) :: indx(:)
+    !> Array of values to be sorted
+    real(wp),intent(in) :: array(:)
+    !> Tolerance for equality of two elements
+    real(wp),intent(in),optional :: tolerance
+
+    integer :: n,ir,ij,il,ii
+    integer :: indxTmp
+    real(wp) :: arrayTmp,tol
+
+    !:ASSERT(size(array)==size(indx))
+
+    if (present(tolerance)) then
+      tol = tolerance
+    else
+      tol = epsilon(0.0_wp)
+    end if
+
+    do ii = 1,size(indx)
+      indx(ii) = ii
+    end do
+    n = size(array)
+    if (n <= 1) return
+    il = n/2+1
+    ir = n
+    do
+      if (il > 1) then
+        il = il-1
+        indxTmp = indx(il)
+        arrayTmp = array(indxTmp)
+      else
+        indxTmp = indx(ir)
+        arrayTmp = array(indxTmp)
+        indx(ir) = indx(1)
+        ir = ir-1
+        if (ir < 1) then
+          indx(1) = indxTmp
+          return
+        end if
+      end if
+      ii = il
+      ij = 2*il
+      do while (ij <= ir)
+        if (ij < ir) then
+          if (array(indx(ij)) < array(indx(ij+1))-tol) then
+            ij = ij+1
+          end if
+        end if
+        if (arrayTmp < array(indx(ij))-tol) then
+          indx(ii) = indx(ij)
+          ii = ij
+          ij = 2*ij
+        else
+          ij = ir+1
+        end if
+      end do
+      indx(ii) = indxTmp
+    end do
+
+  end subroutine indexHeapSort
+
 !========================================================================================!
 end module gfnff_helpers
