@@ -149,7 +149,8 @@ module gfnff_data_types
     real(wp),allocatable :: chieeq(:)  ! atomic ENs for EEQ
     real(wp),allocatable :: gameeq(:)  ! atomic gamma for EEQ
     real(wp),allocatable :: alpeeq(:)  ! atomic alpha for EEQ, squared
-    real(wp),allocatable :: alphanb(:) ! non-bonded exponent for atom pairs
+    real(wp),allocatable :: alphanb(:)       ! non-bonded exponent for atom pairs (molecular)
+    real(wp),allocatable :: alphanb_pbc(:,:,:) ! (nat,nat,numctr+1) non-bonded exponent for PBC
     real(wp),allocatable :: qa(:)      ! estimated atomic charges (fixed and obtained from topology EEQ)
     real(wp),allocatable :: xyze0(:,:) ! atom xyz, starting geom. (for Efield energy)
     real(wp),allocatable :: zetac6(:)  ! D4 scaling factor product

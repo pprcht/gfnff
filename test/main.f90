@@ -4,6 +4,7 @@ program tester
   use testdrive,only:run_testsuite,new_testsuite,testsuite_type, &
     & select_suite,run_selected,get_argument
   use test_gfnff,only:collect_gfnff
+  use test_pbc_ini,only:collect_pbc_ini
   implicit none
   integer :: stat,is
   character(len=:),allocatable :: suite_name,test_name
@@ -15,7 +16,8 @@ program tester
 !&<
 !> note: these must have the same name as in CMakeLists.txt
   testsuites = [ &
-    new_testsuite("gfnff", collect_gfnff) &
+    new_testsuite("gfnff",    collect_gfnff), &
+    new_testsuite("pbc-ini",  collect_pbc_ini) &
   ]
 !&>
 

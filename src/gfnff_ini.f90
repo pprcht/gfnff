@@ -67,7 +67,7 @@ contains  !> MODULE PROCEDURES START HERE
 !--------------------------------------------------------------------------------------------------
 
     integer :: ati,atj,atk,i,j,k,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no
-    integer :: ineig,jneig,nrot,bbtyp,hybi,hybj,pis,nh,hcalc,nc
+    integer :: ineig,jneig,nrot,bbtyp,hybi,hybj,pis,nh,hcalc,nc,iTr,l
     integer :: ringsi,ringsj,ringsk,ringl,npi,nelpi,picount,npiall,maxtors,rings4,nheav
     integer :: nm,ncarbo,mtyp1,mtyp2,nbi
     integer :: ind3(3),sr(20),cr(10,20),niel(86)
@@ -93,6 +93,7 @@ contains  !> MODULE PROCEDURES START HERE
     logical :: pr2
 
     integer,allocatable :: btyp(:),imetal(:),nbm(:,:),nbf(:,:)
+    integer,allocatable :: bdum(:,:,:),cdum(:,:,:) ! PBC bond-counting temporaries
     integer,allocatable :: hyb(:),itag(:)
     integer,allocatable :: piadr(:),piadr2(:),piadr3(:),piadr4(:)
     integer,allocatable :: itmp(:),sring(:,:),cring(:,:,:)
@@ -120,7 +121,6 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),parameter :: pi = 3.1415926535897932385_wp
 
 !> initialization
-    if(.false.) write(*,*) cell%npbc ! silences -Wunused-dummy-argument for cell
     io = 0
     exitRun = .false.
     if (present(iunit)) then
@@ -158,7 +158,7 @@ contains  !> MODULE PROCEDURES START HERE
     allocate (sqrab(nat*(nat+1)/2),source=0.0d0)
     allocate (hyb(nat),source=0)
     allocate (topo%hyb(nat),source=0)
-    allocate (topo%alphanb(nat*(nat+1)/2),source=0.0d0)
+    if (cell%npbc == 0) allocate (topo%alphanb(nat*(nat+1)/2),source=0.0d0)
     allocate (rtmp(nat*(nat+1)/2),source=0.0d0)
     allocate (pbo(nat*(nat+1)/2),source=0.0d0)
     allocate (piadr(nat),source=0)
@@ -266,11 +266,21 @@ contains  !> MODULE PROCEDURES START HERE
         write (myunit,'(2x,"----------------------------------------")')
         write (myunit,'(2x,"generating topology and atomic info file ...")')
       end if
-      call neigh%init_n(nat,0,io)
+      if (cell%npbc > 0) then
+        call neigh%getTransVec(nat,cell%npbc,cell%pbc,cell%lattice,sqrt(max(dispthr,hbthr1)),io)
+        if (io /= 0) return
+      end if
+      call neigh%init_n(nat,cell%npbc,io)
       if (io /= 0) return
+      if (cell%npbc > 0) then
+        if (.not.allocated(topo%alphanb_pbc)) &
+          & allocate(topo%alphanb_pbc(nat,nat,neigh%numctr+1),source=0.0d0)
+        if (.not.allocated(neigh%bpair)) &
+          & allocate(neigh%bpair(nat,nat,neigh%numctr),source=0)
+      end if
       call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
          & gen%rthr,gen%rthr2,gen%linthr,mchar,hyb,itag,param,topo,neigh,myunit,pr)
-      ! Extract nbf and nbm from TNeigh for downstream use
+      ! Extract nbf and nbm from TNeigh for downstream use (molecular path)
       nbf(1:18,:) = neigh%nbf(1:18,:,1)
       nbf(19,:)   = neigh%nbf(neigh%numnb-1,:,1) ! cluster flag
       nbf(20,:)   = neigh%nbf(neigh%numnb,:,1)   ! count
@@ -287,32 +297,78 @@ contains  !> MODULE PROCEDURES START HERE
 ! bonds (non bonded directly in EG)
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      topo%bpair = 0
-      do i = 1,nat
-        do j = 1,topo%nb(20,i)
-          k = topo%nb(j,i)
-          topo%bpair(lin(k,i)) = 1
+      if (cell%npbc == 0) then
+!> molecular: flat bpair work array
+        topo%bpair = 0
+        do i = 1,nat
+          do j = 1,topo%nb(20,i)
+            k = topo%nb(j,i)
+            topo%bpair(lin(k,i)) = 1
+          end do
         end do
-      end do
-      topo%nbond = sum(topo%bpair)
-      topo%nbond_blist = topo%nbond
-      allocate (topo%blist(2,topo%nbond),source=0)
-      allocate (btyp(topo%nbond),source=0)
-      allocate (pibo(topo%nbond),source=0.0d0)
-
-      pibo = -99.
-      topo%nbond = 0
-      do i = 1,nat
-        kk = i*(i-1)/2
-        do j = 1,i-1
-          k = kk+j
-          if (topo%bpair(k) .eq. 1) then  ! bonds
-            topo%nbond = topo%nbond+1
-            topo%blist(1,topo%nbond) = i
-            topo%blist(2,topo%nbond) = j
-          end if
+        topo%nbond = sum(topo%bpair)
+        topo%nbond_blist = topo%nbond
+        allocate (topo%blist(2,topo%nbond),source=0)
+        allocate (btyp(topo%nbond),source=0)
+        allocate (pibo(topo%nbond),source=0.0d0)
+        pibo = -99.
+        topo%nbond = 0
+        do i = 1,nat
+          kk = i*(i-1)/2
+          do j = 1,i-1
+            k = kk+j
+            if (topo%bpair(k) .eq. 1) then  ! bonds
+              topo%nbond = topo%nbond+1
+              topo%blist(1,topo%nbond) = i
+              topo%blist(2,topo%nbond) = j
+            end if
+          end do
         end do
-      end do
+      else
+!> PBC: count unique (i,j,iTr) bonds using bdum/cdum flags
+        allocate(bdum(nat,nat,neigh%numctr),source=0)
+        allocate(cdum(neigh%numnb,nat,neigh%numctr),source=0)
+        k = 0
+        do i = 1,nat
+          do iTr = 1,neigh%numctr
+            do j = 1,neigh%nb(neigh%numnb,i,iTr)
+              l = neigh%nb(j,i,iTr)
+              if (bdum(l,i,iTr) .eq. 0) then
+                bdum(l,i,iTr) = 1
+                bdum(i,l,neigh%iTrNeg(iTr)) = 1
+                cdum(j,i,iTr) = 1
+                k = k+1
+              end if
+            end do
+          end do
+        end do
+        neigh%nbond = k
+        neigh%nbond_blist = k
+        topo%nbond_blist = k
+        allocate(neigh%blist(3,k),source=0)
+        allocate(topo%blist(3,k),source=0)
+        allocate(btyp(k),source=0)
+        allocate(pibo(k),source=0.0d0)
+        pibo = -99.
+        k = 0
+        do i = 1,nat
+          do iTr = 1,neigh%numctr
+            do j = 1,neigh%nb(neigh%numnb,i,iTr)
+              if (cdum(j,i,iTr) .eq. 1) then
+                k = k+1
+                neigh%blist(1,k) = neigh%nb(j,i,iTr)
+                neigh%blist(2,k) = i
+                neigh%blist(3,k) = iTr
+                topo%blist(1,k) = neigh%blist(1,k)
+                topo%blist(2,k) = neigh%blist(2,k)
+                topo%blist(3,k) = neigh%blist(3,k)
+              end if
+            end do
+          end do
+        end do
+        topo%nbond = neigh%nbond
+        deallocate(bdum,cdum)
+      end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Hueckel setup for all first-row sp2 and sp atoms
@@ -325,16 +381,31 @@ contains  !> MODULE PROCEDURES START HERE
       do i = 1,nat ! setup loop
         piat = (hyb(i) .eq. 1.or.hyb(i) .eq. 2).and.pilist(at(i)) ! sp or sp2 and CNOFS
         kk = 0
-        do j = 1,topo%nb(20,i)
-          jj = topo%nb(j,i)
-          if (at(i) .eq. 8.and.at(jj) .eq. 16.and.hyb(jj) .eq. 5) then
-            piat = .false.
-            cycle ! SO3   is not a pi
-          end if
-          if (hyb(jj) .eq. 1.or.hyb(jj) .eq. 2) kk = kk+1         ! attached to sp2 or sp
-        end do
-        picon = kk .gt. 0.and.nofs(at(i))                     ! an N,O,F (sp3) on sp2
-        if (at(i) .eq. 7.and.topo%nb(20,i) .gt. 3) cycle           ! NR3-X is not a pi
+        if (cell%npbc == 0) then
+          do j = 1,topo%nb(20,i)
+            jj = topo%nb(j,i)
+            if (at(i) .eq. 8.and.at(jj) .eq. 16.and.hyb(jj) .eq. 5) then
+              piat = .false.
+              cycle ! SO3   is not a pi
+            end if
+            if (hyb(jj) .eq. 1.or.hyb(jj) .eq. 2) kk = kk+1       ! attached to sp2 or sp
+          end do
+          picon = kk .gt. 0.and.nofs(at(i))                   ! an N,O,F (sp3) on sp2
+          if (at(i) .eq. 7.and.topo%nb(20,i) .gt. 3) cycle         ! NR3-X is not a pi
+        else
+          do iTr = 1,neigh%numctr
+            do j = 1,neigh%nb(neigh%numnb,i,iTr)
+              jj = neigh%nb(j,i,iTr)
+              if (at(i) .eq. 8.and.at(jj) .eq. 16.and.hyb(jj) .eq. 5) then
+                piat = .false.
+                cycle ! SO3   is not a pi
+              end if
+              if (hyb(jj) .eq. 1.or.hyb(jj) .eq. 2) kk = kk+1     ! attached to sp2 or sp
+            end do
+          end do
+          picon = kk .gt. 0.and.nofs(at(i))
+          if (at(i) .eq. 7.and.sum(neigh%nb(neigh%numnb,i,:)) .gt. 3) cycle ! NR3-X is not a pi
+        end if
         if (at(i) .eq. 16.and.hyb(i) .eq. 5) cycle           ! SO3   is not a pi
         if (picon.or.piat) then
           k = k+1
@@ -344,24 +415,46 @@ contains  !> MODULE PROCEDURES START HERE
       end do
       npiall = k
 ! make pi neighbor list
-      allocate (nbpi(20,npiall),pimvec(npiall),source=0)
-      nbpi = 0
-      do i = 1,nat
-        if (piadr2(i) .eq. 0) cycle
-        ii = piadr2(i)
-        nbpi(20,ii) = 0
-        do j = 1,topo%nb(20,i)
-          k = topo%nb(j,i)
-          if (piadr2(k) .gt. 0) then
-            nbpi(20,ii) = nbpi(20,ii)+1
-            nbpi(nbpi(20,ii),ii) = piadr2(k)
-          end if
+      if (cell%npbc == 0) then
+        allocate (nbpi(20,npiall),pimvec(npiall),source=0)
+        nbpi = 0
+        do i = 1,nat
+          if (piadr2(i) .eq. 0) cycle
+          ii = piadr2(i)
+          nbpi(20,ii) = 0
+          do j = 1,topo%nb(20,i)
+            k = topo%nb(j,i)
+            if (piadr2(k) .gt. 0) then
+              nbpi(20,ii) = nbpi(20,ii)+1
+              nbpi(nbpi(20,ii),ii) = piadr2(k)
+            end if
+          end do
         end do
-      end do
-
-! assign pi atoms to fragments
-      call mrecgff(npiall,nbpi,picount,pimvec)
-      deallocate (nbpi)
+        call mrecgff(npiall,nbpi,picount,pimvec)
+        deallocate (nbpi)
+      else
+        block
+          integer,allocatable :: nbpi_pbc(:,:,:)
+          allocate(nbpi_pbc(neigh%numnb,npiall,neigh%numctr),source=0)
+          allocate(pimvec(npiall),source=0)
+          do i = 1,nat
+            if (piadr2(i) .eq. 0) cycle
+            ii = piadr2(i)
+            do iTr = 1,neigh%numctr
+              nbpi_pbc(neigh%numnb,ii,iTr) = 0
+              do j = 1,neigh%nb(neigh%numnb,i,iTr)
+                k = neigh%nb(j,i,iTr)
+                if (piadr2(k) .gt. 0) then
+                  nbpi_pbc(neigh%numnb,ii,iTr) = nbpi_pbc(neigh%numnb,ii,iTr)+1
+                  nbpi_pbc(nbpi_pbc(neigh%numnb,ii,iTr),ii,iTr) = piadr2(k)
+                end if
+              end do
+            end do
+          end do
+          call mrecgffPBC(npiall,neigh%numctr,neigh%numnb,nbpi_pbc,picount,pimvec)
+          deallocate(nbpi_pbc)
+        end block
+      end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! setup xi correction for EEQ
@@ -370,16 +463,33 @@ contains  !> MODULE PROCEDURES START HERE
       dxi = 0 ! default none
       do i = 1,nat
         ati = at(i)
-        nn = topo%nb(20,i)
+        if (cell%npbc == 0) then
+          nn = topo%nb(20,i)
+        else
+          nn = sum(neigh%nb(neigh%numnb,i,:))
+        end if
         if (nn .eq. 0) cycle
         ip = piadr2(i)
-        ji = topo%nb(1,i) ! first neighbor
+        if (cell%npbc == 0) then
+          ji = topo%nb(1,i) ! first neighbor
+        else
+          ji = neigh%nb(1,i,1) ! first neighbor in central cell
+        end if
         nh = 0
         nm = 0
-        do j = 1,nn
-          if (at(topo%nb(j,i)) .eq. 1) nh = nh+1
-          if (imetal(topo%nb(j,i)) .ne. 0) nm = nm+1
-        end do
+        if (cell%npbc == 0) then
+          do j = 1,nn
+            if (at(topo%nb(j,i)) .eq. 1) nh = nh+1
+            if (imetal(topo%nb(j,i)) .ne. 0) nm = nm+1
+          end do
+        else
+          do iTr = 1,neigh%numctr
+            do j = 1,neigh%nb(neigh%numnb,i,iTr)
+              if (at(neigh%nb(j,i,iTr)) .eq. 1) nh = nh+1
+              if (imetal(neigh%nb(j,i,iTr)) .ne. 0) nm = nm+1
+            end do
+          end do
+        end if
 !     hydrogen
 !        if(ati.eq.1.and.nn.gt.1)                                                 dxi(i)=dxi(i)-nn*0.01
 !     boron
@@ -393,7 +503,13 @@ contains  !> MODULE PROCEDURES START HERE
 !                                                                                 dxi(ji)=0.19 !  "    "   "  "
 !           endif
 !        endif
-        if (ati .eq. 6.and.nn .eq. 1.and.at(ji) .eq. 8.and.topo%nb(20,ji) .eq. 1) dxi(ji) = 0.15! free CO
+        if (ati .eq. 6.and.nn .eq. 1.and.at(ji) .eq. 8) then
+          if (cell%npbc == 0) then
+            if (topo%nb(20,ji) .eq. 1) dxi(ji) = 0.15 ! free CO
+          else
+            if (sum(neigh%nb(neigh%numnb,ji,:)) .eq. 1) dxi(ji) = 0.15 ! free CO
+          end if
+        end if
 !     nitrogen
 !        if(ati.eq.7.and.nn.eq.1.and.at(ji).eq.6)                                 dxi(i)=0.00  !CN
 !     oxygen / group 6
@@ -415,7 +531,11 @@ contains  !> MODULE PROCEDURES START HERE
 !> at this point for the non-geom. dep. charges qa with CN = nb
       do i = 1,nat
         ati = at(i)
-        dum = min(dble(topo%nb(20,i)),gen%cnmax)  ! limits it
+        if (cell%npbc == 0) then
+          dum = min(dble(topo%nb(20,i)),gen%cnmax)
+        else
+          dum = min(dble(sum(neigh%nb(neigh%numnb,i,:))),gen%cnmax)
+        end if
 !> base val  spec. corr.    CN dep.
         topo%chieeq(i) = -param%chi(ati)+dxi(i)+param%cnf(ati)*sqrt(dum)
         topo%gameeq(i) = param%gam(ati)
@@ -435,7 +555,12 @@ contains  !> MODULE PROCEDURES START HERE
 
       if (pr) write (myunit,'(2x,"pair mat ...")')
 !> get number of cov. bonds between atoms up to 4 bonds
-      call nbondmat(nat,topo%nb,topo%bpair)
+      if (cell%npbc == 0) then
+        call nbondmat(nat,topo%nb,topo%bpair)
+      else
+        call nbondmat_pbc(nat,neigh%numnb,neigh%numctr,neigh%nb, &
+          &              neigh%iTrNeg,neigh,neigh%bpair)
+      end if
       if (pr) write (myunit,'(2x,"computing topology distances matrix with Floyd-Warshall algo ...")')
       allocate (rabd(nat,nat),source=0.0e0_sp)
       rabd = rabd_cutoff
@@ -443,11 +568,21 @@ contains  !> MODULE PROCEDURES START HERE
 !> they are used in the EEQ to determine qa (approximate topology charges)
       do i = 1,nat
         rabd(i,i) = 0.0
-        do j = 1,topo%nb(20,i)
-          k = topo%nb(j,i)
-          rabd(k,i) = real((param%rad(at(i))+param%rad(at(k))),4)
-          rabd(i,k) = rabd(k,i)
-        end do
+        if (cell%npbc == 0) then
+          do j = 1,topo%nb(20,i)
+            k = topo%nb(j,i)
+            rabd(k,i) = real((param%rad(at(i))+param%rad(at(k))),4)
+            rabd(i,k) = rabd(k,i)
+          end do
+        else
+          do iTr = 1,neigh%numctr
+            do j = 1,neigh%nb(neigh%numnb,i,iTr)
+              k = neigh%nb(j,i,iTr)
+              rabd(k,i) = real((param%rad(at(i))+param%rad(at(k))),4)
+              rabd(i,k) = rabd(k,i)
+            end do
+          end do
+        end if
       end do
       do k = 1,nat
         do i = 1,nat
@@ -474,7 +609,11 @@ contains  !> MODULE PROCEDURES START HERE
       if (pr) write (myunit,'(2x,"making topology EEQ charges ...")')
       if (topo%nfrag .le. 1) then                           ! nothing is known
 !> first check for fragments
-        call mrecgff(nat,nbf,topo%nfrag,topo%fraglist)
+        if (cell%npbc == 0) then
+          call mrecgff(nat,nbf,topo%nfrag,topo%fraglist)
+        else
+          call mrecgffPBC(nat,neigh%numctr,neigh%numnb,neigh%nbf,topo%nfrag,topo%fraglist)
+        end if
         if (pr) write (myunit,'(2x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
 !> read QM info if it exists
         if (allocated(topo%refcharges)) then
@@ -547,7 +686,11 @@ contains  !> MODULE PROCEDURES START HERE
           if (pr) write (myunit,*) 'trying auto detection of charge on 2 fragments:'
           topo%qfrag(1) = 0
           topo%qfrag(2) = dble(ichrg)
-          call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum1,topo,io)
+          if (cell%npbc == 0) then
+            call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum1,topo,io)
+          else
+            call goedeckera_PBC(nat,at,rtmp,topo,cell,topo%qa,dum1,io)
+          end if
           if (io /= 0) exitRun = .true.
           if (exitRun) then
             if (pr) write (myunit,'("Failed to generate charges ",a)') source
@@ -555,7 +698,11 @@ contains  !> MODULE PROCEDURES START HERE
           end if
           topo%qfrag(2) = 0
           topo%qfrag(1) = dble(ichrg)
-          call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum2,topo,io)
+          if (cell%npbc == 0) then
+            call goedeckera(nat,at,topo%nb,rtmp,topo%qa,dum2,topo,io)
+          else
+            call goedeckera_PBC(nat,at,rtmp,topo,cell,topo%qa,dum2,io)
+          end if
           if (io /= 0) exitRun = .true.
           if (exitRun) then
             if (pr) write (myunit,'("Failed to generate charges ",a)') source
@@ -576,7 +723,11 @@ contains  !> MODULE PROCEDURES START HERE
       if (pr) write (myunit,'(2x,"fragment charges :",10(1x,F7.3))') topo%qfrag(1:topo%nfrag)
 
 !> make estimated, topology only EEQ charges from rabd values, including "right" fragment charge
-      call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io)
+      if (cell%npbc == 0) then
+        call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io)
+      else
+        call goedeckera_PBC(nat,at,rtmp,topo,cell,topo%qa,ees,io)
+      end if
       if (io /= 0) exitRun = .true.
       if (exitRun) then
         if (pr) write (myunit,'("Failed to generate charges ",a)') source
@@ -611,7 +762,11 @@ contains  !> MODULE PROCEDURES START HERE
             end do
             dum2 = topo%qfrag(ifrag) ! save
             topo%qfrag(ifrag) = 0 ! make only this EEQ fragment neutral
-            call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io) ! for neutral
+            if (cell%npbc == 0) then
+              call goedeckera(nat,at,topo%nb,rtmp,topo%qa,ees,topo,io) ! for neutral
+            else
+              call goedeckera_PBC(nat,at,rtmp,topo,cell,topo%qa,ees,io) ! for neutral
+            end if
             if (io /= 0) exitRun = .true.
             if (exitRun) then
               if (pr) write (myunit,'("Failed to generate charges ",a)') source
@@ -633,10 +788,22 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end if
 
-      if (qloop_count .eq. 0) itmp(1:nat) = topo%nb(20,1:nat)
+      if (qloop_count .eq. 0) then
+        if (cell%npbc == 0) then
+          itmp(1:nat) = topo%nb(20,1:nat)
+        else
+          do i = 1,nat
+            itmp(i) = sum(neigh%nb(neigh%numnb,i,:))
+          end do
+        end if
+      end if
       qloop_count = qloop_count+1
       if (qloop_count .lt. 2.and.gen%rqshrink .gt. 1.d-3) then  ! do the loop only if factor is significant
-        deallocate (topo%blist,btyp,pibo,pimvec)
+        if (cell%npbc == 0) then
+          deallocate (topo%blist,btyp,pibo,pimvec)
+        else
+          deallocate (neigh%blist,topo%blist,btyp,pibo,pimvec)
+        end if
 !         goto 111
       end if
     end do
@@ -750,27 +917,61 @@ contains  !> MODULE PROCEDURES START HERE
 
     do i = 1,nat
       ati = at(i)
-      fn = 1.0d0+gen%nrepscal/(1.0d0+dble(topo%nb(20,i))**2)
+      if (cell%npbc == 0) then
+        fn = 1.0d0+gen%nrepscal/(1.0d0+dble(topo%nb(20,i))**2)
+      else
+        fn = 1.0d0+gen%nrepscal/(1.0d0+dble(sum(neigh%nb(neigh%numnb,i,:)))**2)
+      end if
       dum1 = param%repan(ati)*(1.d0+topo%qa(i)*gen%qrepscal)*fn ! a small but physically correct decrease of repulsion with q
       f1 = zeta(ati,topo%qa(i))
-      do j = 1,i-1
-        atj = at(j)
-        fn = 1.0d0+gen%nrepscal/(1.0d0+dble(topo%nb(20,j))**2)
-        dum2 = param%repan(atj)*(1.d0+topo%qa(j)*gen%qrepscal)*fn
-        f2 = zeta(atj,topo%qa(j))
-        ij = lin(j,i)
-        ff = 1.0d0
-        if (ati .eq. 1.and.atj .eq. 1) then
-          ff = 1.0d0*gen%hhfac                     ! special H ... H case (for other pairs there is no good effect of this)
-          if (topo%bpair(ij) .eq. 3) ff = ff*gen%hh14rep     ! 1,4 case important for right torsion pot.
-          if (topo%bpair(ij) .eq. 2) ff = ff*gen%hh13rep     ! 1,3 case
-        end if
-        if ((ati .eq. 1.and.param%metal(atj) .gt. 0).or.(atj .eq. 1.and.param%metal(ati) .gt. 0)) ff = 0.85 ! M...H
-        if ((ati .eq. 1.and.atj .eq. 6).or.(atj .eq. 1.and.ati .eq. 6)) ff = 0.91 ! C...H, good effect
-        if ((ati .eq. 1.and.atj .eq. 8).or.(atj .eq. 1.and.ati .eq. 8)) ff = 1.04 ! O...H, good effect
-        topo%alphanb(ij) = sqrt(dum1*dum2)*ff
-        topo%zetac6(ij) = f1*f2  ! D4 zeta scaling using qref=0
-      end do
+      if (cell%npbc == 0) then
+        do j = 1,i-1
+          atj = at(j)
+          fn = 1.0d0+gen%nrepscal/(1.0d0+dble(topo%nb(20,j))**2)
+          dum2 = param%repan(atj)*(1.d0+topo%qa(j)*gen%qrepscal)*fn
+          f2 = zeta(atj,topo%qa(j))
+          ij = lin(j,i)
+          ff = 1.0d0
+          if (ati .eq. 1.and.atj .eq. 1) then
+            ff = 1.0d0*gen%hhfac                   ! special H ... H case
+            if (topo%bpair(ij) .eq. 3) ff = ff*gen%hh14rep   ! 1,4 case
+            if (topo%bpair(ij) .eq. 2) ff = ff*gen%hh13rep   ! 1,3 case
+          end if
+          if ((ati .eq. 1.and.param%metal(atj) .gt. 0).or.(atj .eq. 1.and.param%metal(ati) .gt. 0)) ff = 0.85 ! M...H
+          if ((ati .eq. 1.and.atj .eq. 6).or.(atj .eq. 1.and.ati .eq. 6)) ff = 0.91 ! C...H, good effect
+          if ((ati .eq. 1.and.atj .eq. 8).or.(atj .eq. 1.and.ati .eq. 8)) ff = 1.04 ! O...H, good effect
+          topo%alphanb(ij) = sqrt(dum1*dum2)*ff
+          topo%zetac6(ij) = f1*f2  ! D4 zeta scaling using qref=0
+        end do
+      else
+        do j = 1,i
+          atj = at(j)
+          fn = 1.0d0+gen%nrepscal/(1.0d0+dble(sum(neigh%nb(neigh%numnb,j,:)))**2)
+          dum2 = param%repan(atj)*(1.d0+topo%qa(j)*gen%qrepscal)*fn
+          f2 = zeta(atj,topo%qa(j))
+          ij = lin(j,i)
+          topo%zetac6(ij) = f1*f2  ! D4 zeta scaling using qref=0
+          do iTr = 1,neigh%numctr
+            ff = 1.0d0
+            if (ati .eq. 1.and.atj .eq. 1) then
+              ff = 1.0d0*gen%hhfac                 ! special H ... H case
+              if (neigh%bpair(i,j,iTr) .eq. 3) ff = ff*gen%hh14rep   ! 1,4 case
+              if (neigh%bpair(i,j,iTr) .eq. 2) ff = ff*gen%hh13rep   ! 1,3 case
+            end if
+            if ((ati .eq. 1.and.param%metal(atj) .gt. 0).or.(atj .eq. 1.and.param%metal(ati) .gt. 0)) ff = 0.85 ! M...H
+            if ((ati .eq. 1.and.atj .eq. 6).or.(atj .eq. 1.and.ati .eq. 6)) ff = 0.91 ! C...H, good effect
+            if ((ati .eq. 1.and.atj .eq. 8).or.(atj .eq. 1.and.ati .eq. 8)) ff = 1.04 ! O...H, good effect
+            topo%alphanb_pbc(i,j,iTr) = sqrt(dum1*dum2)*ff
+          end do
+          ! "far" pairs (at least one full cell apart): no 1,3/1,4 correction
+          ff = 1.0d0
+          if (ati .eq. 1.and.atj .eq. 1) ff = 1.0d0*gen%hhfac
+          if ((ati .eq. 1.and.param%metal(atj) .gt. 0).or.(atj .eq. 1.and.param%metal(ati) .gt. 0)) ff = 0.85 ! M...H
+          if ((ati .eq. 1.and.atj .eq. 6).or.(atj .eq. 1.and.ati .eq. 6)) ff = 0.91 ! C...H, good effect
+          if ((ati .eq. 1.and.atj .eq. 8).or.(atj .eq. 1.and.ati .eq. 8)) ff = 1.04 ! O...H, good effect
+          topo%alphanb_pbc(i,j,neigh%numctr+1) = sqrt(dum1*dum2)*ff
+        end do
+      end if
     end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -780,15 +981,34 @@ contains  !> MODULE PROCEDURES START HERE
     !atom specific (not element) basicity parameters
     allocate (topo%hbbas(nat),source=1.0d0)
     do i = 1,nat
-      nn = topo%nb(20,i)
       ati = at(i)
       topo%hbbas(i) = param%xhbas(at(i))
-      ! Carbene:
-      if (ati .eq. 6.and.nn .eq. 2.and.itag(i) .eq. 1) topo%hbbas(i) = 1.46
-      ! Carbonyl R-C=O
-      if (ati .eq. 8.and.nn .eq. 1.and.at(topo%nb(nn,i)) .eq. 6) topo%hbbas(i) = 0.68
-      ! Nitro R-N=O
-      if (ati .eq. 8.and.nn .eq. 1.and.at(topo%nb(nn,i)) .eq. 7) topo%hbbas(i) = 0.47
+      if (cell%npbc == 0) then
+        nn = topo%nb(20,i)
+        ! Carbene:
+        if (ati .eq. 6.and.nn .eq. 2.and.itag(i) .eq. 1) topo%hbbas(i) = 1.46
+        ! Carbonyl R-C=O
+        if (ati .eq. 8.and.nn .eq. 1.and.at(topo%nb(nn,i)) .eq. 6) topo%hbbas(i) = 0.68
+        ! Nitro R-N=O
+        if (ati .eq. 8.and.nn .eq. 1.and.at(topo%nb(nn,i)) .eq. 7) topo%hbbas(i) = 0.47
+      else
+        nn = sum(neigh%nb(neigh%numnb,i,:))
+        ! Carbene:
+        if (ati .eq. 6.and.nn .eq. 2.and.itag(i) .eq. 1) topo%hbbas(i) = 1.46
+        if (ati .eq. 8.and.nn .eq. 1) then
+          ! find the single neighbour across all cells
+          do iTr = 1,neigh%numctr
+            if (neigh%nb(neigh%numnb,i,iTr) .eq. 1) then
+              jj = neigh%nb(1,i,iTr)
+              ! Carbonyl R-C=O
+              if (at(jj) .eq. 6) topo%hbbas(i) = 0.68
+              ! Nitro R-N=O
+              if (at(jj) .eq. 7) topo%hbbas(i) = 0.47
+              exit
+            end if
+          end do
+        end if
+      end if
     end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
