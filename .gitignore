@@ -17,3 +17,5 @@ ff/
 .*/
 !.git/
 !.github/
+gfnff_topo
+gfnff_adjacency

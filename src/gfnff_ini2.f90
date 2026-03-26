@@ -42,7 +42,8 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,mchar,hyb,itag,param,topo,neigh,myunit,pr)
+  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,&
+                        & mchar,hyb,itag,param,topo,neigh,myunit,pr)
     !**********************************************************************
     !* Determine hybridization states and neighbour lists.
     !* Fills topo%nb, topo%hyb, itag, hyb.
@@ -96,9 +97,9 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),allocatable :: cn(:),rtmp(:)
     integer :: i,j,k,jj,kk,ll,ati,nb20i,nbdiff,nbmdiff,nni,nh,nm
     integer :: ai,aj,nn,im,ncm,l,no
-    real(wp) :: pi,f1,phi,f2,rco,fat(86)
+    real(wp) :: pi,f1,phi,f2,rco,fat(103)
     data pi/3.1415926535897932384626433832795029d0/
-    data fat/86*1.0d0/
+    data fat/103*1.0d0/
 
 !     special hacks
     fat(1) = 1.02
@@ -155,9 +156,27 @@ contains  !> MODULE PROCEDURES START HERE
         end do
       end do
 
-      call getnb(natoms,at,rtmp,rab,mchar,1,f_in,f2_in,nbdum,nbf_l,param) ! full
-      call getnb(natoms,at,rtmp,rab,mchar,2,f_in,f2_in,nbf_l,topo%nb,param) ! no highly coordinates atoms
-      call getnb(natoms,at,rtmp,rab,mchar,3,f_in,f2_in,nbf_l,nbm_l,param) ! no metals and unusually coordinated stuff
+      if (neigh%numctr > 1) then
+!> PBC path: loop over all image cells using pre-built transVec
+        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,1,f_in,f2_in,param) ! full (nbf)
+        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,2,f_in,f2_in,param) ! no high-CN (nb)
+        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,3,f_in,f2_in,param) ! no metals (nbm)
+!> Extract central-cell (iTr=1) neighbours into local (20,nat) arrays for hybridisation
+        nbf_l(1:18,:)   = neigh%nbf(1:18,:,1)
+        nbf_l(19,:)     = neigh%nbf(neigh%numnb-1,:,1)
+        nbf_l(20,:)     = min(neigh%nbf(neigh%numnb,:,1), 18)
+        topo%nb(1:18,:) = neigh%nb(1:18,:,1)
+        topo%nb(19,:)   = neigh%nb(neigh%numnb-1,:,1)
+        topo%nb(20,:)   = min(neigh%nb(neigh%numnb,:,1), 18)
+        nbm_l(1:18,:)   = neigh%nbm(1:18,:,1)
+        nbm_l(19,:)     = neigh%nbm(neigh%numnb-1,:,1)
+        nbm_l(20,:)     = min(neigh%nbm(neigh%numnb,:,1), 18)
+      else
+!> Molecular path: flat distance array, central cell only
+        call getnb(natoms,at,rtmp,rab,mchar,1,f_in,f2_in,nbdum,nbf_l,param) ! full
+        call getnb(natoms,at,rtmp,rab,mchar,2,f_in,f2_in,nbf_l,topo%nb,param) ! no highly coordinates atoms
+        call getnb(natoms,at,rtmp,rab,mchar,3,f_in,f2_in,nbf_l,nbm_l,param) ! no metals and unusually coordinated stuff
+      end if
 
 ! take the input
     else
@@ -382,7 +401,10 @@ contains  !> MODULE PROCEDURES START HERE
       write (myunit,*) 'too many atoms with extreme high CN',source
     end if
 
-    ! Populate TNeigh from local arrays (molecular path, numctr=1).
+    ! Write hybridisation-adjusted cell-1 neighbour lists back into TNeigh.
+    ! For the molecular path this also allocates neigh%nb/nbf/nbm.
+    ! For the PBC path only cell 1 is overwritten; cells 2..numctr retain
+    ! the values filled by get_nb.
     ! Convention: positions 1..numnb-2 hold neighbour indices,
     !             position numnb-1 holds the cluster flag (old position 19),
     !             position numnb   holds the count        (old position 20).

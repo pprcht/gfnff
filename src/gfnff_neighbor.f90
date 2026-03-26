@@ -164,19 +164,20 @@ contains
 
 !========================================================================================!
 
-  subroutine get_nb(self,nat,at,xyz,lattice,rtmp,mchar,icase,f_in,f2_in,param)
+  subroutine get_nb(self,nat,at,xyz,rtmp,mchar,icase,f_in,f2_in,param)
     !**********************************************
     !* Compute all pairwise distances over the
     !* central numctr cells and fill the nb/nbf/nbm
     !* arrays accordingly via fillnb.
     !* icase selects which list to fill:
     !*   1 = nbf, 2 = nb, 3 = nbm
+    !* Translation vectors must be pre-built by
+    !* getTransVec before calling this routine.
     !**********************************************
     class(TNeigh),intent(inout) :: self
     integer,intent(in)  :: nat
     integer,intent(in)  :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    real(wp),intent(in) :: lattice(3,3)
     real(wp),intent(in) :: rtmp(nat*(nat+1)/2)
     real(wp),intent(in) :: mchar(nat)
     integer,intent(in)  :: icase
