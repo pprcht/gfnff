@@ -275,31 +275,9 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 !> Periodic boundary conditions setup
-    dat%cell%npbc = 0
-    dat%cell%pbc = .false.
-    dat%cell%lattice = 0.0_wp
-    dat%cell%rec_lat = 0.0_wp
-    dat%cell%volume = 0.0_wp
     if (present(npbc)) dat%cell%npbc = npbc
-    if (present(lattice)) then
-      dat%cell%lattice = lattice
-      dat%cell%pbc(1:dat%cell%npbc) = .true.
-      !> cell volume = |det(lattice)| via cofactor expansion along first row
-      dat%cell%volume = abs( lattice(1,1)*(lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3)) &
-                           & -lattice(1,2)*(lattice(2,1)*lattice(3,3)-lattice(3,1)*lattice(2,3)) &
-                           & +lattice(1,3)*(lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2)) )
-      !> reciprocal lattice = inverse transpose of lattice (without 2pi factor)
-      !> rec_lat(:,i) = (a_j x a_k) / V, computed via cofactor matrix / V
-      dat%cell%rec_lat(1,1) = (lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3))/dat%cell%volume
-      dat%cell%rec_lat(2,1) = (lattice(3,2)*lattice(1,3)-lattice(1,2)*lattice(3,3))/dat%cell%volume
-      dat%cell%rec_lat(3,1) = (lattice(1,2)*lattice(2,3)-lattice(2,2)*lattice(1,3))/dat%cell%volume
-      dat%cell%rec_lat(1,2) = (lattice(2,3)*lattice(3,1)-lattice(3,3)*lattice(2,1))/dat%cell%volume
-      dat%cell%rec_lat(2,2) = (lattice(3,3)*lattice(1,1)-lattice(1,3)*lattice(3,1))/dat%cell%volume
-      dat%cell%rec_lat(3,2) = (lattice(1,3)*lattice(2,1)-lattice(2,3)*lattice(1,1))/dat%cell%volume
-      dat%cell%rec_lat(1,3) = (lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2))/dat%cell%volume
-      dat%cell%rec_lat(2,3) = (lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/dat%cell%volume
-      dat%cell%rec_lat(3,3) = (lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/dat%cell%volume
-    end if
+    if (present(lattice)) call dat%cell%init(lattice)
+
 !> except restart-related options
     restart = dat%restart
     if (.not.allocated(dat%restartfile)) then

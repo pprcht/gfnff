@@ -1,88 +1,48 @@
-!================================================================================!
-! This file is part of gfnff.
+! This file is part of xtb.
 !
-! Copyright (C) 2023 Philipp Pracht
+! Copyright (C) 2019-2020 Stefan Grimme
 !
-! gfnff is free software: you can redistribute it and/or modify it under
+! xtb is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
 ! the Free Software Foundation, either version 3 of the License, or
 ! (at your option) any later version.
 !
-! gfnff is distributed in the hope that it will be useful,
+! xtb is distributed in the hope that it will be useful,
 ! but WITHOUT ANY WARRANTY; without even the implied warranty of
 ! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU Lesser General Public License for more details.
 !
 ! You should have received a copy of the GNU Lesser General Public License
-! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
-!--------------------------------------------------------------------------------!
-!> The original (unmodified) source code can be found under the GNU LGPL 3.0 license
-!> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
-!> at https://github.com/grimme-lab/xtb
-!================================================================================!
+! along with xtb.  If not, see <https://www.gnu.org/licenses/>.
 module gfnff_ini2
+
   use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
 
   use gfnff_data_types,only:TGFFData,TGFFNeighbourList,TGFFTopology,TCell
   use gfnff_helpers,only:lin,bangl
   use gfnff_neighbor,only:TNeigh
+
   implicit none
   private
-
   public :: gfnff_neigh,getnb,nbondmat,nbondmat_pbc
   public :: pairsbond,pilist,nofs,xatom,ctype,amide,amideH,alphaCO
   public :: ringsatom,ringsbond,ringsbend,ringstors,ringstorl
-  public :: chktors,hbonds,goedeckera,goedeckera_PBC,qheavy
+  public :: chktors,chkrng,hbonds,getring36,ssort,goedeckera,goedeckera_PBC,qheavy
   public :: gfnff_hbset,gfnff_hbset0,bond_hbset,bond_hbset0
   public :: bond_hb_AHB_set,bond_hb_AHB_set1,bond_hb_AHB_set0
 
-!========================================================================================!
-!========================================================================================!
-contains  !> MODULE PROCEDURES START HERE
-!========================================================================================!
-!========================================================================================!
+contains
 
-  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr,&
-                        & mchar,hyb,itag,param,topo,neigh,myunit,pr)
-    !**********************************************************************
-    !* Determine hybridization states and neighbour lists.
-    !* Fills topo%nb, topo%hyb, itag, hyb.
-    !* Stores results in neigh%nb/nbf/nbm for the molecular path
-    !* (neigh%numctr==1); for the PBC path (neigh%numctr>1) the
-    !* neighbour arrays must already be filled by neigh%get_nb before
-    !* calling this routine.
-    !*
-    !* Input:
-    !*   makeneighbor - rebuild neighbour lists from scratch if .true.
-    !*   natoms       - number of atoms
-    !*   at(natoms)   - atomic numbers
-    !*   xyz(3,nat)   - Cartesian coordinates [Bohr]
-    !*   rab(nat*(nat+1)/2) - pairwise distances
-    !*   fq           - global radius scale factor
-    !*   f_in, f2_in  - radius scaling for regular / metal atoms
-    !*   lintr        - linearity angle threshold [deg]
-    !*   mchar(nat)   - metal character (>0.25 = metal)
-    !*   param        - GFN-FF parameters
-    !*   topo         - topology (qa, nb, hyb updated on output)
-    !*   neigh        - TNeigh object (nb/nbf/nbm populated on output)
-    !*   myunit       - I/O unit for warnings
-    !*   pr           - print warnings if .true.
-    !*
-    !* Output (via intent(inout) arguments):
-    !*   hyb(natoms)  - hybridization state (1=sp, 2=sp2, 3=sp3, etc.)
-    !*   itag(natoms) - special hybridization tags
-    !**********************************************************************
-    use gfnff_param
-    use gfnff_rab
+  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr, &
+                        & mchar,hyb,itag,param,topo,neigh,nb_call)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_neigh'
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(inout) :: topo
-    type(TNeigh),intent(inout) :: neigh
-    integer,intent(in) :: myunit
-    logical,intent(in) :: pr
-    logical :: makeneighbor
-    integer :: at(natoms),natoms
+    type(TNeigh),intent(inout) :: neigh ! contains nb, nbf and nbm
+    logical,intent(in) :: makeneighbor,nb_call
+    integer,intent(in) :: natoms
+    integer,intent(in) :: at(natoms)
     integer :: hyb(natoms)
     integer :: itag(natoms)
     real(wp) :: rab(natoms*(natoms+1)/2)
@@ -92,12 +52,13 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: f_in,f2_in               ! radius scaling for atoms/metal atoms recpectively
     real(wp) :: lintr                    ! threshold for linearity
 
-    logical :: etacoord
-    integer,allocatable :: nbdum(:,:),nbf_l(:,:),nbm_l(:,:)
+    logical :: etacoord,da,strange_iat,metal_iat
+    integer,allocatable :: nbdum(:,:,:),nbdum2(:,:),locarr(:,:)
     real(wp),allocatable :: cn(:),rtmp(:)
-    integer :: i,j,k,jj,kk,ll,ati,nb20i,nbdiff,nbmdiff,nni,nh,nm
-    integer :: ai,aj,nn,im,ncm,l,no
-    real(wp) :: pi,f1,phi,f2,rco,fat(103)
+    integer :: iat,i,j,k,ni,ii,jj,kk,ll,lin,ati,nb20i,nbdiff,hc_crit,nbmdiff,nnf,nni,nh,nm
+    integer :: ai,aj,nn,im,ncm,l,no,iTr,iTr2,numnbf,numnbm,numnb,idx,idxdum,idxdum2,numctr
+    integer :: nat
+    real(wp) :: r,pi,a1,f,f1,phi,f2,rco,fat(103)
     data pi/3.1415926535897932384626433832795029d0/
     data fat/103*1.0d0/
 
@@ -125,16 +86,12 @@ contains  !> MODULE PROCEDURES START HERE
     fat(82) = 1.06
     fat(83) = 0.95
 
-    allocate (cn(natoms),rtmp(natoms*(natoms+1)/2),nbdum(20,natoms))
-    allocate (nbf_l(20,natoms),source=0)
-    allocate (nbm_l(20,natoms),source=0)
+    nat = natoms
+    allocate (cn(natoms),rtmp(natoms*(natoms+1)/2),nbdum2(20,natoms))
+    rtmp = 0.0
 
 ! determine the neighbor list
     if (makeneighbor) then
-
-      topo%nb = 0  ! without highly coordinates atoms
-      nbm_l = 0  ! without any metal
-      nbf_l = 0  ! full
 
       do i = 1,natoms
         cn(i) = dble(param%normcn(at(i)))
@@ -144,7 +101,7 @@ contains  !> MODULE PROCEDURES START HERE
         ai = at(i)
         f1 = fq
         if (param%metal(ai) > 0) f1 = f1*2.0d0
-        do j = 1,i-1
+        do j = 1,i
           f2 = fq
           aj = at(j)
           if (param%metal(aj) > 0) f2 = f2*2.0d0
@@ -156,112 +113,112 @@ contains  !> MODULE PROCEDURES START HERE
         end do
       end do
 
-      if (neigh%numctr > 1) then
-!> PBC path: loop over all image cells using pre-built transVec
-        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,1,f_in,f2_in,param) ! full (nbf)
-        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,2,f_in,f2_in,param) ! no high-CN (nb)
-        call neigh%get_nb(natoms,at,xyz,rtmp,mchar,3,f_in,f2_in,param) ! no metals (nbm)
-!> Extract central-cell (iTr=1) neighbours into local (20,nat) arrays for hybridisation
-        nbf_l(1:18,:)   = neigh%nbf(1:18,:,1)
-        nbf_l(19,:)     = neigh%nbf(neigh%numnb-1,:,1)
-        nbf_l(20,:)     = min(neigh%nbf(neigh%numnb,:,1), 18)
-        topo%nb(1:18,:) = neigh%nb(1:18,:,1)
-        topo%nb(19,:)   = neigh%nb(neigh%numnb-1,:,1)
-        topo%nb(20,:)   = min(neigh%nb(neigh%numnb,:,1), 18)
-        nbm_l(1:18,:)   = neigh%nbm(1:18,:,1)
-        nbm_l(19,:)     = neigh%nbm(neigh%numnb-1,:,1)
-        nbm_l(20,:)     = min(neigh%nbm(neigh%numnb,:,1), 18)
-      else
-!> Molecular path: flat distance array, central cell only
-        call getnb(natoms,at,rtmp,rab,mchar,1,f_in,f2_in,nbdum,nbf_l,param) ! full
-        call getnb(natoms,at,rtmp,rab,mchar,2,f_in,f2_in,nbf_l,topo%nb,param) ! no highly coordinates atoms
-        call getnb(natoms,at,rtmp,rab,mchar,3,f_in,f2_in,nbf_l,nbm_l,param) ! no metals and unusually coordinated stuff
-      end if
+      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,1,f_in,f2_in,param) ! nbf
+      ! neigh%nb only used for hyb states, then overwritten with nbf
+      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,2,f_in,f2_in,param) ! nb
+      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,3,f_in,f2_in,param) ! nbm
 
-! take the input
+      ! take the input
     else
 
-      nbf_l = topo%nb
-      nbm_l = topo%nb
+      neigh%nbf = neigh%nb
+      neigh%nbm = neigh%nb
 
     end if
 ! done
 
     itag = 0 ! save special hyb info
+    numctr = neigh%numctr ! number of central cells considered (e.g. 1 for molec case)
 
 ! tag atoms in nb(19,i) if they belong to a cluster (which avoids the ring search)
     do i = 1,natoms
-      if (nbf_l(20,i) .eq. 0.and.param%group(at(i)) .ne. 8.and.pr) then
-        write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
-        write (myunit,'(''  warning: no bond partners for atom'',i4)') i
-        write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+      if (sum(neigh%nbf(neigh%numnb,i,:)) .eq. 0.and.param%group(at(i)) .ne. 8) then
+        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+        write (stdout,'(''  warning: no bond partners for atom'',i4)') i
+        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
       end if
-      if (at(i) .lt. 11.and.nbf_l(20,i) .gt. 2) then
-        do k = 1,nbf_l(20,i)
-          kk = nbf_l(k,i)
-          if (param%metal(at(kk)) .ne. 0.or.topo%nb(20,kk) .gt. 4) then
-            topo%nb(19,i) = 1
-            nbf_l(19,i) = 1
-            nbm_l(19,i) = 1
-          end if
+      if (at(i) .lt. 11.and.sum(neigh%nbf(neigh%numnb,i,:)) .gt. 2) then
+        do iTr = 1,numctr
+          do k = 1,neigh%nbf(neigh%numnb,i,iTr)
+            kk = neigh%nbf(k,i,iTr)
+            if (param%metal(at(kk)) .ne. 0.or.sum(neigh%nb(neigh%numnb,kk,:)) .gt. 4) then
+              neigh%nb(neigh%numnb-1,i,1) = 1  ! ring search is limited to unit cell.
+              neigh%nbf(neigh%numnb-1,i,1) = 1  ! Assumption: If the conditions are true
+              neigh%nbm(neigh%numnb-1,i,1) = 1  ! in one cell they are true in all cells
+            end if
+          end do
         end do
       end if
-!        write(myunit,*) i,(topo%nb(j,i),j=1,topo%nb(20,i))
     end do
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! hybridization states
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    if (.not.allocated(nbdum)) &
+      & allocate (nbdum(neigh%numnb,nat,numctr),source=0)
     do i = 1,natoms
       ati = at(i)
+      numnbf = sum(neigh%nbf(neigh%numnb,i,:))
+      numnbm = sum(neigh%nbm(neigh%numnb,i,:))
 !        important: determine cases where atom is pi bonded to a metal and thus
 !        the hyb must be obtained from the reduced (wo metals) neighbor list
       etacoord = .false.
       if (ati .le. 10) then
-        if (ati .eq. 6.and.nbf_l(20,i) .ge. 4.and.nbm_l(20,i) .eq. 3) etacoord = .true.  ! CP case
-        if (ati .eq. 6.and.nbf_l(20,i) .eq. 3.and.nbm_l(20,i) .eq. 2) etacoord = .true.  ! alkyne case
+        if (ati .eq. 6.and.numnbf .ge. 4.and.numnbm .eq. 3) etacoord = .true.  ! CP case
+        if (ati .eq. 6.and.numnbf .eq. 3.and.numnbm .eq. 2) etacoord = .true.  ! alkyne case
         nm = 0
-        do k = 1,nbf_l(20,i)  ! how many metals ? and which
-          kk = nbf_l(k,i)
-          if (param%metal(at(kk)) .ne. 0) then
-            nm = nm+1
-            im = kk
-          end if
+        do iTr = 1,numctr
+          do k = 1,neigh%nbf(neigh%numnb,i,iTr)  ! how many metals ? and which
+            kk = neigh%nbf(k,i,iTr)
+            if (param%metal(at(kk)) .ne. 0) then
+              nm = nm+1
+              im = kk
+            end if
+          end do
         end do
         if (nm .eq. 0) then
           etacoord = .false.  ! etacoord makes no sense without metals!
         elseif (nm .eq. 1) then  ! distinguish M-CR2-R i.e. not an eta coord.
           ncm = 0
-          do k = 1,nbf_l(20,i)  !
-            if (nbf_l(k,i) .ne. im) then ! all neighbors that are not the metal im
-              kk = nbf_l(k,i)
-              do l = 1,nbf_l(20,kk)
-                if (nbf_l(l,kk) .eq. im) ncm = ncm+1 ! ncm=1 is alkyne, =2 is cp
-              end do
-            end if
+          do iTr = 1,numctr
+            do k = 1,neigh%nbf(neigh%numnb,i,iTr)  !
+              if (neigh%nbf(k,i,iTr) .ne. im) then ! all neighbors that are not the metal im
+                kk = neigh%nbf(k,i,iTr)
+                do l = 1,sum(neigh%nbf(neigh%numnb,kk,:))
+                  if (neigh%nbf(l,kk,iTr) .eq. im) ncm = ncm+1 ! ncm=1 is alkyne, =2 is cp
+                end do
+              end if
+            end do
           end do
           if (ncm .eq. 0) etacoord = .false.
         end if
       end if
       if (etacoord) then
         itag(i) = -1
-        nbdum(1:20,i) = nbm_l(1:20,i)
+        nbdum(:,i,:) = neigh%nbm(:,i,:)
       else
-        nbdum(1:20,i) = nbf_l(1:20,i) ! take full set of neighbors by default
+        nbdum(:,i,:) = neigh%nbf(:,i,:) ! take full set of neighbors by default
       end if
     end do
 
     do i = 1,natoms
       ati = at(i)
       hyb(i) = 0    ! don't know it
-      nbdiff = nbf_l(20,i)-topo%nb(20,i)
-      nbmdiff = nbf_l(20,i)-nbm_l(20,i)
-      nb20i = nbdum(20,i)
+      numnbm = sum(neigh%nbm(neigh%numnb,i,:))
+      numnbf = sum(neigh%nbf(neigh%numnb,i,:))
+      numnb = sum(neigh%nb(neigh%numnb,i,:))
+      nbdiff = numnbf-numnb
+      nbmdiff = numnbf-numnbm
+      nb20i = sum(nbdum(neigh%numnb,i,:))
+      ! go over all nb's of i, count number nb's that are H or O
       nh = 0
       no = 0
-      do j = 1,nb20i
-        if (at(nbdum(j,i)) .eq. 1) nh = nh+1
-        if (at(nbdum(j,i)) .eq. 8) no = no+1
+      do iTr = 1,numctr
+        do j = 1,nb20i
+          if (nbdum(j,i,iTr) .eq. 0) cycle
+          if (at(nbdum(j,i,iTr)) .eq. 1) nh = nh+1
+          if (at(nbdum(j,i,iTr)) .eq. 8) no = no+1
+        end do
       end do
 ! H
       if (param%group(ati) .eq. 1) then
@@ -289,7 +246,24 @@ contains  !> MODULE PROCEDURES START HERE
         if (nb20i .gt. 4.and.ati .gt. 10.and.nbdiff .eq. 0) hyb(i) = 5
         if (nb20i .eq. 3) hyb(i) = 2
         if (nb20i .eq. 2) then
-          call bangl(xyz,nbdum(1,i),i,nbdum(2,i),phi)
+          ! get the right neighbors for bangl call
+          call neigh%nbLoc(natoms,nbdum,i,locarr)
+          if (size(locarr,dim=2) .eq. 1) then
+            idxdum = locarr(1,1)
+            idxdum2 = locarr(2,1)
+            iTr = locarr(neigh%numnb,1)
+            iTr2 = locarr(neigh%numnb,1)
+            deallocate (locarr)
+          elseif (size(locarr,dim=2) .eq. 2) then
+            idxdum = locarr(1,1)
+            idxdum2 = locarr(1,2)
+            iTr = locarr(neigh%numnb,1)
+            iTr2 = locarr(neigh%numnb,2)
+            deallocate (locarr)
+          else
+            write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
+          end if
+          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh,phi)
           if (phi*180./pi .lt. 150.0) then                         ! geometry dep. setup! GEODEP
             hyb(i) = 2  ! otherwise, carbenes will not be recognized
             itag(i) = 1  ! tag for Hueckel and HB routines
@@ -312,11 +286,14 @@ contains  !> MODULE PROCEDURES START HERE
           kk = 0
           ll = 0
           nn = 0
-          do j = 1,3
-            jj = nbdum(j,i)
-            if (at(jj) .eq. 8.and.topo%nb(20,jj) .eq. 1) kk = kk+1 ! check for NO2 or R2-N=O
-            if (at(jj) .eq. 5.and.topo%nb(20,jj) .eq. 4) ll = ll+1 ! check for B-N, if the CN(B)=4 the N is loosely bound and sp2
-            if (at(jj) .eq. 16.and.topo%nb(20,jj) .eq. 4) nn = nn+1 ! check for N-SO2-
+          do iTr = 1,numctr
+            do j = 1,3
+              jj = nbdum(j,i,iTr)
+              if (jj .eq. 0) exit ! if there is no 1st nb there is no nb at all
+              if (at(jj) .eq. 8.and.sum(neigh%nb(neigh%numnb,jj,:)) .eq. 1) kk = kk+1 ! check for NO2 or R2-N=O
+              if (at(jj) .eq. 5.and.sum(neigh%nb(neigh%numnb,jj,:)) .eq. 4) ll = ll+1 ! check for B-N, if the CN(B)=4 the N is loosely bound and sp2
+              if (at(jj) .eq. 16.and.sum(neigh%nb(neigh%numnb,jj,:)) .eq. 4) nn = nn+1 ! check for N-SO2-
+            end do
           end do
           if (nn .eq. 1.and.ll .eq. 0.and.kk .eq. 0) hyb(i) = 3
           if (ll .eq. 1.and.nn .eq. 0) hyb(i) = 2
@@ -328,17 +305,35 @@ contains  !> MODULE PROCEDURES START HERE
         end if
         if (nb20i .eq. 2) then
           hyb(i) = 2
-          call bangl(xyz,nbdum(1,i),i,nbdum(2,i),phi)
-          jj = nbdum(1,i)
-          kk = nbdum(2,i)
-          if (nbdum(20,jj) .eq. 1.and.at(jj) .eq. 6) hyb(i) = 1  ! R-N=C
-          if (nbdum(20,kk) .eq. 1.and.at(kk) .eq. 6) hyb(i) = 1  ! R-N=C
-          if (nbdum(20,jj) .eq. 1.and.at(jj) .eq. 7) hyb(i) = 1  ! R-N=N in e.g. diazomethane
-          if (nbdum(20,kk) .eq. 1.and.at(kk) .eq. 7) hyb(i) = 1  ! R-N=N in e.g. diazomethane
-          if (nbdum(1,i) .gt. 0.and.param%metal(at(nbdum(1,i))) .gt. 0) hyb(i) = 1 ! M-NC-R in e.g. nitriles
-          if (nbdum(2,i) .gt. 0.and.param%metal(at(nbdum(2,i))) .gt. 0) hyb(i) = 1 ! M-NC-R in e.g. nitriles
+          ! get the two neighbors for bangl call
+          !>> idxdum and idxdum2 are the indices of the two neighbors
+          call neigh%nbLoc(natoms,nbdum,i,locarr)
+          if (size(locarr,dim=2) .eq. 1) then
+            idxdum = locarr(1,1)
+            idxdum2 = locarr(2,1)
+            iTr = locarr(neigh%numnb,1)
+            iTr2 = locarr(neigh%numnb,1)
+            deallocate (locarr)
+          elseif (size(locarr,dim=2) .eq. 2) then
+            idxdum = locarr(1,1)
+            idxdum2 = locarr(1,2)
+            iTr = locarr(neigh%numnb,1)
+            iTr2 = locarr(neigh%numnb,2)
+            deallocate (locarr)
+          else
+            write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
+          end if
+          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh,phi)
+          jj = idxdum
+          kk = idxdum2
+          if (sum(nbdum(neigh%numnb,jj,:)) .eq. 1.and.at(jj) .eq. 6) hyb(i) = 1  ! R-N=C
+          if (sum(nbdum(neigh%numnb,kk,:)) .eq. 1.and.at(kk) .eq. 6) hyb(i) = 1  ! R-N=C
+          if (sum(nbdum(neigh%numnb,jj,:)) .eq. 1.and.at(jj) .eq. 7) hyb(i) = 1  ! R-N=N in e.g. diazomethane
+          if (sum(nbdum(neigh%numnb,kk,:)) .eq. 1.and.at(kk) .eq. 7) hyb(i) = 1  ! R-N=N in e.g. diazomethane
+          if (idxdum .gt. 0.and.param%metal(at(idxdum)) .gt. 0) hyb(i) = 1 ! M-NC-R in e.g. nitriles
+          if (idxdum2 .gt. 0.and.param%metal(at(idxdum2)) .gt. 0) hyb(i) = 1 ! M-NC-R in e.g. nitriles
           if (at(jj) .eq. 7.and.at(kk) .eq. 7.and. &
-&          nbdum(20,jj) .le. 2.and.nbdum(20,kk) .le. 2) hyb(i) = 1  ! N=N=N
+&         sum(nbdum(neigh%numnb,jj,:)) .le. 2.and.sum(nbdum(neigh%numnb,kk,:)) .le. 2) hyb(i) = 1  ! N=N=N
           if (phi*180./pi .gt. lintr) hyb(i) = 1  ! geometry dep. setup! GEODEP
         end if
         if (nb20i .eq. 1) hyb(i) = 1
@@ -349,13 +344,16 @@ contains  !> MODULE PROCEDURES START HERE
         if (nb20i .gt. 3.and.ati .gt. 10.and.nbdiff .eq. 0) hyb(i) = 5
         if (nb20i .eq. 2) hyb(i) = 3
         if (nb20i .eq. 2.and.nbmdiff .gt. 0) then
-          call nn_nearest_noM(i,natoms,at,topo%nb,rab,j,param) ! CN of closest non-M atom
+          call nn_nearest_noM(i,natoms,at,xyz,neigh,rab,j,param) ! CN of closest non-M atom
           if (j .eq. 3) hyb(i) = 2 ! M-O-X konj
           if (j .eq. 4) hyb(i) = 3 ! M-O-X non
         end if
         if (nb20i .eq. 1) hyb(i) = 2
         if (nb20i .eq. 1.and.nbdiff .eq. 0) then
-          if (topo%nb(20,topo%nb(1,i)) .eq. 1) hyb(i) = 1 ! CO
+          call neigh%nbLoc(natoms,neigh%nb,i,locarr)
+          iTr = locarr(neigh%numnb,1)
+          deallocate (locarr)
+          if (sum(neigh%nb(neigh%numnb,neigh%nb(1,i,iTr),:)) .eq. 1) hyb(i) = 1 ! CO
         end if
       end if
 ! F
@@ -381,50 +379,26 @@ contains  !> MODULE PROCEDURES START HERE
       end if
     end do
 
-    topo%nb = nbdum ! list is complete but hyb determination is based only on reduced (without metals) list
-    if (allocated(topo%hyb)) topo%hyb = hyb
-
+    neigh%nb = nbdum ! list is complete but hyb determination is based only on reduced (without metals) list
     deallocate (nbdum)
 
     j = 0
     do i = 1,natoms
-      if (topo%nb(20,i) .gt. 12) j = j+1
-      do k = 1,topo%nb(20,i)
-        kk = topo%nb(k,i)
-        if (at(kk) .eq. 6.and.at(i) .eq. 6.and.itag(i) .eq. 1.and.itag(kk) .eq. 1) then ! check the very special situation of
-          itag(i) = 0                                                          ! two carbene C bonded which is an arine
-          itag(kk) = 0
-        end if
+      numnb = sum(neigh%nb(neigh%numnb,i,:))
+      if (numnb .gt. 12) j = j+1
+      do iTr = 1,neigh%numctr
+        do k = 1,neigh%nb(neigh%numnb,i,iTr)
+          kk = neigh%nb(k,i,iTr)
+          if (at(kk) .eq. 6.and.at(i) .eq. 6.and.itag(i) .eq. 1.and.itag(kk) .eq. 1) then ! check the very special situation of
+            itag(i) = 0                                                           ! two carbene C bonded which is an arine
+            itag(kk) = 0
+          end if
+        end do
       end do
     end do
-    if (dble(j)/dble(natoms) .gt. 0.3.and.pr) then
-      write (myunit,*) 'too many atoms with extreme high CN',source
+    if (dble(j)/dble(natoms) .gt. 0.3.and.nb_call) then
+      write (stdout,'("**ERROR**",a,1x,a)') ' too many atoms with extreme high CN',source
     end if
-
-    ! Write hybridisation-adjusted cell-1 neighbour lists back into TNeigh.
-    ! For the molecular path this also allocates neigh%nb/nbf/nbm.
-    ! For the PBC path only cell 1 is overwritten; cells 2..numctr retain
-    ! the values filled by get_nb.
-    ! Convention: positions 1..numnb-2 hold neighbour indices,
-    !             position numnb-1 holds the cluster flag (old position 19),
-    !             position numnb   holds the count        (old position 20).
-    if (.not.allocated(neigh%nb)) &
-      & allocate(neigh%nb(neigh%numnb,natoms,neigh%numctr),source=0)
-    if (.not.allocated(neigh%nbf)) &
-      & allocate(neigh%nbf(neigh%numnb,natoms,neigh%numctr),source=0)
-    if (.not.allocated(neigh%nbm)) &
-      & allocate(neigh%nbm(neigh%numnb,natoms,neigh%numctr),source=0)
-    neigh%nb(1:18,:,1)          = topo%nb(1:18,:)
-    neigh%nb(neigh%numnb-1,:,1) = topo%nb(19,:)   ! cluster flag
-    neigh%nb(neigh%numnb,:,1)   = topo%nb(20,:)   ! count
-    neigh%nbf(1:18,:,1)          = nbf_l(1:18,:)
-    neigh%nbf(neigh%numnb-1,:,1) = nbf_l(19,:)
-    neigh%nbf(neigh%numnb,:,1)   = nbf_l(20,:)
-    neigh%nbm(1:18,:,1)          = nbm_l(1:18,:)
-    neigh%nbm(neigh%numnb-1,:,1) = nbm_l(19,:)
-    neigh%nbm(neigh%numnb,:,1)   = nbm_l(20,:)
-
-    deallocate(nbf_l,nbm_l)
 
   end subroutine gfnff_neigh
 
@@ -438,7 +412,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer n,at(n),nbf(20,n),nb(20,n)
     real(wp) rad(n*(n+1)/2),r(n*(n+1)/2),mchar(n),f,f2
 
-    integer i,j,k,nn,icase,hc_crit,nnfi,nnfj
+    integer i,j,k,nn,icase,hc_crit,nnfi,nnfj,lin
     integer tag(n*(n+1)/2)
     real(wp) rco,fm
 
@@ -492,32 +466,41 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine getnb
 
-!ccccccccccccccccccccccccccccccccccccccccccccccccc
-! find the CN of nearest non metal of atom i
-!ccccccccccccccccccccccccccccccccccccccccccccccccc
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+! find the CN of the non metal atom that is closest to atom i
+!ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-  subroutine nn_nearest_noM(ii,n,at,nb,r,nn,param)
+  subroutine nn_nearest_noM(ii,n,at,xyz,neigh,r,nn,param)
     implicit none
     type(TGFFData),intent(in) :: param
-    integer ii,n,at(n),nn,nb(20,n)
-    real(wp) r(n*(n+1)/2)
+    type(TNeigh),intent(in) :: neigh
+    integer,intent(in) :: ii,n,at(n)
+    real(wp),intent(in) :: xyz(3,n)
+    integer,intent(inout) :: nn
+    real(wp),intent(in) :: r(n*(n+1)/2)
 
-    integer jmin,j,jj
+    integer jmin,j,jj,lin,numnb,iTr
+    real(wp) :: dist
     real(wp) rmin
 
+    numnb = neigh%numnb
     nn = 0
     rmin = 1.d+42
     jmin = 0
-    do j = 1,nb(20,ii)
-      jj = nb(j,ii)
-      if (param%metal(at(jj)) .ne. 0) cycle
-      if (r(lin(jj,ii)) .lt. rmin) then
-        rmin = r(lin(jj,ii))
-        jmin = jj
-      end if
+    dist = 0.0
+    do iTr = 1,neigh%numctr
+      do j = 1,neigh%nb(numnb,ii,iTr)
+        jj = neigh%nb(j,ii,iTr)
+        if (param%metal(at(jj)) .ne. 0) cycle
+        dist = NORM2(xyz(:,ii)-(xyz(:,jj)+neigh%transVec(:,iTr)))
+        if (dist .lt. rmin) then
+          rmin = dist
+          jmin = jj
+        end if
+      end do
     end do
 
-    if (jmin .gt. 0) nn = nb(20,jmin)
+    if (jmin .gt. 0) nn = sum(neigh%nb(numnb,jmin,:))
 
   end subroutine nn_nearest_noM
 
@@ -527,9 +510,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine ringsatom(n,i,c,s,rings)
     implicit none
-    integer :: n,i,k,c(10,20,n),s(20,n),rings
-
-    if(.false.) write(*,*) c ! silences -Wunused-dummy-argument
+    integer n,i,k,l,c(10,20,n),s(20,n),rings,rings1
 
     rings = 99
     do k = 1,s(20,i)    ! all rings of atom i
@@ -544,12 +525,8 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine ringsbond(n,i,j,c,s,rings)
     implicit none
-    integer,intent(in) :: n,i,j,c(10,20,n),s(20,n)
-    integer,intent(out) :: rings
-    integer :: k,l,rings1,rings2
+    integer n,i,j,k,l,c(10,20,n),s(20,n),rings,rings1,rings2
 
-    rings = 0
-    if (n == 2) return
     rings1 = 99
     rings2 = 99
     do k = 1,s(20,i)    ! all rings of atom i
@@ -559,7 +536,7 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end do
     end do
-    do k = 1,s(20,j)    ! all rings of atom i
+    do k = 1,s(20,j)    ! all rings of atom j
       do l = 1,s(k,j)  ! all atoms of ring k
         if (c(l,k,j) .eq. i.and.s(k,j) .lt. rings2) then
           rings2 = s(k,j)
@@ -627,7 +604,6 @@ contains  !> MODULE PROCEDURES START HERE
     integer n,i,j,k,l,rings
     integer c(10,20,n),s(20,n)
     integer itest,rings1,rings2,rings3,rings4,m,a
-!     integer ht1,ht2,ht3,ht4
 
     if (s(20,i) .eq. 0.or.s(20,j) .eq. 0.or.s(20,k) .eq. 0.or.s(20,l) .eq. 0) then
       rings = 0
@@ -646,7 +622,6 @@ contains  !> MODULE PROCEDURES START HERE
       end do
       if (itest .eq. 3.and.s(m,i) .lt. rings1) then
         rings1 = s(m,i)
-!           ht1=c(m,19,i)
       end if
     end do
     do m = 1,s(20,j)    ! all rings of atom j
@@ -656,7 +631,6 @@ contains  !> MODULE PROCEDURES START HERE
       end do
       if (itest .eq. 3.and.s(m,j) .lt. rings2) then
         rings2 = s(m,j)
-!           ht2=c(m,19,j)
       end if
     end do
     do m = 1,s(20,k)    ! all rings of atom k
@@ -666,7 +640,6 @@ contains  !> MODULE PROCEDURES START HERE
       end do
       if (itest .eq. 3.and.s(m,k) .lt. rings3) then
         rings3 = s(m,k)
-!           ht3=c(m,19,k)
       end if
     end do
     do m = 1,s(20,l)    ! all rings of atom k
@@ -676,7 +649,6 @@ contains  !> MODULE PROCEDURES START HERE
       end do
       if (itest .eq. 3.and.s(m,l) .lt. rings4) then
         rings4 = s(m,l)
-!           ht4=c(m,19,l)
       end if
     end do
 
@@ -753,211 +725,372 @@ contains  !> MODULE PROCEDURES START HERE
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
-  logical function chktors(n,xyz,i,j,k,l)  ! true if dihedral angle is bad i.e. near 180
+  logical function chktors(n,xyz,i,j,k,l,iTrj,iTrk,iTrl,neigh)  ! true if dihedral angle is bad i.e. near 180
     implicit none
-    integer n,i,j,k,l
+    type(TNeigh),intent(in) :: neigh
+    integer n,i,j,k,l,iTrj,iTrk,iTrl
     real(wp) xyz(3,n),phi
 
     chktors = .true.
 
-    call bangl(xyz,j,i,k,phi)
-!     write(stdout,*) phi*180./3.1415926d0
+    call banglPBC(1,xyz,j,i,k,iTrj,iTrk,neigh,phi)
     if (phi*180./3.1415926d0 .gt. 170.0d0) return
-    call bangl(xyz,i,j,l,phi)
-!     write(stdout,*) phi*180./3.1415926d0
+    call banglPBC(2,xyz,i,j,l,iTrj,iTrl,neigh,phi)
     if (phi*180./3.1415926d0 .gt. 170.0d0) return
 
     chktors = .false.
 
   end function chktors
 
-!========================================================================================!
-
-  subroutine gfnff_hbset(n,at,xyz,sqrab,topo,nlist,hbthr1,hbthr2)
-    use gfnff_param
+  logical function chkrng(nn,n,c)
     implicit none
+    integer n,idum(nn),nn,c(10),i,j
+    chkrng = .true.
+    idum = 0
+    do i = 1,n
+      idum(c(i)) = idum(c(i))+1
+    end do
+    j = 0
+    do i = 1,nn
+      if (idum(i) .eq. 1) j = j+1
+    end do
+    if (j .ne. n) chkrng = .false.
+  end function chkrng
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine gfnff_hbset(n,at,xyz,topo,neigh,nlist,hbthr1,hbthr2)
+    implicit none
+    integer,intent(in) :: n
+    integer,intent(in) :: at(n)
+    real(wp),intent(in) :: xyz(3,n)
     type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh
     type(TGFFNeighbourList),intent(inout) :: nlist
-    integer :: n
-    integer :: at(n)
-    real(wp) :: sqrab(n*(n+1)/2)
-    real(wp) :: xyz(3,n)
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer :: i,j,k,nh,ix,ij,inh,jnh
-    real(wp) :: rab,rmsd
+    integer :: i,j,k,nh,ix
+    integer :: iTri,iTrj,iTrDum
+    real(wp) :: rmsd,rab,rih,rjh
     logical :: ijnonbond
+    integer :: nhb1,nhb2,nxb
+!$  integer,parameter :: N_MAX_LIST = 800 !< keep approx. 32 kb of integer(int64)
+!$  integer,allocatable :: hblist1(:,:),hblist2(:,:),hblist3(:,:)
 
-    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
-
+    ! update list if first call or substantial move occured
     rmsd = sqrt(sum((xyz-nlist%hbrefgeo)**2))/dble(n)
+    if (.not. (rmsd < 1.d-6.or.rmsd > 0.3d0)) return
 
-    if (rmsd .lt. 1.d-6.or.rmsd .gt. 0.3d0) then ! update list if first call or substantial move occured
+    nlist%nhb1 = 0
+    nlist%nhb2 = 0
+    nlist%nxb = 0
 
-      nlist%nhb1 = 0
-      nlist%nhb2 = 0
+    !$omp parallel default(none) &
+    !$omp shared(topo, neigh, nlist, xyz, hbthr1, hbthr2) &
+    !$omp private(iTri, iTrj, iTrDum, ix, i, j, k, nh, rab, rih, rjh) &
+    !$omp private(ijnonbond, hblist1, hblist2, hblist3, nhb1, nhb2, nxb)
+
+!$    allocate (hblist1(5,N_MAX_LIST),source=0)
+!$    allocate (hblist2(5,N_MAX_LIST),source=0)
+!$    allocate (hblist3(5,N_MAX_LIST),source=0)
+
+      nhb1 = 0
+      nhb2 = 0
+      nxb = 0
+
+      ! loop over hb-relevant AB atoms
+      !$omp do collapse(3) schedule(dynamic, 16)
       do ix = 1,topo%nathbAB
-        i = topo%hbatABl(1,ix)
-        j = topo%hbatABl(2,ix)
-        ij = j+i*(i-1)/2
-        rab = sqrab(ij)
-        if (rab .gt. hbthr1) cycle
-        ijnonbond = topo%bpair(ij) .ne. 1
-        do k = 1,topo%nathbH
-          nh = topo%hbatHl(k)
-          inh = lin(i,nh)
-          jnh = lin(j,nh)
-          if (topo%bpair(inh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-            nlist%nhb2 = nlist%nhb2+1
-            nlist%hblist2(1,nlist%nhb2) = i
-            nlist%hblist2(2,nlist%nhb2) = j
-            nlist%hblist2(3,nlist%nhb2) = nh
-          elseif (topo%bpair(jnh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-            nlist%nhb2 = nlist%nhb2+1
-            nlist%hblist2(1,nlist%nhb2) = j
-            nlist%hblist2(2,nlist%nhb2) = i
-            nlist%hblist2(3,nlist%nhb2) = nh
-          elseif (rab+sqrab(inh)+sqrab(jnh) .lt. hbthr2) then
-            nlist%nhb1 = nlist%nhb1+1
-            nlist%hblist1(1,nlist%nhb1) = i
-            nlist%hblist1(2,nlist%nhb1) = j
-            nlist%hblist1(3,nlist%nhb1) = nh
-          end if
-        end do
-      end do
+        do iTri = 1,neigh%nTrans ! go through i shifts
+          do iTrj = 1,neigh%nTrans ! go through j shifts
+            i = topo%hbatABl(1,ix)
+            j = topo%hbatABl(2,ix)
+            ! get adjustet iTr -> for use of neigh% distances and bpair with two shifted atoms
+            iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
+            if (iTrDum > neigh%nTrans.or.iTrDum < -1.or.iTrDum == 0) cycle ! cycle nonsense
+            rab = sum(((xyz(1:3,i)+neigh%transVec(1:3,iTri)) &
+                       -(xyz(1:3,j)+neigh%transVec(1:3,iTrj)))**2)
+            if (rab > hbthr1) cycle
+            ! check if ij bonded
+            if (iTrDum <= neigh%numctr.and.iTrDum > 0) then
+              ijnonbond = neigh%bpair(j,i,iTrDum) /= 1
+            else
+              ! i and j are not in neighboring cells
+              ijnonbond = .true.
+            end if
+            ! loop over relevant H atoms
+            do k = 1,topo%nathbH
+              nh = topo%hbatHl(1,k) ! nh always in central cell
+              ! distances for non-cov bonded case
+              rih = sum((xyz(1:3,nh)-(xyz(1:3,i)+neigh%transVec(1:3,iTri)))**2)
+              rjh = sum((xyz(1:3,nh)-(xyz(1:3,j)+neigh%transVec(1:3,iTrj)))**2)
+              ! check if i is the bonded A
+              if (iTri <= neigh%numctr) then ! nh is not shifted so bpair works without adjustment
+                if (neigh%bpair(i,nh,iTri) == 1.and.ijnonbond) then
+                  nhb2 = nhb2+1
+                  hblist2(1,nhb2) = i
+                  hblist2(2,nhb2) = j
+                  hblist2(3,nhb2) = nh
+                  hblist2(4,nhb2) = iTri
+                  hblist2(5,nhb2) = iTrj
+!$                if (nhb2 == N_MAX_LIST) call update_hblist2(nlist,nhb2,hblist2)
+                  cycle ! not available for nhb1 !!!
+                end if
+              end if
+              ! check if j is the bonded A
+              if (iTrj <= neigh%numctr) then
+                if (neigh%bpair(j,nh,iTrj) == 1.and.ijnonbond) then
+                  nhb2 = nhb2+1
+                  hblist2(1,nhb2) = j
+                  hblist2(2,nhb2) = i
+                  hblist2(3,nhb2) = nh
+                  hblist2(4,nhb2) = iTrj
+                  hblist2(5,nhb2) = iTri
+!$                if (nhb2 == N_MAX_LIST) call update_hblist2(nlist,nhb2,hblist2)
+                  cycle ! not available for nhb1 !!!
+                end if
+              end if
+              ! check for non-cov bonded A
+              if (rab+rih+rjh < hbthr2) then ! sum of rAB,rAH,rBH is below threshold
+                nhb1 = nhb1+1
+                hblist1(1,nhb1) = i
+                hblist1(2,nhb1) = j
+                hblist1(3,nhb1) = nh
+                hblist1(4,nhb1) = iTri
+                hblist1(5,nhb1) = iTrj
+!$              if (nhb1 == N_MAX_LIST) call update_hblist1(nlist,nhb1,hblist1)
+              end if
+            end do ! k: relevant H atoms
+          end do ! iTrj
+        end do ! iTri
+      end do ! ix: relevant AB atoms
+      !$omp end do nowait
 
-      nlist%nxb = 0
+      ! for nxb list only i is not shifted
+      !$omp do schedule(dynamic, 16)
       do ix = 1,topo%natxbAB
-        i = topo%xbatABl(1,ix)
-        j = topo%xbatABl(2,ix)
-        ij = j+i*(i-1)/2
-        rab = sqrab(ij)
-        if (rab .gt. hbthr2) cycle
-        nlist%nxb = nlist%nxb+1
-        nlist%hblist3(1,nlist%nxb) = i
-        nlist%hblist3(2,nlist%nxb) = j
-        nlist%hblist3(3,nlist%nxb) = topo%xbatABl(3,ix)
+        i = topo%xbatABl(1,ix) ! A
+        j = topo%xbatABl(2,ix) ! B
+        iTrj = topo%xbatABl(4,ix) ! iTrB
+        if (iTrj > neigh%nTrans.or.iTrj < -1.or.iTrj == 0) cycle ! cycle nonsense
+        rab = sum((xyz(1:3,j)-xyz(1:3,i)+neigh%transVec(1:3,iTrj))**2)
+        if (rab > hbthr2) cycle
+        nxb = nxb+1
+        hblist3(1,nxb) = i ! A
+        hblist3(2,nxb) = j ! B
+        hblist3(3,nxb) = topo%xbatABl(3,ix) ! X
+        hblist3(4,nxb) = iTrj
+        hblist3(5,nxb) = topo%xbatABl(5,ix) ! iTrX
+!$      if (nxb == N_MAX_LIST) call update_hblist3(nlist,nxb,hblist3)
       end do
+      !$omp end do nowait
 
-      nlist%hbrefgeo = xyz
+      call update_hblist1(nlist,nhb1,hblist1)
+      call update_hblist2(nlist,nhb2,hblist2)
+      call update_hblist3(nlist,nxb,hblist3)
 
-    end if  ! else do nothing
+!$  deallocate (hblist1,hblist2,hblist3)
+
+    !$omp end parallel
+
+    nlist%hbrefgeo = xyz
+
+  contains
+
+    subroutine update_hblist1(neigh_list,nhb,hblist)
+      type(TGFFNeighbourList),intent(inout) :: neigh_list
+      integer,intent(inout) :: nhb
+      integer,intent(inout) :: hblist(5,nhb)
+      !$omp critical (list1)
+!$    neigh_list%hblist1(:,nlist%nhb1+1:nlist%nhb1+nhb) = hblist(:,1:nhb)
+      neigh_list%nhb1 = neigh_list%nhb1+nhb
+      !$omp end critical (list1)
+!$    nhb = 0
+!$    hblist = 0
+    end subroutine update_hblist1
+
+    subroutine update_hblist2(neigh_list,nhb,hblist)
+      type(TGFFNeighbourList),intent(inout) :: neigh_list
+      integer,intent(inout) :: nhb
+      integer,intent(inout) :: hblist(5,nhb)
+      !$omp critical (list2)
+!$    neigh_list%hblist2(:,nlist%nhb2+1:nlist%nhb2+nhb) = hblist(:,1:nhb)
+      neigh_list%nhb2 = neigh_list%nhb2+nhb
+      !$omp end critical (list2)
+!$    nhb = 0
+!$    hblist = 0
+    end subroutine update_hblist2
+
+    subroutine update_hblist3(neigh_list,nxb,hblist)
+      type(TGFFNeighbourList),intent(inout) :: neigh_list
+      integer,intent(inout) :: nxb
+      integer,intent(inout) :: hblist(5,nxb)
+      !$omp critical (list3)
+!$    neigh_list%hblist3(:,nlist%nxb+1:nlist%nxb+nxb) = hblist(:,1:nxb)
+      neigh_list%nxb = neigh_list%nxb+nxb
+      !$omp end critical (list3)
+!$    nxb = 0
+!$    hblist = 0
+    end subroutine update_hblist3
 
   end subroutine gfnff_hbset
-!========================================================================================!
 
-  subroutine bond_hbset(n,at,xyz,sqrab,bond_hbn,bond_hbl,topo,hbthr1,hbthr2)
-    use gfnff_param
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine bond_hbset(n,at,xyz,npbc,bond_hbn,bond_hbl,topo,neigh,hbthr1,hbthr2)
     implicit none
     type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh
     integer,intent(in) :: n
     integer,intent(in) :: at(n)
     integer,intent(in) :: bond_hbn
-    integer,intent(out) :: bond_hbl(3,bond_hbn)
-    real(wp),intent(in) :: sqrab(n*(n+1)/2)
+    integer,intent(out) :: bond_hbl(6,bond_hbn)  ! A-H...B Tripletts
     real(wp),intent(in) :: xyz(3,n)
+    integer,intent(in) :: npbc
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer :: i,j,k,nh,ix,ij,inh,jnh
-    integer :: bond_nr
-    real(wp) :: rab
-    logical :: ijnonbond
-
-    if(.false.) write(*,*) at,hbthr2,xyz ! silences -Wunused-dummy-argument
+    integer i,j,k,nh,ia,ix,iTri,iTrj,iTrH,iTrDum
+    integer bond_nr
+    real(wp) dum,rab
+    logical ijnonbond
 
     bond_nr = 0
     bond_hbl = 0
-    do ix = 1,topo%nathbAB
+    do ix = 1,topo%nathbAB  ! loop over hb-relevant AB atoms
+      !get i and j from AB list, it is not decided who is A and who is B yet
       i = topo%hbatABl(1,ix)
       j = topo%hbatABl(2,ix)
-      ij = j+i*(i-1)/2
-      rab = sqrab(ij)
-      if (rab .gt. hbthr1) cycle
-      ijnonbond = topo%bpair(ij) .ne. 1
-      do k = 1,topo%nathbH
-        nh = topo%hbatHl(k)
-        inh = lin(i,nh)
-        jnh = lin(j,nh)
-        if (topo%bpair(inh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-          bond_nr = bond_nr+1
-          bond_hbl(1,bond_nr) = i
-          bond_hbl(2,bond_nr) = j
-          bond_hbl(3,bond_nr) = nh
-        elseif (topo%bpair(jnh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-          bond_nr = bond_nr+1
-          bond_hbl(1,bond_nr) = j
-          bond_hbl(2,bond_nr) = i
-          bond_hbl(3,bond_nr) = nh
-        end if
+      do iTri = 1,neigh%nTrans
+        do iTrj = 1,neigh%nTrans
+          iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
+          rab = NORM2((xyz(:,i)+neigh%transVec(:,iTri))-(xyz(:,j)+neigh%transVec(:,iTrj)))**2
+          if (rab .gt. hbthr1) cycle
+          ! check if ij bonded
+          if (iTrDum .le. neigh%numctr.and.iTrDum .gt. 0) then
+            ijnonbond = neigh%bpair(j,i,iTrDum) .ne. 1
+          else
+            ! i and j are not in neighboring cells
+            ijnonbond = .true.
+          end if
+          ! loop over relevant H atoms
+          do k = 1,topo%nathbH
+            nh = topo%hbatHl(1,k)  ! ALWAYS in central cell
+            !i is the A (only possible if A is adjacent to central cell, since H always there)
+            if (iTri .le. neigh%numctr) then ! check if a in or adjacent to central cell
+              if (neigh%bpair(i,nh,iTri) .eq. 1.and.ijnonbond) then
+                bond_nr = bond_nr+1
+                bond_hbl(1,bond_nr) = i     ! 1=A
+                bond_hbl(2,bond_nr) = j     ! 2=B
+                bond_hbl(3,bond_nr) = nh    ! 3=H
+                bond_hbl(4,bond_nr) = iTri  ! 4=iTrA
+                bond_hbl(5,bond_nr) = iTrj  ! 5=iTrB
+                bond_hbl(6,bond_nr) = 1     ! 6=iTrH
+              end if
+            end if
+            ! j is the A
+            if (iTrj .le. neigh%numctr) then
+              if (neigh%bpair(j,nh,iTrj) .eq. 1.and.ijnonbond) then
+                bond_nr = bond_nr+1
+                bond_hbl(1,bond_nr) = j     ! 1=A
+                bond_hbl(2,bond_nr) = i     ! 2=B
+                bond_hbl(3,bond_nr) = nh    ! 3=H
+                bond_hbl(4,bond_nr) = iTrj  ! 4=iTrA
+                bond_hbl(5,bond_nr) = iTri  ! 5=iTrB
+                bond_hbl(6,bond_nr) = 1     ! 6=iTrH
+              end if
+            end if
+          end do
+        end do
       end do
     end do
 
   end subroutine bond_hbset
-!========================================================================================!
 
-  subroutine bond_hbset0(n,at,xyz,sqrab,bond_hbn,topo,hbthr1,hbthr2)
-    use gfnff_param
+  subroutine bond_hbset0(n,at,xyz,npbc,bond_hbn,topo,neigh,hbthr1,hbthr2)
     implicit none
     type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh
     integer,intent(in) :: n
     integer,intent(in) :: at(n)
     integer,intent(out) :: bond_hbn
-    real(wp),intent(in) :: sqrab(n*(n+1)/2)
     real(wp),intent(in) :: xyz(3,n)
+    integer,intent(in) :: npbc
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer :: i,j,k,nh,ix,ij,inh,jnh
-    real(wp) :: rab
-    logical :: ijnonbond
+    integer i,j,k,nh,ix,iTri,iTrj,iTrH,iTrDum
+    !integer bond_nr
+    real(wp) rab
+    logical ijnonbond
+    !
+    real(wp) :: vec1,vec2
 
-    if(.false.) write(*,*) at,xyz,hbthr2 ! silences -Wunused-dummy-argument  
-
+    ! get size of bond_hbl, for more comments see bond_hbset
     bond_hbn = 0
-    do ix = 1,topo%nathbAB
+    do ix = 1,topo%nathbAB  ! loop over hb-relevant AB atoms
+      !get i and j from AB list, it is not decided who is A and who is B yet
       i = topo%hbatABl(1,ix)
       j = topo%hbatABl(2,ix)
-      ij = j+i*(i-1)/2
-      rab = sqrab(ij)
-      if (rab .gt. hbthr1) cycle
-      ijnonbond = topo%bpair(ij) .ne. 1
-      do k = 1,topo%nathbH
-        nh = topo%hbatHl(k)
-        inh = lin(i,nh)
-        jnh = lin(j,nh)
-        if (topo%bpair(inh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-          bond_hbn = bond_hbn+1
-        elseif (topo%bpair(jnh) .eq. 1.and.ijnonbond) then ! exclude cases where A and B are bonded
-          bond_hbn = bond_hbn+1
-        end if
+      do iTri = 1,neigh%nTrans
+        do iTrj = 1,neigh%nTrans
+          iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
+          if (iTrDum .eq. -1.or.iTrDum .gt. neigh%numctr) then
+            rab = NORM2((xyz(:,i)+neigh%transVec(:,iTri))-(xyz(:,j)+neigh%transVec(:,iTrj)))**2
+            if (rab .gt. hbthr1) cycle
+            ijnonbond = .true. ! i and j are not in neighboring or same cell for iTrDum=-1
+          else
+            ! check ij distance
+            rab = NORM2(xyz(:,i)-(xyz(:,j)+neigh%transVec(:,iTrDum)))**2
+            if (rab .gt. hbthr1) cycle
+            ! check if ij bonded
+            ijnonbond = neigh%bpair(j,i,iTrDum) .ne. 1
+          end if
+          ! loop over relevant H atoms
+          do k = 1,topo%nathbH
+            nh = topo%hbatHl(1,k)  ! ALWAYS in central cell
+            ! i is the A
+            if (iTri .le. neigh%numctr) then
+              if (neigh%bpair(i,nh,iTri) .eq. 1.and.ijnonbond) then
+                bond_hbn = bond_hbn+1
+              end if
+            end if
+            ! j is the A
+            if (iTrj .le. neigh%numctr) then
+              if (neigh%bpair(j,nh,iTrj) .eq. 1.and.ijnonbond) then!
+                bond_hbn = bond_hbn+1
+              end if
+            end if
+          end do
+        end do
       end do
     end do
 
   end subroutine bond_hbset0
-!========================================================================================!
 
-  subroutine bond_hb_AHB_set(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,lin_AHB,topo)
-    use gfnff_param
+  subroutine bond_hb_AHB_set(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,lin_AHB,topo,neigh)
     implicit none
     !Dummy
+    type(TNeigh),intent(inout) :: neigh
     type(TGFFTopology),intent(inout) :: topo
     integer,intent(in)  :: n
     integer,intent(in)  :: numbond
     integer,intent(in)  :: at(n)
     integer,intent(in)  :: bond_hbn
-    integer,intent(in)  :: bond_hbl(3,bond_hbn)
+    integer,intent(in)  :: bond_hbl(6,bond_hbn)
     integer,intent(in)  :: tot_AHB_nr
-    integer,intent(inout) :: lin_AHB(0:tot_AHB_nr)
+    integer,intent(inout) :: lin_AHB(4,0:tot_AHB_nr)
     !Stack
     integer :: i,j
-    integer :: ii,jj
+    integer :: ii,jj,iTr,iTrA,iTrH,iTrB
     integer :: ia,ja
+    integer :: lin
     integer :: hbH,hbA
     integer :: Hat,Aat
     integer :: Bat,atB
-    integer :: tot_count
+    integer :: tot_count,t
     integer :: AH_count
     integer :: B_count
     integer :: lin_diff
+    logical :: iTr_same,AH_diff,ldum(4)
 
     tot_count = 0
     AH_count = 0
@@ -965,8 +1098,9 @@ contains  !> MODULE PROCEDURES START HERE
     lin_diff = 0
 
     do i = 1,numbond
-      ii = topo%blist(1,i)
-      jj = topo%blist(2,i)
+      jj = neigh%blist(1,i)
+      ii = neigh%blist(2,i)
+      iTr = neigh%blist(3,i)
       ia = at(ii)
       ja = at(jj)
       if (ia .eq. 1) then
@@ -981,27 +1115,42 @@ contains  !> MODULE PROCEDURES START HERE
       if (at(hbA) .eq. 7.or.at(hbA) .eq. 8) then
         do j = 1,bond_hbn
           Bat = bond_hbl(2,j)
+          iTrB = bond_hbl(5,j)
           atB = at(Bat)
           Aat = bond_hbl(1,j)
+          iTrA = bond_hbl(4,j)
           Hat = bond_hbl(3,j)
-          if (hbA .eq. Aat.and.hbH .eq. Hat) then
+          iTrH = bond_hbl(6,j) ! always 1
+          if ((hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrA.and.iTrH .eq. 1).or.&
+              &hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrH.and.iTrA .eq. 1) then
             if (atB .eq. 7.or.atB .eq. 8) then
               tot_count = tot_count+1
-              lin_AHB(tot_count) = lin(hbA,hbH)
-              lin_diff = lin_AHB(tot_count)-lin_AHB(tot_count-1)
-              if (lin_diff .eq. 0) then
-                B_count = B_count+1
+              t = tot_count
+              !lin_AHB(1,tot_count) = lin(hbA,hbH)
+              lin_AHB(1,tot_count) = hbA
+              lin_AHB(2,tot_count) = hbH
+              lin_AHB(3,tot_count) = iTrA
+              lin_AHB(4,tot_count) = iTrH
+              if (lin_AHB(1,tot_count)-lin_AHB(1,tot_count-1) .eq. 0.and.&
+                 &lin_AHB(2,tot_count)-lin_AHB(2,tot_count-1) .eq. 0) then
+                lin_diff = 0
+              else
+                lin_diff = 1
               end if
-              !Next AH pair
-              if (lin_diff .ne. 0) then
+              iTr_same = iTrA .eq. lin_AHB(3,tot_count-1).and.iTrH .eq. lin_AHB(4,tot_count-1)
+              if (lin_diff .eq. 0.and.iTr_same) B_count = B_count+1
+              if (lin_diff .ne. 0.or..not.iTr_same) then
                 AH_count = AH_count+1
                 topo%bond_hb_AH(1,AH_count) = hbA
                 topo%bond_hb_AH(2,AH_count) = hbH
+                topo%bond_hb_AH(3,AH_count) = iTrA
+                topo%bond_hb_AH(4,AH_count) = iTrH
                 !Reset B count
                 B_count = 1
               end if
               topo%bond_hb_Bn(AH_count) = B_count
-              topo%bond_hb_B(B_count,AH_count) = Bat
+              topo%bond_hb_B(1,B_count,AH_count) = Bat
+              topo%bond_hb_B(2,B_count,AH_count) = iTrB
             end if
           else
             cycle
@@ -1011,32 +1160,33 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine bond_hb_AHB_set
-!========================================================================================!
 
-  subroutine bond_hb_AHB_set1(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,lin_AHB,AH_count,bmax,topo)
-    use gfnff_param
+  subroutine bond_hb_AHB_set1(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,lin_AHB,AH_count,bmax,topo,neigh)
     implicit none
     !Dummy
+    type(TNeigh),intent(inout) :: neigh
     type(TGFFTopology),intent(inout) :: topo
     integer,intent(in)  :: n
     integer,intent(in)  :: numbond
     integer,intent(in)  :: at(n)
     integer,intent(in)  :: bond_hbn
-    integer,intent(in)  :: bond_hbl(3,bond_hbn)
+    integer,intent(in)  :: bond_hbl(6,bond_hbn)
     integer,intent(in)  :: tot_AHB_nr
-    integer,intent(inout) :: lin_AHB(0:tot_AHB_nr)
+    integer,intent(inout) :: lin_AHB(4,0:tot_AHB_nr)
     integer,intent(out) :: AH_count
     integer,intent(out) :: bmax
     !Stack
     integer :: i,j
-    integer :: ii,jj
+    integer :: ii,jj,iTr,iTrA,iTrH,iTrB
     integer :: ia,ja
+    integer :: lin
     integer :: hbH,hbA
     integer :: Hat,Aat
     integer :: Bat,atB
-    integer :: tot_count
+    integer :: tot_count,t
     integer :: B_count
     integer :: lin_diff
+    logical :: iTr_same,AH_diff,ldum(4)
 
     tot_count = 0
     AH_count = 0
@@ -1044,9 +1194,10 @@ contains  !> MODULE PROCEDURES START HERE
     bmax = 1
     lin_diff = 0
 
-    do i = 1,numbond
-      ii = topo%blist(1,i)
-      jj = topo%blist(2,i)
+    do i = 1,numbond ! loop over blist to get same order as blist
+      jj = neigh%blist(1,i)
+      ii = neigh%blist(2,i)
+      iTr = neigh%blist(3,i)
       ia = at(ii)
       ja = at(jj)
       if (ia .eq. 1) then
@@ -1063,14 +1214,27 @@ contains  !> MODULE PROCEDURES START HERE
           Bat = bond_hbl(2,j)
           atB = at(Bat)
           Aat = bond_hbl(1,j)
+          iTrA = bond_hbl(4,j)
           Hat = bond_hbl(3,j)
-          if (hbA .eq. Aat.and.hbH .eq. Hat) then
+          iTrH = bond_hbl(6,j) ! always 1
+          if ((hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrA.and.iTrH .eq. 1).or.&
+              &(hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrH.and.iTrA .eq. 1)) then
             if (atB .eq. 7.or.atB .eq. 8) then
               tot_count = tot_count+1
-              lin_AHB(tot_count) = lin(hbA,hbH)
-              lin_diff = lin_AHB(tot_count)-lin_AHB(tot_count-1)
-              if (lin_diff .eq. 0) B_count = B_count+1
-              if (lin_diff .ne. 0) then
+              lin_AHB(1,tot_count) = hbA
+              lin_AHB(2,tot_count) = hbH
+              lin_AHB(3,tot_count) = iTrA
+              lin_AHB(4,tot_count) = iTrH
+              topo%isABH(Bat) = .true.
+              if (lin_AHB(1,tot_count)-lin_AHB(1,tot_count-1) .eq. 0.and.&
+                 &lin_AHB(2,tot_count)-lin_AHB(2,tot_count-1) .eq. 0) then
+                lin_diff = 0
+              else
+                lin_diff = 1
+              end if
+              iTr_same = iTrA .eq. lin_AHB(3,tot_count-1).and.iTrH .eq. lin_AHB(4,tot_count-1)
+              if (lin_diff .eq. 0.and.iTr_same) B_count = B_count+1
+              if (lin_diff .ne. 0.or..not.iTr_same) then
                 AH_count = AH_count+1
                 B_count = 1
               end if
@@ -1080,37 +1244,38 @@ contains  !> MODULE PROCEDURES START HERE
             cycle
           end if
         end do
-        topo%nr_hb(i) = B_count
+        topo%isABH(hbA) = .true.
+        topo%isABH(hbH) = .true.
+        neigh%nr_hb(i) = B_count
       end if
     end do
 
   end subroutine bond_hb_AHB_set1
-!========================================================================================!
 
-  subroutine bond_hb_AHB_set0(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,topo)
-    use gfnff_param
+  subroutine bond_hb_AHB_set0(n,at,numbond,bond_hbn,bond_hbl,tot_AHB_nr,neigh)
     implicit none
     !Dummy
-    type(TGFFTopology),intent(in) :: topo
+    !type(TGFFTopology), intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh
     integer,intent(in)  :: n
     integer,intent(in)  :: numbond
     integer,intent(in)  :: at(n)
     integer,intent(in)  :: bond_hbn
-    integer,intent(in)  :: bond_hbl(3,bond_hbn)
+    integer,intent(in)  :: bond_hbl(6,bond_hbn)
     integer,intent(out) :: tot_AHB_nr
     !Stack
-    integer :: i,j
-    integer :: ii,jj
+    integer :: i,j,k
+    integer :: ii,jj,iTr,iTrA,iTrH,iTrB
     integer :: ia,ja
     integer :: hbH,hbA
     integer :: Hat,Aat
     integer :: Bat,atB
 
     tot_AHB_nr = 0
-
-    do i = 1,numbond
-      ii = topo%blist(1,i)
-      jj = topo%blist(2,i)
+    do i = 1,numbond ! loop over blist to get same order as blist, more important in set1
+      jj = neigh%blist(1,i)
+      ii = neigh%blist(2,i)
+      iTr = neigh%blist(3,i)
       ia = at(ii)
       ja = at(jj)
       if (ia .eq. 1) then
@@ -1127,8 +1292,11 @@ contains  !> MODULE PROCEDURES START HERE
           Bat = bond_hbl(2,j)
           atB = at(Bat)
           Aat = bond_hbl(1,j)
+          iTrA = bond_hbl(4,j)
           Hat = bond_hbl(3,j)
-          if (hbA .eq. Aat.and.hbH .eq. Hat) then
+          iTrH = bond_hbl(6,j) ! always 1
+          if ((hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrA.and.iTrH .eq. 1).or.&
+              &hbA .eq. Aat.and.hbH .eq. Hat.and.iTr .eq. iTrH.and.iTrA .eq. 1) then
             if (atB .eq. 7.or.atB .eq. 8) then
               tot_AHB_nr = tot_AHB_nr+1
             end if
@@ -1140,128 +1308,371 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine bond_hb_AHB_set0
-!========================================================================================!
 
-  subroutine gfnff_hbset0(n,at,xyz,sqrab,topo,nhb1,nhb2,nxb,hbthr1,hbthr2)
-    use gfnff_param
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine gfnff_hbset0(n,at,xyz,topo,nhb1,nhb2,nxb,neigh,nlist,hbthr1,hbthr2)
     implicit none
+    integer,intent(in) :: n
+    integer,intent(in) :: at(n)
+    real(wp),intent(in) :: xyz(3,n)
     type(TGFFTopology),intent(in) :: topo
     integer,intent(out) :: nhb1
     integer,intent(out) :: nhb2
     integer,intent(out) :: nxb
-    integer :: n
-    integer :: at(n)
-    real(wp) :: sqrab(n*(n+1)/2)
-    real(wp) :: xyz(3,n)
+    type(TNeigh),intent(in) :: neigh
+    type(TGFFNeighbourList),intent(in) :: nlist
     real(wp),intent(in) :: hbthr1,hbthr2
 
-    integer :: i,j,k,nh,ix,ij,inh,jnh
+    integer :: i,j,k,nh,ix
+    integer :: iTri,iTrj,iTrDum
     logical :: ijnonbond
-    real(wp) :: rab
-
-    if(.false.) write(*,*) at,xyz ! silences -Wunused-dummy-argument  
+    real(wp) :: rab,rih,rjh
 
     nhb1 = 0
     nhb2 = 0
-    do ix = 1,topo%nathbAB
-      i = topo%hbatABl(1,ix)
-      j = topo%hbatABl(2,ix)
-      ij = j+i*(i-1)/2
-      rab = sqrab(ij)
-      if (rab .gt. hbthr1) cycle
-      ijnonbond = topo%bpair(ij) .ne. 1
-      do k = 1,topo%nathbH
-        nh = topo%hbatHl(k)
-        inh = lin(i,nh)
-        jnh = lin(j,nh)
-        if (topo%bpair(inh) .eq. 1.and.ijnonbond) then
-          nhb2 = nhb2+1
-        elseif (topo%bpair(jnh) .eq. 1.and.ijnonbond) then
-          nhb2 = nhb2+1
-        elseif (rab+sqrab(inh)+sqrab(jnh) .lt. hbthr2) then
-          nhb1 = nhb1+1
-        end if
-      end do
-    end do
-
     nxb = 0
+
+    !$omp parallel default(none) &
+    !$omp reduction(+:nhb1, nhb2, nxb) &
+    !$omp shared(topo, neigh, xyz, hbthr1, hbthr2) &
+    !$omp private(iTri, iTrj, iTrDum, ix, i, j, k, nh, rab, rih, rjh, ijnonbond)
+
+    ! loop over hb-relevant AB atoms
+    !$omp do collapse(3) schedule(dynamic, 16)
+    do ix = 1,topo%nathbAB
+      do iTri = 1,neigh%nTrans ! go through i shifts
+        do iTrj = 1,neigh%nTrans ! go through j shifts
+          i = topo%hbatABl(1,ix)
+          j = topo%hbatABl(2,ix)
+          ! get adjustet iTr -> for use of neigh% distances and bpair with two shifted atoms
+          iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
+          if (iTrDum > neigh%nTrans.or.iTrDum < -1.or.iTrDum == 0) cycle
+          rab = sum(((xyz(1:3,i)+neigh%transVec(1:3,iTri)) &
+                     -(xyz(1:3,j)+neigh%transVec(1:3,iTrj)))**2)
+          if (rab > hbthr1) cycle
+          ! check if ij bonded
+          if (iTrDum <= neigh%numctr.and.iTrDum > 0) then
+            ijnonbond = neigh%bpair(j,i,iTrDum) /= 1
+          else
+            ! i and j are not in neighboring cells
+            ijnonbond = .true.
+          end if
+          ! loop over relevant H atoms
+          do k = 1,topo%nathbH
+            nh = topo%hbatHl(1,k) ! nh always in central cell
+            ! distances for non-cov bonded case
+            rih = sum((xyz(1:3,nh)-(xyz(1:3,i)+neigh%transVec(1:3,iTri)))**2)
+            rjh = sum((xyz(1:3,nh)-(xyz(1:3,j)+neigh%transVec(1:3,iTrj)))**2)
+            ! check if i is the bonded A
+            if (iTri <= neigh%numctr) then ! nh is not shifted so bpair works without adjustment
+              if (neigh%bpair(i,nh,iTri) == 1.and.ijnonbond) then
+                nhb2 = nhb2+1
+                cycle
+              end if
+            end if
+            ! check if j is the bonded A
+            if (iTrj <= neigh%numctr) then
+              if (neigh%bpair(j,nh,iTrj) == 1.and.ijnonbond) then
+                nhb2 = nhb2+1
+                cycle
+              end if
+            end if
+            ! check for non-cov bonded A
+            if (rab+rih+rjh < hbthr2) then ! sum of rAB,rAH,rBH is below threshold
+              nhb1 = nhb1+1
+            end if
+          end do ! k: relevant H atoms
+        end do ! iTrj
+      end do ! iTri
+    end do ! ix: relevant AB atoms
+    !$omp end do nowait
+
+    !$omp do schedule(dynamic)
     do ix = 1,topo%natxbAB
       i = topo%xbatABl(1,ix)
       j = topo%xbatABl(2,ix)
-      ij = j+i*(i-1)/2
-      rab = sqrab(ij)
-      if (rab .gt. hbthr2) cycle
+      iTrj = topo%xbatABl(4,ix)
+      if (iTrj > neigh%nTrans.or.iTrj < -1.or.iTrj == 0) cycle
+      rab = sum((xyz(1:3,j)-(xyz(1:3,i)+neigh%transVec(1:3,iTrj)))**2)
+      if (rab > hbthr2) cycle
       nxb = nxb+1
     end do
+    !$omp end do
+
+    !$omp end parallel
 
   end subroutine gfnff_hbset0
-!========================================================================================!
 
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 ! HB strength
 !ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
   subroutine hbonds(i,j,ci,cj,param,topo)
-    use gfnff_param
     implicit none
     type(TGFFTopology),intent(in) :: topo
     type(TGFFData),intent(in) :: param
-    integer :: i,j
-    real(wp) :: ci(2),cj(2)
-    if(.false.) write(*,*) param%repscaln ! silences -Wunused-dummy-argument 
+    integer i,j
+    integer ati,atj
+    real(wp) ci(2),cj(2)
     ci(1) = topo%hbbas(i)
     cj(1) = topo%hbbas(j)
     ci(2) = topo%hbaci(i)
     cj(2) = topo%hbaci(j)
   end subroutine hbonds
-!========================================================================================!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! ring analysis routine, don't touch ;-)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine getring36(n,at,numnb,numctr,nbin,a0_in,cout,irout)
+    implicit none
+    integer,intent(out) :: cout(10,20),irout(20)  ! output: atomlist, ringsize, # of rings in irout(20)
+    integer,intent(in) :: n,at(n),numnb,numctr,nbin(numnb,n),a0_in
+    integer :: i,nb(numnb,n),a0
+    integer i1,i2,i3,i4,i5,i6,i7,i8,i9,i10
+    integer n0,n1,n2,n3,n4,n5,n6,n7,n8,n9,n10
+    integer a1,a2,a3,a4,a5,a6,a7,a8,a9,a10
+    integer maxr
+    parameter(maxr=500)
+    integer list(n),m,mm,nn,c(10),cdum(10,maxr),iring
+    integer adum1(0:n),adum2(0:n),kk,j,idum(maxr),same(maxr),k
+    real(wp) w(n),av,sd
+
+    cout = 0
+    irout = 0
+!     if(n.le.2.or.at(a0_in).gt.10.or.nbin(19,a0_in).eq.1) return
+    if (n .le. 2..or.nbin(numnb-1,a0_in) .eq. 1) return
+
+    nn = nbin(numnb,a0_in)
+
+    cdum = 0
+    kk = 0
+    do m = 1,nn
+      nb = nbin
+      ! ring search only in unit cell -> adjusted nbin to include neighbors from other cells
+      if (nb(m,a0_in) .eq. 1) cycle
+      do i = 1,n
+        if (nb(numnb,i) .eq. 1) nb(numnb,i) = 0
+      end do
+
+      do mm = 1,nn
+        w(mm) = dble(mm)
+        list(mm) = mm
+      end do
+      w(m) = 0.0d0
+      call ssort(nn,w,list)
+      do mm = 1,nn
+        nb(mm,a0_in) = nbin(list(mm),a0_in)
+      end do
+
+      iring = 0
+      c = 0
+
+      a0 = a0_in
+      n0 = nb(numnb,a0)
+
+      do i1 = 1,n0
+        a1 = nb(i1,a0)
+        if (a1 .eq. a0) cycle
+        n1 = nb(numnb,a1)
+        do i2 = 1,n1
+          a2 = nb(i2,a1)
+          if (a2 .eq. a1) cycle
+          n2 = nb(numnb,a2)
+          do i3 = 1,n2
+            a3 = nb(i3,a2)
+            n3 = nb(numnb,a3)
+            if (a3 .eq. a2) cycle
+            c(1) = a1
+            c(2) = a2
+            c(3) = a3
+            if (a3 .eq. a0.and.chkrng(n,3,c)) then
+              iring = 3
+              if (kk .eq. maxr) goto 99
+              kk = kk+1
+              cdum(1:iring,kk) = c(1:iring)
+              idum(kk) = iring
+            end if
+            do i4 = 1,n3
+              a4 = nb(i4,a3)
+              n4 = nb(numnb,a4)
+              if (a4 .eq. a3) cycle
+              c(4) = a4
+              if (a4 .eq. a0.and.chkrng(n,4,c)) then
+                iring = 4
+                if (kk .eq. maxr) goto 99
+                kk = kk+1
+                cdum(1:iring,kk) = c(1:iring)
+                idum(kk) = iring
+              end if
+              do i5 = 1,n4
+                a5 = nb(i5,a4)
+                n5 = nb(numnb,a5)
+                if (a5 .eq. a4) cycle
+                c(5) = a5
+                if (a5 .eq. a0.and.chkrng(n,5,c)) then
+                  iring = 5
+                  if (kk .eq. maxr) goto 99
+                  kk = kk+1
+                  cdum(1:iring,kk) = c(1:iring)
+                  idum(kk) = iring
+                end if
+                do i6 = 1,n5
+                  a6 = nb(i6,a5)
+                  n6 = nb(numnb,a6)
+                  if (a6 .eq. a5) cycle
+                  c(6) = a6
+                  if (a6 .eq. a0.and.chkrng(n,6,c)) then
+                    iring = 6
+                    if (kk .eq. maxr) goto 99
+                    kk = kk+1
+                    cdum(1:iring,kk) = c(1:iring)
+                    idum(kk) = iring
+                  end if
+                end do
+              end do
+            end do
+          end do
+        end do
+      end do
+
+99    continue
+
+    end do
+
+! compare
+    same = 0
+    do i = 1,kk
+      do j = i+1,kk
+        if (idum(i) .ne. idum(j)) cycle ! different ring size
+        if (same(j) .eq. 1) cycle ! already double
+        adum1 = 0
+        adum2 = 0
+        do m = 1,10
+          i1 = cdum(m,i)
+          i2 = cdum(m,j)
+          adum1(i1) = 1
+          adum2(i2) = 1
+        end do
+        if (sum(abs(adum1-adum2)) .ne. 0) then
+          same(j) = 0
+        else
+          same(j) = 1
+        end if
+      end do
+    end do
+
+    m = 0
+    do i = 1,kk
+      if (same(i) .eq. 0) then
+        m = m+1
+        irout(m) = idum(i)     ! number of atoms in ring m
+        nn = idum(i)
+        cout(1:nn,m) = cdum(1:nn,i)
+        if (m .gt. 19) then
+          m = 19
+          goto 999
+        end if
+      end if
+    end do
+999 irout(20) = m  ! number of rings for this atom
+
+    return
+  end subroutine getring36
+
+!   subroutine ssort(n,edum,ind)
+!     implicit none
+!     integer n,ii,k,j,m,i,sc1
+!     real(wp) edum(n),pp
+!     integer ind(n)
+!
+!     do 140 ii = 2,n
+!       i = ii-1
+!       k = i
+!       pp = edum(i)
+!       do 120 j = ii,n
+!         if (edum(j) .gt. pp) go to 120
+!         k = j
+!         pp = edum(j)
+! 120     continue
+!         if (k .eq. i) go to 140
+!         edum(k) = edum(i)
+!         edum(i) = pp
+!         sc1 = ind(i)
+!         ind(i) = ind(k)
+!         ind(k) = sc1
+! 140     continue
+!
+!        end subroutine ssort
+
+  subroutine ssort(n,edum,ind)
+    implicit none
+
+    ! Arguments
+    integer,intent(in) :: n
+    real(wp),intent(inout) :: edum(n)
+    integer,intent(inout) :: ind(n)
+
+    ! Local variables
+    integer :: i,k
+    real(wp) :: temp_val
+    integer :: temp_ind
+
+    do i = 1,n-1
+      ! Find the index of the minimum element in the remaining unsorted part
+      ! MINLOC returns an array, so we take the first element (index 1)
+      k = minloc(edum(i:n),dim=1)+i-1
+
+      if (k /= i) then
+        ! Swap values in edum
+        temp_val = edum(i)
+        edum(i) = edum(k)
+        edum(k) = temp_val
+
+        ! Swap indices in ind
+        temp_ind = ind(i)
+        ind(i) = ind(k)
+        ind(k) = temp_ind
+      end if
+    end do
+  end subroutine ssort
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! neighbor only version of EEQ model
 ! included up to 1,4 interactions
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine goedeckera(n,at,nb,pair,q,es,topo,io)
-    !use xtb_mctc_lapack,only:mctc_sytrf,mctc_sytrs
-    use gfnff_math_wrapper,only:sytrf_wrap,sytrs_wrap
+  subroutine goedeckera(n,at,pair,q,es,topo)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
-    !type(TEnvironment),intent(inout) :: env
     type(TGFFTopology),intent(in) :: topo
     integer,intent(in)  :: n          ! number of atoms
     integer,intent(in)  :: at(n)      ! ordinal numbers
-    integer,intent(in)  :: nb(20,n)   ! neighbors
     real(wp),intent(in)  :: pair(n*(n+1)/2)
     real(wp),intent(out) :: q(n)       ! output charges
     real(wp),intent(out) :: es         ! ES energy
-    integer,intent(out) :: io
 
 !  local variables
     logical :: exitRun
-    integer :: m,i,j,ii
-    integer :: ij
+    integer  :: m,i,j,k,l,ii,jj,kk
+    integer  :: ij,lj
     integer,allocatable :: ipiv(:)
 
-    integer :: info1,info2
-    real(wp) :: gammij
-    real(wp) :: r2
+    real(wp) :: gammij,sief1,sief2
+    real(wp) :: r2,r0
     real(wp) :: rij
-    real(wp) :: tsqrt2pi
+    real(wp) :: tsqrt2pi,bohr
     real(wp) :: tmp
     real(wp),allocatable :: A(:,:)
     real(wp),allocatable :: x(:)
 
+    integer :: io1,io2
 !  parameter
     parameter(tsqrt2pi=0.797884560802866_wp)
 
-    if(.false.) write(*,*) at,nb  ! silences -Wunused-dummy-argument
-
-    io = 0
-
     m = n+topo%nfrag ! # atoms frag constrain
     allocate (A(m,m),x(m),ipiv(m))
-
-!  call prmati(6,pair,n,0,'pair')
 
     A = 0
 
@@ -1278,7 +1689,7 @@ contains  !> MODULE PROCEDURES START HERE
         rij = pair(ij)
         r2 = rij*rij
         gammij = 1.d0/sqrt(topo%alpeeq(i)+topo%alpeeq(j)) ! squared above
-        tmp = erf(gammij*rij)/rij
+        tmp = erf(gammij*rij)/rij  ! apart from diagonal(=0), if ij non-bonded rij=1.0d+12
         A(j,i) = tmp
         A(i,j) = tmp
       end do
@@ -1294,19 +1705,13 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end do
     end do
-!  call prmat(6,A,m,m,'A ini')
 
-    !call mctc_sytrf(env,a,ipiv)
-    call sytrf_wrap(a,ipiv,info1)
-    !call mctc_sytrs(env,a,x,ipiv)
-    call sytrs_wrap(a,x,ipiv,info2)
+    call sytrd(a,ipiv,io1)
+    call sytrs(a,x,ipiv,io2)
 
-    exitRun = (info1 /= 0).or.(info2 /= 0)
-    !call env%check(exitRun)
+    exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      !call env%error('Solving linear equations failed',source)
-      write (stdout,'("Solving linear equations failed ",a)') source
-      io = 1
+      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
@@ -1330,375 +1735,204 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine goedeckera
-!========================================================================================!
 
-  subroutine goedeckera_PBC(nat,at,pair,topo,cell,q,es,io)
-    !**********************************************************************
-    !* PBC-aware EEQ partial-charge solver.  Solves the same linear system
-    !* as goedeckera but accepts a TCell for the unit-cell geometry.
-    !* The direct-space and reciprocal-space translation sets (rTrans,
-    !* gTrans) are built for potential future full Ewald summation; for now
-    !* the A-matrix elements use the pairwise distances in pair(:) exactly
-    !* as in the molecular version (rij = 1e12 for non-bonded pairs).
-    !*
-    !* Input:
-    !*   nat        - number of atoms
-    !*   at(nat)    - atomic numbers (unused; kept for API uniformity)
-    !*   pair(nat*(nat+1)/2) - pairwise distances [Bohr]; 1e12 if non-bonded
-    !*   topo       - topology (chieeq, gameeq, alpeeq, fraglist, qfrag)
-    !*   cell       - unit-cell geometry (lattice, rec_lat, volume, npbc)
-    !* Output:
-    !*   q(nat)     - EEQ partial charges
-    !*   es         - electrostatic energy [Hartree]
-    !*   io         - 0 on success, 1 on LAPACK failure
-    !**********************************************************************
-    use gfnff_math_wrapper,only:sytrf_wrap,sytrs_wrap
+!> version of EEQ
+  subroutine goedeckera_PBC(nat,at,xyz,cell,pair,topo,q,es)
     implicit none
-    character(len=*),parameter :: source = 'gfnff_ini2_goedeckera_PBC'
-    type(TGFFTopology),intent(in) :: topo
+    character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
+    integer,intent(in) :: nat,at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
     type(TCell),intent(in) :: cell
-    integer,intent(in)  :: nat
-    integer,intent(in)  :: at(nat)
-    real(wp),intent(in)  :: pair(nat*(nat+1)/2)
-    real(wp),intent(out) :: q(nat)
-    real(wp),intent(out) :: es
-    integer,intent(out)  :: io
+    real(wp),intent(in)  :: pair(nat*(nat+1)/2) !estimate bond distances =1.0d+12 if no bond
+    type(TGFFTopology),intent(in) :: topo
+    real(wp),intent(out) :: q(nat)       ! output charges
+    real(wp),intent(out) :: es         ! ES energy
 
+!  local variables
     logical :: exitRun
-    integer :: m,i,j,ij,ii
-    integer :: iRp,iT1,iT2,iT3,iG1,iG2,iG3
+    integer  :: m,i,j,k,l,ii,jj,kk,n
+    integer  :: ij,lj
     integer,allocatable :: ipiv(:)
+
+    real(wp) :: gammij,sief1,sief2
+    real(wp) :: r2,r0
+    real(wp) :: rij
+    real(wp) :: tsqrt2pi,bohr
+    real(wp) :: tmp
+    real(wp),allocatable :: A(:,:)
+    real(wp),allocatable :: x(:)
+    real(wp),allocatable :: rTrans(:,:)
+    real(wp),allocatable :: gTrans(:,:)
+    real(wp) :: vec(3)
+    integer :: iRp,iT1,iT2,iT3,iG1,iG2,iG3
     integer,parameter :: ewaldCutD(3) = 2
     integer,parameter :: ewaldCutR(3) = 2
     real(wp),parameter :: sqrtpi = 1.772453850905516_wp
-    real(wp),parameter :: tsqrt2pi = 0.797884560802866_wp
-    real(wp) :: gammij,rij,tmp,cf
-    real(wp) :: vec(3)
-    real(wp),allocatable :: A(:,:),x(:)
-    real(wp),allocatable :: rTrans(:,:),gTrans(:,:)
-    integer :: info1,info2
+    real(wp) :: cf !convergence factor
+    integer :: io1,io2
+!  parameter
+    parameter(tsqrt2pi=0.797884560802866_wp)
 
-    if(.false.) write(*,*) at ! silences -Wunused-dummy-argument
+    n = nat
 
-    io = 0
+    m = n+topo%nfrag ! # atoms frag constrain
+    allocate (A(m,m),x(m),ipiv(m))
 
-    ! Build reciprocal-space translation vectors (for future Ewald)
     iRp = 0
-    allocate(gTrans(3,product(2*ewaldCutR+1)-1))
+    allocate (gTrans(3,product(2*ewaldCutR+1)-1))
     do iG1 = -ewaldCutR(1),ewaldCutR(1)
       do iG2 = -ewaldCutR(2),ewaldCutR(2)
         do iG3 = -ewaldCutR(3),ewaldCutR(3)
           if (iG1 == 0.and.iG2 == 0.and.iG3 == 0) cycle
           iRp = iRp+1
-          vec(:) = [real(iG1,wp),real(iG2,wp),real(iG3,wp)]
+          vec(:) = [iG1,iG2,iG3]
           gTrans(:,iRp) = matmul(cell%rec_lat,vec)
         end do
       end do
     end do
 
-    ! Build real-space translation vectors (for future Ewald)
     iRp = 0
-    allocate(rTrans(3,product(2*ewaldCutD+1)))
+    allocate (rTrans(3,product(2*ewaldCutD+1)))
     do iT1 = -ewaldCutD(1),ewaldCutD(1)
       do iT2 = -ewaldCutD(2),ewaldCutD(2)
         do iT3 = -ewaldCutD(3),ewaldCutD(3)
           iRp = iRp+1
-          vec(:) = [real(iT1,wp),real(iT2,wp),real(iT3,wp)]
+          vec(:) = [iT1,iT2,iT3]
           rTrans(:,iRp) = matmul(cell%lattice,vec)
         end do
       end do
     end do
 
-    ! Ewald convergence factor
-    if (cell%volume > 0.0_wp) then
-      cf = sqrtpi/cell%volume**(1.0_wp/3.0_wp)
-    else
-      cf = 1.0_wp
-    end if
-    if(.false.) write(*,*) cf,gTrans,rTrans ! suppress unused-variable warnings
+    ! cf, aka ewald parameter
+    cf = sqrtpi/cell%volume**(1.0_wp/3.0_wp)
 
-    m = nat+topo%nfrag
-    allocate(A(m,m),x(m),ipiv(m))
-    A = 0.0_wp
-
-    ! setup RHS
-    do i = 1,nat
-      x(i) = topo%chieeq(i)
+    A = 0
+!  setup RHS
+    do i = 1,n
+      x(i) = topo%chieeq(i) ! EN of atom
       A(i,i) = topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i))
     end do
 
-    ! setup A matrix
-    do i = 1,nat
+!  setup A matrix
+    do i = 1,n
       do j = 1,i-1
         ij = i*(i-1)/2+j
         rij = pair(ij)
-        gammij = 1.0_wp/sqrt(topo%alpeeq(i)+topo%alpeeq(j))
-        tmp = erf(gammij*rij)/rij
+        r2 = rij*rij
+        gammij = 1.d0/sqrt(topo%alpeeq(i)+topo%alpeeq(j)) ! squared above
+        tmp = erf(gammij*rij)/rij! apart from diagonal(=0), if ij non-bonded rij=1.0d+12
         A(j,i) = tmp
         A(i,j) = tmp
       end do
     end do
 
-    ! fragment charge constraints
+!  fragment charge constrain
     do i = 1,topo%nfrag
-      x(nat+i) = topo%qfrag(i)
-      do j = 1,nat
+      x(n+i) = topo%qfrag(i)
+      do j = 1,n
         if (topo%fraglist(j) .eq. i) then
-          A(nat+i,j) = 1.0_wp
-          A(j,nat+i) = 1.0_wp
+          A(n+i,j) = 1
+          A(j,n+i) = 1
         end if
       end do
     end do
 
-    call sytrf_wrap(A,ipiv,info1)
-    call sytrs_wrap(A,x,ipiv,info2)
+    call sytrd(a,ipiv,io1)
+    call sytrs(a,x,ipiv,io2)
 
-    exitRun = (info1 /= 0).or.(info2 /= 0)
+    exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      write(stdout,'("Solving linear equations failed ",a)') source
-      io = 1
+      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
-    q(1:nat) = x(1:nat)
-    if (nat .eq. 1) q(1) = topo%qfrag(1)
+    q(1:n) = x(1:n)
 
-    ! electrostatic energy
+    if (n .eq. 1) q(1) = topo%qfrag(1)
+
+!  energy
     es = 0.0_wp
-    do i = 1,nat
+    do i = 1,n
       ii = i*(i-1)/2
       do j = 1,i-1
         ij = ii+j
         rij = pair(ij)
-        gammij = 1.0_wp/sqrt(topo%alpeeq(i)+topo%alpeeq(j))
+        gammij = 1.d0/sqrt(topo%alpeeq(i)+topo%alpeeq(j)) ! squared above
         tmp = erf(gammij*rij)/rij
         es = es+q(i)*q(j)*tmp/rij
       end do
       es = es-q(i)*topo%chieeq(i) &
-       &      +q(i)*q(i)*0.5_wp*(topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i)))
+     &        +q(i)*q(i)*0.5d0*(topo%gameeq(i)+tsqrt2pi/sqrt(topo%alpeeq(i)))
     end do
 
   end subroutine goedeckera_PBC
-!========================================================================================!
-
-  subroutine nbondmat_pbc(n,numnb,numctr,nb,iTrNeg,neigh,pair)
-    !**********************************************************************
-    !* PBC bond-topology matrix.  For each atom pair (j,i,iTr) set
-    !* pair(j,i,iTr) to the shortest number of covalent bonds separating
-    !* them (1, 2, or 3); pairs further apart receive 5.
-    !* Considers only "paired" bonds (both atoms have each other as nb).
-    !*
-    !* Input:
-    !*   n, numnb, numctr   - dimensions
-    !*   nb(numnb,n,numctr) - neighbour list (count at position numnb)
-    !*   iTrNeg(numctr)     - lookup: index of negated translation vector
-    !*   neigh              - TNeigh object (for fTrSum, numnb, numctr)
-    !* Output:
-    !*   pair(n,n,numctr)   - allocatable bond-count matrix (allocated here)
-    !**********************************************************************
-    implicit none
-    type(TNeigh),intent(in) :: neigh
-    integer,intent(in) :: n,numnb,numctr
-    integer,intent(in) :: nb(numnb,n,numctr)
-    integer,intent(in) :: iTrNeg(numctr)
-    integer,allocatable,intent(out) :: pair(:,:,:)
-
-    integer :: nnbi,nbi(2,numnb)
-    integer :: i,inew,j,inb,ixnb,iTr,iTrnew,sumiTr,k,iTr2,l
-    integer :: cval
-    integer :: nbr(numnb,n,numctr)
-    logical :: hasnb
-    integer :: tmpp(3,10*n),nt
-
-    ! Remove unpaired (one-sided) bonds to build a reduced list nbr
-    tmpp = 0
-    nt = 0
-    nbr = nb
-    do i = 1,n
-      do iTr = 1,numctr
-        do j = 1,nb(numnb,i,iTr)
-          k = nb(j,i,iTr)
-          hasnb = .false.
-          do iTr2 = 1,numctr
-            do l = 1,nb(numnb,k,iTr2)
-              if (nb(l,k,iTr2) .eq. i) hasnb = .true.
-            end do
-          end do
-          if (.not.hasnb) then
-            do l = j,numnb-2
-              nbr(l,i,iTr) = nb(l+1,i,iTr)
-            end do
-            nbr(numnb,i,iTr) = nbr(numnb,i,iTr)-1
-            nt = nt+1
-            tmpp(1,nt) = k
-            tmpp(2,nt) = i
-            tmpp(3,nt) = iTr
-          end if
-        end do
-      end do
-    end do
-
-    allocate(pair(n,n,numctr),source=0)
-
-    do i = 1,n
-      ! direct bonds (tag=1)
-      do iTr = 1,numctr
-        do inb = 1,nbr(numnb,i,iTr)
-          j = nbr(inb,i,iTr)
-          pair(j,i,iTr) = 1
-        end do
-      end do
-      ! 2nd and 3rd neighbours
-      do cval = 1,2
-        call countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
-        do ixnb = 1,nnbi
-          inew = nbi(1,ixnb)
-          iTrnew = nbi(2,ixnb)
-          if (iTrnew .eq. 1) then
-            do iTr = 1,numctr
-              do inb = 1,nbr(numnb,inew,iTr)
-                j = nbr(inb,inew,iTr)
-                if (pair(j,i,iTr) .ne. 0) cycle
-                if (j .eq. i.and.iTr .eq. 1) cycle
-                pair(j,i,iTr) = cval+1
-              end do
-            end do
-          else
-            do inb = 1,nbr(numnb,inew,1)
-              j = nbr(inb,inew,1)
-              if (pair(j,i,iTrnew) .ne. 0) cycle
-              pair(j,i,iTrnew) = cval+1
-            end do
-            do iTr = 2,numctr
-              do inb = 1,nbr(numnb,inew,iTr)
-                j = nbr(inb,inew,iTr)
-                sumiTr = neigh%fTrSum(iTr,iTrnew)
-                if (sumiTr .eq. -1.or.(sumiTr .eq. 1.and.j .eq. i)) cycle
-                if (sumiTr .gt. 27) cycle
-                if (pair(j,i,sumiTr) .ne. 0) cycle
-                pair(j,i,sumiTr) = cval+1
-              end do
-            end do
-          end if
-        end do
-      end do
-    end do
-
-    ! set far-apart pairs to 5
-    do i = 1,n
-      do j = 1,n
-        do iTr = 1,numctr
-          if (pair(j,i,iTr) .eq. 0.and.j .ne. i) pair(j,i,iTr) = 5
-        end do
-      end do
-    end do
-
-    ! restore one-sided bonds (saved in tmpp)
-    do l = 1,10*n
-      if (tmpp(1,l) .eq. 0) exit
-      k = tmpp(1,l)
-      i = tmpp(2,l)
-      iTr = tmpp(3,l)
-      pair(k,i,iTr) = 1
-      pair(i,k,iTrNeg(iTr)) = 1
-    end do
-
-  end subroutine nbondmat_pbc
-!========================================================================================!
-
-  subroutine countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
-    !**********************************************
-    !* Collect all atoms j in cells m such that
-    !* pair(j,i,m) == cval.  Used by nbondmat_pbc.
-    !**********************************************
-    implicit none
-    integer,intent(in)    :: n,numctr,numnb,i,cval
-    integer,intent(in)    :: pair(n,n,numctr)
-    integer,intent(inout) :: nnbi
-    integer,intent(inout) :: nbi(2,numnb)
-    integer :: k,l
-
-    nnbi = 0
-    nbi = 0
-    do l = 1,n
-      do k = 1,numctr
-        if (pair(l,i,k) .eq. cval) then
-          nnbi = nnbi+1
-          nbi(1,nnbi) = l
-          nbi(2,nnbi) = k
-        end if
-      end do
-    end do
-
-  end subroutine countf
-!========================================================================================!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! condense charges to heavy atoms based on topology
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine qheavy(n,at,nb,q)
+  subroutine qheavy(n,at,numnb,numctr,nb,q)
     implicit none
-    integer,intent(in)   ::  n,nb(20,n),at(n)
+    integer,intent(in)  :: numnb,numctr
+    integer,intent(in)   ::  n,nb(numnb,n,numctr),at(n)
     real(wp),intent(inout) ::  q(n)
 
-    integer i,j,k
+    integer i,j,k,iTr
     real(wp) qtmp(n)
-
     qtmp = q
     do i = 1,n
       if (at(i) .ne. 1) cycle
       qtmp(i) = 0
-      do j = 1,nb(20,i)
-        k = nb(j,i)
-        qtmp(k) = qtmp(k)+q(i)/dble(nb(20,i))  ! could be a bridging H
+      do iTr = 1,numctr
+        do j = 1,nb(numnb,i,iTr)
+          k = nb(j,i,iTr)
+          qtmp(k) = qtmp(k)+q(i)/dble(sum(nb(numnb,i,:)))  ! could be a bridging H
+        end do
       end do
     end do
 
     q = qtmp
 
   end subroutine qheavy
-!========================================================================================!
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! determine number of cov. bonds between atoms
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine nbondmat(n,nb,pair)
+  subroutine nbondmat(n,numnb,numctr,nb,pair)
     implicit none
 !     Dummy
-    integer,intent(in)  :: n
-    integer,intent(in)  :: nb(20,n)
+    integer,intent(in)  :: n,numnb,numctr
+    integer,intent(in)  :: nb(numnb,n,numctr)
     integer,intent(out) ::  pair(n*(n+1)/2)
 !     Stack
-    integer :: i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,k
+    integer i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,jj,k,lin
     integer,allocatable :: list(:,:),nlist(:,:),nnn(:),nn(:)
-    logical :: da
+    logical da
 
     allocate (nnn(n),nn(n),list(5*n,n),nlist(5*n,n))
 
-    nn(1:n) = nb(20,1:n)
+    nn(1:n) = nb(numnb,1:n,1)
 
     pair = 0
     list = 0
     do i = 1,n
       ni = nn(i)
-      list(1:ni,i) = nb(1:ni,i)
+      list(1:ni,i) = nb(1:ni,i,1)
     end do
 
     nlist = list
 
     pair = 0
     do i = 1,n
-      do j = 1,nb(20,i)
-        k = nb(j,i)
+      do j = 1,nb(numnb,i,1)
+        k = nb(j,i,1)
         pair(lin(k,i)) = 1
       end do
     end do
 
 !     one bond, tag=1
     tag = 1
-!     call pairsbond(n,nn,list,pair,tag)
 
 !     determine up to 3 bonds in between
     do d = 1,2
@@ -1710,10 +1944,10 @@ contains  !> MODULE PROCEDURES START HERE
 !        all neighbors of i
         do ii = 1,ni
           i1 = list(ii,i)
-          ni1 = nb(20,i1)
+          ni1 = nb(numnb,i1,1)
 !           all neighbors of neighbors of i
           do iii = 1,ni1
-            newatom = nb(iii,i1)
+            newatom = nb(iii,i1,1)
             da = .false.
             do j = 1,newi
               if (newatom .eq. list(j,i)) da = .true.
@@ -1742,7 +1976,6 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine nbondmat
-!========================================================================================!
 
   subroutine pairsbond(n,nn,list,pair,tag)
     implicit none
@@ -1772,19 +2005,206 @@ contains  !> MODULE PROCEDURES START HERE
     end do
 
   end subroutine pairsbond
-!========================================================================================!
+
+  subroutine nbondmat_pbc(n,numnb,numctr,nb,iTrNeg,neigh,pair)
+    implicit none
+!
+    type(TNeigh),intent(in) :: neigh ! for locating neighbor
+    integer,intent(in)  :: n,numnb,numctr
+    integer,intent(in)  :: nb(numnb,n,numctr)
+    integer,intent(in)  :: iTrNeg(numctr)
+    integer,allocatable,intent(out) ::  pair(:,:,:)
+    integer :: nnbi,nbi(2,numnb),cval
+    integer :: i,inew,j,inb,ixnb,xnb,iTr,iTrnew,sumiTr,k,iTr2,l
+    integer  :: nbr(numnb,n,numctr) ! reduced neighbor list no unpaired bonds
+    logical :: hasnb ! true if atom i and k have a paired bond (both have each other as nb)
+    integer :: tmpp(3,10*n),nt
+    ! using temporary list tmpp to match setup of nbondmat for mindless03
+    !  in that case the sum of single bonds in bpair connecting atoms A and B
+    !  does not necessarily add up to bpair(A,B)
+    !  if setup should be consistent (excluding half bonds) delete tmpp_usage
+
+    ! only paired bonds should be considered for setting up bpair
+    ! e.g. metals have one sided bonds where the bond partner does not
+    !  have the metal as a neighbor
+    ! Therefore a list set up with only paired bonds
+    tmpp = 0 ! tmpp_usage
+    nt = 0     ! tmpp_usage
+    nbr = nb
+    do i = 1,n
+      do iTr = 1,neigh%numctr
+        do j = 1,nb(neigh%numnb,i,iTr)
+          ! k are all the neighbors of i in cell iTr
+          k = nb(j,i,iTr)
+          hasnb = .false.
+          do iTr2 = 1,neigh%numctr
+            do l = 1,nb(neigh%numnb,k,iTr2)
+              ! check if neighbor k of atom i has i as a neighbor aswell
+              if (nb(l,k,iTr2) .eq. i) then
+                hasnb = .true.
+              end if
+            end do
+          end do
+          ! if hasnb is still false then the bond is not paired and should be deleted
+          if (.not.hasnb) then
+            ! now delete neighbor and move other neighbors
+            do l = j,neigh%numnb-2 ! fails if an atom has numnb-1 neighbors !
+              nbr(l,i,iTr) = nb(l+1,i,iTr)
+            end do
+            ! reduce neighbors by one
+            nbr(numnb,i,iTr) = nbr(numnb,i,iTr)-1
+            ! save the neighbor
+            nt = nt+1       ! tmpp_usage
+            tmpp(1,nt) = k    ! tmpp_usage
+            tmpp(2,nt) = i    ! tmpp_usage
+            tmpp(3,nt) = iTr  ! tmpp_usage
+          end if
+        end do
+      end do
+    end do
+
+    allocate (pair(n,n,numctr),source=0)
+    do i = 1,n
+      ! all first neighbors of i
+      do iTr = 1,numctr
+        do inb = 1,nbr(numnb,i,iTr)
+          j = nbr(inb,i,iTr)
+          pair(j,i,iTr) = 1
+        end do
+      end do
+! Can only detect bond paths that lie in at most two cells
+! To get num bonds between atoms i&j, which are connected over atoms that lie in
+! different cells than i AND j, then first nb() would have to be expanded
+! to track cells that i lies in.
+      !2nd-3th neighbors
+      do cval = 1,2
+        call countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
+        ! go over i's xth neighbors (x=cval)
+        do ixnb = 1,nnbi
+          ! go over the xth neighbors neighbors
+          inew = nbi(1,ixnb)
+          iTrnew = nbi(2,ixnb)
+          if (iTrnew .eq. 1) then
+            !
+            do iTr = 1,numctr
+              do inb = 1,nbr(numnb,inew,iTr)
+                j = nbr(inb,inew,iTr)
+                if (pair(j,i,iTr) .ne. 0) cycle ! take shortest path only
+                if (j .eq. i.AND.iTr .eq. 1) cycle ! dont count to-self-bonds
+                pair(j,i,iTr) = cval+1
+              end do
+            end do
+          else
+            ! idx of neighbors in same cell are the same in every cell
+            ! therefore first only consider nb(numnb,inew,iTr=1)
+            do inb = 1,nbr(numnb,inew,1)
+              j = nbr(inb,inew,1)
+              if (pair(j,i,iTrnew) .ne. 0) cycle ! take shortest path only
+              ! to-self-bonds not possible since iTr.ne.1
+              pair(j,i,iTrnew) = cval+1
+            end do
+            ! now consider neighbors in other cells (iTr=2,...)
+            do iTr = 2,numctr
+              do inb = 1,nbr(numnb,inew,iTr)
+                j = nbr(inb,inew,iTr)       ! obtain nb index j with iTr
+                sumiTr = neigh%fTrSum(iTr,iTrnew)  ! but for pair get correct iTr=sumiTr here
+                if (sumiTr .eq. -1.or.(sumiTr .eq. 1.and.j .eq. i)) cycle
+                ! sumiTr=-1 is outside of 27 centr cells
+                ! sumiTr= 1 would be to-self-bond
+                if (sumiTr .gt. 27) cycle !
+                if (pair(j,i,sumiTr) .ne. 0) cycle ! take shortest path only
+
+                pair(j,i,sumiTr) = cval+1
+              end do
+            end do
+          end if
+        end do ! ixnb
+      end do ! cval
+    end do ! i
+    ! set pair to 5 for atoms that are even further apart (unless atoms i and j are the same)
+    do i = 1,n
+      do j = 1,n
+        do iTr = 1,numctr
+          if (pair(j,i,iTr) .eq. 0.and.j .ne. i) pair(j,i,iTr) = 5
+        end do
+      end do
+    end do
+
+    ! tmpp_usage: finaly overwrite the deleted bonds to be bonds again using the saved indices
+    do l = 1,10*n
+      if (tmpp(1,l) .eq. 0) exit
+      k = tmpp(1,l)
+      i = tmpp(2,l)
+      iTr = tmpp(3,l)
+      pair(k,i,iTr) = 1
+      pair(i,k,neigh%iTrNeg(iTr)) = 1
+    end do
+
+  end subroutine nbondmat_pbc
+
+  subroutine pairsbond_pbc(n,nn,list,pair,tag)
+    implicit none
+    integer n,nn(n),list(5*n,n),tag
+    integer i,j,k,ni,nj,ii,jj,ij
+    integer pair(n*(n+1)/2)
+    logical dai,daj
+
+    do i = 1,n
+      ni = nn(i)
+      ij = i*(i-1)/2
+      do j = 1,i-1
+        k = ij+j
+        nj = nn(j)
+        dai = .false.
+        daj = .false.
+        do ii = 1,ni
+          if (list(ii,i) .eq. j) daj = .true.
+        end do
+        do jj = 1,nj
+          if (list(jj,j) .eq. i) dai = .true.
+        end do
+        if (dai.and.daj.and.pair(k) .eq. 0) then
+          pair(k) = tag
+        end if
+      end do
+    end do
+
+  end subroutine pairsbond_pbc
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  subroutine countf(n,numctr,numnb,pair,i,cval,nnbi,nbi)
+    ! n atoms, numctr central cells, search for cval e.g. 1st, 2nd beighbors
+    integer,intent(in) :: n,numctr,numnb,i,cval
+    ! number of cov bonds between atoms
+    integer,intent(in) :: pair(n,n,numctr)
+    ! nnbi number of neighbors, nbi idx and cell of nb
+    integer,intent(inout) :: nnbi,nbi(2,numnb)
+    integer :: k,l,m
+    !
+    nnbi = 0
+    nbi = 0
+    do l = 1,n
+      do m = 1,numctr
+        if (pair(l,i,m) .eq. cval) then
+          ! number of 1st, 2nd, ... neighbors depending on cval
+          nnbi = nnbi+1
+          nbi(1,nnbi) = l  ! idx of nb,  j
+          nbi(2,nnbi) = m  ! which cell, iTr
+        end if
+      end do
+    end do
+  end subroutine countf
 
   logical function pilist(ati)
     integer ati
     pilist = .false.
-!     if(ati.eq.5.or.ati.eq.6.or.ati.eq.7.or.ati.eq.8.or.ati.eq.9.or.ati.eq.16) pilist=.true.
     if (ati .eq. 5.or.ati .eq. 6.or.ati .eq. 7.or.ati .eq. 8.or.ati .eq. 9.or.ati .eq. 16.or.ati .eq. 17) pilist = .true.
   end function pilist
 
   logical function nofs(ati)
     integer ati
     nofs = .false.
-!     if(ati.eq.7.or.ati.eq.8.or.ati.eq.9.or.ati.eq.16) nofs=.true.
     if (ati .eq. 7.or.ati .eq. 8.or.ati .eq. 9.or.ati .eq. 16.or.ati .eq. 17) nofs = .true.
   end function nofs
 
@@ -1795,35 +2215,41 @@ contains  !> MODULE PROCEDURES START HERE
    &   ati .eq. 16.or.ati .eq. 34.or.ati .eq. 52.or.&
    &   ati .eq. 15.or.ati .eq. 33.or.ati .eq. 51) xatom = .true.
   end function xatom
-!========================================================================================!
 
-  integer function ctype(n,at,nb,pi,a)
-    integer n,a,at(n),nb(20,n),pi(n)
-    integer i,no,j
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  integer function ctype(n,at,numnb,numctr,nb,pi,a)
+    integer n,a,at(n),numnb,numctr,nb(numnb,n,numctr),pi(n)
+    integer i,no,j,iTr
 
     ctype = 0 ! don't know
 
     no = 0
-    do i = 1,nb(20,a)
-      j = nb(i,a)
-      if (at(j) .eq. 8.and.pi(j) .ne. 0) no = no+1
+    do iTr = 1,numctr
+      do i = 1,nb(numnb,a,iTr)
+        j = nb(i,a,iTr)
+        if (at(j) .eq. 8.and.pi(j) .ne. 0) no = no+1
+      end do
     end do
 
     if (no .eq. 1.and.pi(a) .ne. 0) ctype = 1 ! a C=O carbon
 
   end function ctype
-!========================================================================================!
 
-  logical function alphaCO(n,at,hyb,nb,pi,a,b)
-    integer :: n,a,b,at(n),hyb(n),nb(20,n),pi(n)
-    integer :: i,j,no
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  logical function alphaCO(n,at,hyb,numnb,numctr,nb,pi,a,b)
+    integer n,a,b,at(n),hyb(n),numnb,numctr,nb(numnb,n,numctr),pi(n)
+    integer i,j,no,nc,iTr
 
     alphaCO = .false.
     if (pi(a) .ne. 0.and.hyb(b) .eq. 3.and.at(a) .eq. 6.and.at(b) .eq. 6) then
       no = 0
-      do i = 1,nb(20,a)
-        j = nb(i,a)
-        if (at(j) .eq. 8.and.pi(j) .ne. 0.and.nb(20,j) .eq. 1) no = no+1 ! a pi =O on the C?
+      do iTr = 1,numctr
+        do i = 1,nb(numnb,a,iTr)
+          j = nb(i,a,iTr)
+          if (at(j) .eq. 8.and.pi(j) .ne. 0.and.sum(nb(numnb,j,:)) .eq. 1) no = no+1 ! a pi =O on the C?
+        end do
       end do
       if (no .eq. 1) then
         alphaCO = .true.
@@ -1832,9 +2258,11 @@ contains  !> MODULE PROCEDURES START HERE
     end if
     if (pi(b) .ne. 0.and.hyb(a) .eq. 3.and.at(b) .eq. 6.and.at(a) .eq. 6) then
       no = 0
-      do i = 1,nb(20,b)
-        j = nb(i,b)
-        if (at(j) .eq. 8.and.pi(j) .ne. 0.and.nb(20,j) .eq. 1) no = no+1 ! a pi =O on the C?
+      do iTr = 1,numctr
+        do i = 1,nb(numnb,b,iTr)
+          j = nb(i,b,iTr)
+          if (at(j) .eq. 8.and.pi(j) .ne. 0.and.sum(nb(numnb,j,:)) .eq. 1) no = no+1 ! a pi =O on the C?
+        end do
       end do
       if (no .eq. 1) then
         alphaCO = .true.
@@ -1843,59 +2271,70 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
   end function alphaCO
-!========================================================================================!
 
-  logical function amide(n,at,hyb,nb,pi,a)
-    integer n,a,at(n),hyb(n),nb(20,n),pi(n)
-    integer i,j,no,nc,ic
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  logical function amide(n,at,hyb,numnb,numctr,nb,pi,a)
+    integer n,a,at(n),hyb(n),numnb,numctr,nb(numnb,n,numctr),pi(n)
+    integer i,j,no,nc,ic,iTr
 
     amide = .false. ! don't know
     if (pi(a) .eq. 0.or.hyb(a) .ne. 3.or.at(a) .ne. 7) return
 
     nc = 0
     no = 0
-    do i = 1,nb(20,a)
-      j = nb(i,a)
-      if (at(j) .eq. 6.and.pi(j) .ne. 0) then  ! a pi C on N?
-        nc = nc+1
-        ic = j
-      end if
+    do iTr = 1,numctr
+      do i = 1,nb(numnb,a,iTr)
+        j = nb(i,a,iTr)
+        if (at(j) .eq. 6.and.pi(j) .ne. 0) then  ! a pi C on N?
+          nc = nc+1
+          ic = j
+        end if
+      end do
     end do
 
     if (nc .eq. 1) then
-      do i = 1,nb(20,ic)
-        j = nb(i,ic)
-        if (at(j) .eq. 8.and.pi(j) .ne. 0.and.nb(20,j) .eq. 1) no = no+1 ! a pi =O on the C?
-!           if(at(j).eq.16.and.pi(j).ne.0.and.nb(20,j).eq.1) no = no +1 ! a pi =S on the C?
+      do iTr = 1,numctr
+        do i = 1,nb(numnb,ic,iTr)
+          j = nb(i,ic,iTr)
+          if (at(j) .eq. 8.and.pi(j) .ne. 0.and.nb(numnb,j,iTr) .eq. 1) no = no+1 ! a pi =O on the C?
+        end do
       end do
     end if
 
     if (no .eq. 1) amide = .true.
 
   end function amide
-!========================================================================================!
 
-  logical function amideH(n,at,hyb,nb,pi,a)
-    integer n,a,at(n),hyb(n),nb(20,n),pi(n)
-    integer i,j,nc,nn
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  logical function amideH(n,at,hyb,numnb,numctr,nb,pi,a,neigh)
+    type(TNeigh),intent(in) :: neigh ! for locating neighbor
+    integer n,a,at(n),hyb(n),numnb,numctr,nb(numnb,n,numctr),pi(n)
+    integer,allocatable :: locarr(:,:)
+    integer i,j,nc,nn,iTr
     !logical amide
 
     amideH = .false. ! don't know
-    if (nb(20,a) .ne. 1) return
-    nn = nb(1,a)       ! the N
-    if (.not.amide(n,at,hyb,nb,pi,nn)) return
+    if (sum(nb(numnb,a,:)) .ne. 1) return
+    call neigh%nbLoc(n,nb,a,locarr) ! locarr gives iTr of cell with the neighbor
+    if (size(locarr,dim=2) .gt. 1) write (*,*) 'WARNING: Neighbors in more cells than expected! source: ini2, amideH'
+    nn = nb(1,a,locarr(numnb,1))       ! the N
+    deallocate (locarr)
+    if (.not.amide(n,at,hyb,numnb,numctr,nb,pi,nn)) return
 
     nc = 0
-    do i = 1,nb(20,nn)
-      j = nb(i,nn)
-      if (at(j) .eq. 6.and.hyb(j) .eq. 3) then  ! a sp3 C on N?
-        nc = nc+1
-      end if
+    do iTr = 1,numctr
+      do i = 1,nb(numnb,nn,iTr)
+        j = nb(i,nn,iTr)
+        if (at(j) .eq. 6.and.hyb(j) .eq. 3) then  ! a sp3 C on N?
+          nc = nc+1
+        end if
+      end do
     end do
 
     if (nc .eq. 1) amideH = .true.
 
   end function amideH
 
-!========================================================================================!
 end module gfnff_ini2

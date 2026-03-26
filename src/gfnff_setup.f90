@@ -56,6 +56,7 @@ contains   !> MODULE PROCEDURES START HERE
     logical,intent(in) :: restart
     logical,intent(in) :: pr          !> printout flag
     logical,intent(in) :: write_topo
+    real(wp) :: efield(3) = 0.0_wp
     real(wp),intent(in) :: accuracy
     integer,intent(out) :: io
     logical,intent(in),optional :: verbose !> extended prinout
@@ -96,7 +97,7 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,accuracy,io,verbose=verbose,iunit=myunit)
+    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,verbose=verbose,iunit=myunit)
     if (io /= 0) then
       write (myunit,'("Failed to generate topology ",a)') source
       return

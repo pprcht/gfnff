@@ -30,7 +30,7 @@ module gfnff_ini_mod
 
 contains
 
-  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,efield,accuracy,io,lat,boundaryCond)
+  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini'
 !--------------------------------------------------------------------------------------------------
@@ -42,6 +42,7 @@ contains
     type(TGFFTopology),intent(inout) :: topo
     type(TGFFGenerator),intent(in) :: gen
     type(TGFFData),intent(in) :: param
+    type(TCell),intent(in) :: cell
     real(wp),intent(in) :: efield(3)
     real(wp),intent(in) :: accuracy
 
@@ -137,14 +138,8 @@ contains
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 
 !> parameter for periodic setup
-    if(present(lat))then
-       lattice(:,:) = lat(:,:)
-    else
-      lattice(:,:) = 0.0_wp
-    endif
-    if(present(boundaryCond))then
-      boundaryCondition = boundaryCond
-    endif
+    lattice(:,:) = cell%lattice
+    boundaryCondition = cell%npbc
 
 
     if (pr) then
@@ -311,7 +306,7 @@ contains
       write (myunit,'(10x,"----------------------------------------")')
       write (myunit,'(10x,"generating topology and atomic info file ...")')
       call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
-         & gen%rthr,gen%rthr2,gen%linthr,mchar,topo%hyb,itag,param,topo,nat,at,xyz,neigh,nb_call)
+         & gen%rthr,gen%rthr2,gen%linthr,mchar,topo%hyb,itag,param,topo,neigh,nb_call)
       nb_call = .true.
 
       ! special treatment for hydrogen bound to Ln or An
@@ -600,7 +595,7 @@ contains
           write (myunit,*) 'trying auto detection of charge on 2 fragments:'
           topo%qfrag(1) = 0
           topo%qfrag(2) = ichrg
-          call goedeckera(env,nat,at,rtmp,topo%qa,dum1,topo)
+          call goedeckera(nat,at,rtmp,topo%qa,dum1,topo)
           if (exitRun) then
             write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
             io = -1
@@ -608,7 +603,7 @@ contains
           end if
           topo%qfrag(2) = 0
           topo%qfrag(1) = ichrg
-          call goedeckera(env,nat,at,rtmp,topo%qa,dum2,topo)
+          call goedeckera(nat,at,rtmp,topo%qa,dum2,topo)
           if (exitRun) then
             write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
             io = -1
@@ -627,7 +622,7 @@ contains
       end if
 
 !     make estimated, topology only EEQ charges from rabd values, including "right" fragment charge
-      call goedeckera(env,nat,at,rtmp,topo%qa,ees,topo)
+      call goedeckera(nat,at,rtmp,topo%qa,ees,topo)
       if (exitRun) then
         write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
         io = -1
@@ -662,7 +657,7 @@ contains
             end do
             dum2 = topo%qfrag(ifrag) ! save
             topo%qfrag(ifrag) = 0 ! make only this EEQ fragment neutral
-            call goedeckera(env,nat,at,rtmp,topo%qa,ees,topo) ! for neutral
+            call goedeckera(nat,at,rtmp,topo%qa,ees,topo) ! for neutral
             if (exitRun) then
               write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
               io = -1
@@ -1006,7 +1001,7 @@ contains
         end do
       end do
     end do
-    call neigh%getTransVec(env,nat,at,xyz,sqrt(hbthr2))
+    call neigh%getTransVec(nat,at,xyz,sqrt(hbthr2))
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! do Hueckel

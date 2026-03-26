@@ -38,22 +38,13 @@ module gfnff_data_types
 
   !> Periodic cell / lattice data for a given system
   type :: TCell
-
-    !> Number of periodic dimensions (0=molecule, 1/2/3=periodic)
-    integer :: npbc = 0
-
-    !> Which Cartesian dimensions are periodic
-    logical :: pbc(3) = .false.
-
-    !> Direct lattice vectors (columns), in Bohr
-    real(wp) :: lattice(3,3) = 0.0_wp
-
-    !> Reciprocal lattice vectors (columns), in 1/Bohr (without 2pi factor)
-    real(wp) :: rec_lat(3,3) = 0.0_wp
-
-    !> Unit-cell volume, in Bohr^3
-    real(wp) :: volume = 0.0_wp
-
+    integer :: npbc = 0                !> Number of periodic dimensions (0=molecule, 1/2/3=periodic)
+    logical :: pbc(3) = .false.        !> Which Cartesian dimensions are periodic
+    real(wp) :: lattice(3,3) = 0.0_wp  !> Direct lattice vectors (columns), in Bohr
+    real(wp) :: rec_lat(3,3) = 0.0_wp  !> Reciprocal lattice vectors (columns), in 1/Bohr (without 2pi factor)
+    real(wp) :: volume = 0.0_wp        !> Unit-cell volume, in Bohr^3
+  contains
+    procedure :: init => init_cell
   end type TCell
 
 !========================================================================================!
@@ -612,6 +603,37 @@ contains  !> MODULE PROCEDURES START HERE
     self%s8 = 2.8500000_wp
 
   end subroutine initGFFDispersion
+
+! ──────────────────────────────────────────────────────────────────────────────
+
+  subroutine init_cell(self,lattice,npbc)
+    class(TCell) :: self
+    real(wp),intent(in) :: lattice(3,3)
+    integer,intent(in),optional :: npbc
+
+    if (present(npbc)) then
+      self%npbc = npbc
+    end if
+    self%lattice = lattice
+    if (self%npbc > 0) then
+      self%pbc(1:self%npbc) = .true.
+    end if
+    !> cell volume = |det(lattice)| via cofactor expansion along first row
+    self%volume = abs(lattice(1,1)*(lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3)) &
+                         & -lattice(1,2)*(lattice(2,1)*lattice(3,3)-lattice(3,1)*lattice(2,3)) &
+                         & +lattice(1,3)*(lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2)))
+    !> reciprocal lattice = inverse transpose of lattice (without 2pi factor)
+    !> rec_lat(:,i) = (a_j x a_k) / V, computed via cofactor matrix / V
+    self%rec_lat(1,1) = (lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3))/self%volume
+    self%rec_lat(2,1) = (lattice(3,2)*lattice(1,3)-lattice(1,2)*lattice(3,3))/self%volume
+    self%rec_lat(3,1) = (lattice(1,2)*lattice(2,3)-lattice(2,2)*lattice(1,3))/self%volume
+    self%rec_lat(1,2) = (lattice(2,3)*lattice(3,1)-lattice(3,3)*lattice(2,1))/self%volume
+    self%rec_lat(2,2) = (lattice(3,3)*lattice(1,1)-lattice(1,3)*lattice(3,1))/self%volume
+    self%rec_lat(3,2) = (lattice(1,3)*lattice(2,1)-lattice(2,3)*lattice(1,1))/self%volume
+    self%rec_lat(1,3) = (lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2))/self%volume
+    self%rec_lat(2,3) = (lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/self%volume
+    self%rec_lat(3,3) = (lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/self%volume
+  end subroutine init_cell
 
 !========================================================================================!
 end module gfnff_data_types
