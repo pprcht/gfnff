@@ -646,7 +646,8 @@ contains  !> MODULE PROCEDURES BEGIN HERE
     param%repz(:) = repz
 
     select case (version)
-    case (gffVersion%angewChem2020,gffVersion%angewChem2020_1,gffVersion%angewChem2020_2,gffVersion%harmonic2020)
+    case (gffVersion%angewChem2020,gffVersion%angewChem2020_1, &
+    &     gffVersion%angewChem2020_2,gffVersion%harmonic2020,gffVersion%mcgfnff2023 )
       call loadGFNFFAngewChem2020(param)
       exist = .true.
     end select
