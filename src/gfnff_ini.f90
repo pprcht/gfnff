@@ -208,13 +208,13 @@ contains
 
     ! get translation vectors within maximum cutoff (at least central 27)
     ! routine for generating the lattice vectors
-    call neigh%getTransVec(nat,at,xyz,60.0_wp)  ! needed for neigh%init_n -> filliTrSum
+    call neigh%getTransVec(nat,at,xyz,cell,60.0_wp)  ! needed for neigh%init_n -> filliTrSum
     exitRun = .false.
     if (exitRun) then
       return
     end if
     !  initialize neighbor type
-    call neigh%init_n(nat,at,xyz)
+    call neigh%init_n(nat,at,xyz,cell)
 
     ! allocate bond pair matrix and non bonded pair exponents
     allocate (neigh%bpair(nat,nat,neigh%numctr),source=0)
@@ -230,7 +230,7 @@ contains
     rab = 0
     sqrab = 0
     !Get all distances
-    call neigh%getTransVec(nat,at,xyz,sqrt(hbthr2))
+    call neigh%getTransVec(nat,at,xyz,cell,sqrt(hbthr2))
 
     ! Transfer calculated distances in central cell to rab and sqrab
     do i = 1,nat
@@ -1001,7 +1001,7 @@ contains
         end do
       end do
     end do
-    call neigh%getTransVec(nat,at,xyz,sqrt(hbthr2))
+    call neigh%getTransVec(nat,at,xyz,cell,sqrt(hbthr2))
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! do Hueckel
