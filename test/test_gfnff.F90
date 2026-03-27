@@ -45,7 +45,6 @@ contains  !> Unit tests for PV calculations
     real(wp),allocatable :: xyz(:,:),grad(:,:)
     integer,allocatable :: at(:)
     integer :: nat,io,ichrg
-    logical :: pr
     type(gfnff_data) :: calculator
 
 !&<
@@ -84,13 +83,12 @@ contains  !> Unit tests for PV calculations
     at = testat
     xyz = testxyz
     ichrg = 0 !> mol. charge
-    pr = .false.
     energy = 0.0_wp
     allocate (grad(3,nat),source=0.0_wp)
 
     !> calculation
-    call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
-    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,verbose=pr,iostat=io)
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=ichrg,iostat=io)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
     !write (*,'(F25.15)') energy
     !write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
@@ -121,7 +119,6 @@ contains  !> Unit tests for PV calculations
     integer,allocatable :: at(:)
     integer :: nat,io,i,j,ichrg
     real(wp) :: step,bw,bw2,fw,fw2
-    logical :: pr
     type(gfnff_data) :: calculator
     real(wp),allocatable :: gradient(:,:),g_ref(:,:),stencil(:,:)
 !&<
@@ -134,14 +131,13 @@ contains  !> Unit tests for PV calculations
     at = testat
     xyz = testxyz
     ichrg = 0
-    pr = .false.
     energy = 0.0_wp
     allocate (grad(3,nat),source=0.0_wp)
     allocate (gradient(3,nat),g_ref(3,nat),stencil(3,nat),source=0.0_wp)
 
     !> calculation
-    call gfnff_initialize(nat,at,xyz,calculator,print=pr,ichrg=ichrg,iostat=io)
-    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,verbose=pr,iostat=io)
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=ichrg,iostat=io)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
     ! write (*,'(F25.15)') energy
     ! write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)
@@ -153,16 +149,16 @@ contains  !> Unit tests for PV calculations
       do j = 1,3
         !write (*,*) 'Numerical gradient dimension ', (i-1)*3+j
         stencil(j,i) = stencil(j,i)-2.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,calculator,bw2,gradient,verbose=pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,bw2,gradient,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)-1.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,calculator,bw,gradient,verbose=pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,bw,gradient,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)+1.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,calculator,fw,gradient,verbose=pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,fw,gradient,iostat=io)
         stencil(j,i) = xyz(j,i)
         stencil(j,i) = stencil(j,i)+2.0_wp*step
-        call gfnff_singlepoint(nat,at,stencil,calculator,fw2,gradient,verbose=pr,iostat=io)
+        call gfnff_singlepoint(nat,at,stencil,calculator,fw2,gradient,iostat=io)
         stencil(j,i) = xyz(j,i)
         g_ref(j,i) = (bw2/12.0_wp-8.0_wp*bw/12.0_wp+8.0_wp*fw/12.0_wp-fw2/12.0_wp)/step
       end do
@@ -192,7 +188,6 @@ contains  !> Unit tests for PV calculations
     real(wp),allocatable :: xyz(:,:),grad(:,:)
     integer,allocatable :: at(:)
     integer :: nat,io,ichrg
-    logical :: pr
     character(len=:),allocatable :: alpbsolvent
     type(gfnff_data) :: calculator
 
@@ -233,13 +228,12 @@ contains  !> Unit tests for PV calculations
     xyz = testxyz
     ichrg = 0 !> mol. charge
     alpbsolvent = 'h2o'
-    pr = .false.
     energy = 0.0_wp
     allocate (grad(3,nat),source=0.0_wp)
 
     !> calculation
-    call calculator%init(nat,at,xyz,print=pr,ichrg=ichrg,iostat=io,solvent=alpbsolvent)
-    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,verbose=pr,iostat=io)
+    call calculator%init(nat,at,xyz,ichrg=ichrg,iostat=io,solvent=alpbsolvent)
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
     !write (*,'(F25.15)') energy
     !write (*,'(3(F20.15,"_wp,")," &")') grad
     call check(error,io,0)

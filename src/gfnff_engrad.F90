@@ -93,8 +93,27 @@ contains  !> MODULE PROCEDURES START HERE
 !
 !---------------------------------------------------
 
-  subroutine gfnff_eg(pr,n,at,xyz,cell,sigma,ichrg,g,etot,res_gff, &
-        & param,topo,neigh,nlist,efield,solvation,update,version,accuracy,minpr)
+  subroutine gfnff_eg(printlevel,n,at,xyz,cell,sigma,ichrg,g,etot,res_gff, &
+        & param,topo,neigh,nlist,efield,solvation,update,version,accuracy,printunit)
+    !***********************************************************************
+    !* Compute GFN-FF energy and analytical gradient.
+    !* Input:
+    !*   printlevel  - verbosity (0=silent, 1=minimal timing, 2=standard, 3=verbose)
+    !*   n/at/xyz    - system definition
+    !*   cell        - periodic cell (npbc=0 for molecular)
+    !*   ichrg       - total charge
+    !*   param/topo/neigh/nlist - GFN-FF data structures
+    !*   efield      - external electric field
+    !*   solvation   - GBSA/ALPB model (optional, allocated if active)
+    !*   update      - rebuild HB/XB lists if .true.
+    !*   version/accuracy - parameter version and threshold accuracy
+    !* Output:
+    !*   g           - gradient (Eh/Bohr)
+    !*   etot        - total energy (Eh)
+    !*   res_gff     - energy decomposition
+    !*   sigma       - stress tensor (Eh, non-zero only for PBC)
+    !*   printunit   - output unit (optional, default: stdout)
+    !***********************************************************************
     implicit none
 
     character(len=*),parameter :: source = 'gfnff_eg'
@@ -113,12 +132,14 @@ contains  !> MODULE PROCEDURES START HERE
     logical,intent(in) :: update
     integer,intent(in) :: version
     real(wp),intent(in) :: accuracy
-    logical,intent(in),optional :: minpr
+    integer,intent(in) :: printlevel  !< verbosity (0=silent,1=timing,2=info,3=verbose)
+    integer,intent(in),optional :: printunit  !< output unit (default: stdout)
 
     real(wp),intent(out) :: sigma(3,3) ! stress tensor
     real(wp),intent(out) :: g(3,n)
     real(wp),intent(out) :: etot
-    logical,intent(in)  :: pr
+    logical :: pr
+    integer :: myunit
     logical:: exitRun
 
     real(wp) :: edisp,ees,ebond,eangl,etors,erep,ehb,exb,ebatm,eext
@@ -153,6 +174,13 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: convF  !convergence factor alpha, aka ewald parameter
     logical,allocatable :: considered_ABH(:,:,:)
     real(wp) :: mcf_ees,mcf_ehb,mcf_nrep,mcf_s8
+    pr = printlevel >= 2
+    if (present(printunit)) then
+      myunit = printunit
+    else
+      myunit = stdout
+    end if
+
     if (version == gffVersion%mcgfnff2023) then
       mcf_nrep = 1.343608_wp
       mcf_ees = 0.800222_wp
@@ -205,18 +233,12 @@ contains  !> MODULE PROCEDURES START HERE
     &         eeqtmp(2,n*(n+1)/2),d3list(2,n*(n+1)/2),dcn(3,n,n),cn(n), &
     &         dcndr(3,n,n),dcndL(3,3,n),hb_dcn(3,n,n),hb_cn(n),dhbcndL(3,3,n))
 
-    if (pr) then
-
+    if (printlevel >= 2) then
       call timer%new(10+count([allocated(solvation)]))
-
-    else if (present(minpr)) then
-
-      ! to iteration time for single cycle !
-      if (minpr) then
-        call timer%new(1)
-        call timer%measure(1,'iter. time')
-      end if
-
+    else if (printlevel == 1) then
+      ! minimal timer for iteration time only
+      call timer%new(1)
+      call timer%measure(1,'iter. time')
     end if
 
     if (pr) call timer%measure(1,'distance/D3 list')
@@ -270,12 +292,12 @@ contains  !> MODULE PROCEDURES START HERE
        & .and.nhb2 <= nlist%nhb2.and.nxb <= nlist%nxb
     require_update = .not.nlist%initialized
     if (.not.nlist%initialized) then
-      if (pr) then
-        write (stdout,'(10x,"Number of HB bonds (bound hydrogen)",5x,i0,x,i0,x,i0)') &
+      if (printlevel >= 2) then
+        write (myunit,'(10x,"Number of HB bonds (bound hydrogen)",5x,i0,x,i0,x,i0)') &
               & nhb1
-        write (stdout,'(10x,"Number of HB bonds (unbound hydrogen)",3x,i0,x,i0,x,i0)') &
+        write (myunit,'(10x,"Number of HB bonds (unbound hydrogen)",3x,i0,x,i0,x,i0)') &
               & nhb2
-        write (stdout,'(10x,"Number of XB bonds",22x,i0,x,i0,x,i0)') &
+        write (myunit,'(10x,"Number of XB bonds",22x,i0,x,i0,x,i0)') &
               & nxb
       end if
       call new(nlist,n,5*nhb1,5*nhb2,3*nxb)
@@ -837,13 +859,15 @@ contains  !> MODULE PROCEDURES START HERE
     !----------!
     ! printout !
     !----------!
-    if (pr) then
+    if (printlevel >= 2) then
 
-      call timer%write(6,'E+G')
+      call timer%write(myunit,'E+G')
       if (abs(sum(nlist%q)-ichrg) .gt. 1.d-1) then ! check EEQ only once
-        write (stdout,*) nlist%q
-        write (stdout,*) sum(nlist%q),ichrg
-        write (stdout,'("**ERROR**",a,1x,a)') 'EEQ charge constrain error',source
+        if (printlevel >= 1) then
+          write (myunit,*) nlist%q
+          write (myunit,*) sum(nlist%q),ichrg
+          write (myunit,'("**ERROR**",a,1x,a)') 'EEQ charge constrain error',source
+        end if
         return
       end if
       r3 = 0
@@ -871,14 +895,10 @@ contains  !> MODULE PROCEDURES START HERE
       de = -(etot-eesinf)
 
       ! if geometry optimization !
-    else if (present(minpr)) then
-
-      if (minpr) then
-        call timer%measure(1)
-        ! stop timer and add tag !
-        !call timer%write_timing(stdout,1)
-      end if
-
+    else if (printlevel == 1) then
+      call timer%measure(1)
+      ! stop timer and add tag !
+      !call timer%write_timing(myunit,1)
     end if
 
     ! write resusts to res type !
@@ -1027,7 +1047,7 @@ contains  !> MODULE PROCEDURES START HERE
       hbH = jat
       hbA = iat
     else
-      write (*,'(10x,"No H-atom found in this bond ",i0,1x,i0)') iat,jat
+      write (stdout,'(10x,"No H-atom found in this bond ",i0,1x,i0)') iat,jat
       return
     end if
 

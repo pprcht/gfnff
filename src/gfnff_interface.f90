@@ -78,7 +78,7 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,lattice,sigma,verbose,iostat)
+  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,lattice,sigma,printlevel,printunit,iostat)
 !**********************************************************************
 !* GFN-FF single-point energy and gradient calculation.
 !*
@@ -87,7 +87,8 @@ contains  !> MODULE PROCEDURES START HERE
 !*   at(nat)      - atomic numbers
 !*   xyz(3,nat)   - Cartesian coordinates (Bohr)
 !*   dat          - bundled GFN-FF data and settings
-!*   verbose      - optional printout flag
+!*   printlevel   - optional verbosity (0=silent,1=errors,2=info,3=verbose)
+!*   printunit    - optional output unit (default: stdout)
 !* OUTPUT:
 !*   energy       - total energy (Eh)
 !*   gradient     - gradient (Eh/Bohr)
@@ -99,7 +100,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in),optional    :: verbose  !> printout activation
+    integer,intent(in),optional    :: printlevel  !> verbosity level
+    integer,intent(in),optional    :: printunit   !> output unit
     type(gfnff_data),intent(inout) :: dat  !> collection of gfnff datatypes and settings
     real(wp),intent(in),optional :: lattice(3,3)
     !> OUTPUT
@@ -108,16 +110,19 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(out),optional  :: iostat
     real(wp),intent(out),optional :: sigma(3,3) !> stress tensor (zero for non-PBC)
     !> LOCAL
-    integer :: io
-    logical :: pr
+    integer :: io,mylevel,myunit
     real(wp) :: sigma_loc(3,3),lattice_loc(3,3),efield_loc(3)
     real(wp) :: lthr = sqrt(epsilon(1.0_wp))
 
-    !> printout activation via verbosity
-    if (present(verbose)) then
-      pr = verbose
+    if (present(printlevel)) then
+      mylevel = printlevel
     else
-      pr = .false. !> (there is close to no printout anyways)
+      mylevel = 0
+    end if
+    if (present(printunit)) then
+      myunit = printunit
+    else
+      myunit = stdout
     end if
 
 ! ── init datafields ───────────────────────────────────────────────────────────
@@ -138,9 +143,9 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
 ! ── call E+Grd ────────────────────────────────────────────────────────────────
-    call gfnff_eg(pr,nat,at,xyz,dat%cell,sigma_loc,dat%ichrg,gradient,energy, &
-    &            dat%res,dat%param,dat%topo,dat%neigh,dat%nlist,efield_loc,   &
-    &            dat%solvation,dat%update,dat%version,dat%accuracy,.false.)
+    call gfnff_eg(mylevel,nat,at,xyz,dat%cell,sigma_loc,dat%ichrg,gradient,energy, &
+    &            dat%res,dat%param,dat%topo,dat%neigh,dat%nlist,efield_loc,        &
+    &            dat%solvation,dat%update,dat%version,dat%accuracy,printunit=myunit)
 
 ! ── transfer optional outputs ─────────────────────────────────────────────────
     if (present(sigma)) sigma = sigma_loc
@@ -153,7 +158,7 @@ contains  !> MODULE PROCEDURES START HERE
 
 ! ══════════════════════════════════════════════════════════════════════════════
   subroutine gfnff_singlepoint_wrapper(self,nat,at,xyz,energy,gradient, &
-  &                                    verbose,iostat,lattice,sigma)
+  &                                    printlevel,printunit,iostat,lattice,sigma)
 !******************************************************************
 !* A wrapper to the singlepoint routine, allowing
 !* the energy routine to be called with "call dat%singlepoint(...)"
@@ -164,7 +169,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in),optional  :: verbose  !> printout activation
+    integer,intent(in),optional  :: printlevel  !> verbosity level
+    integer,intent(in),optional  :: printunit   !> output unit
     real(wp),intent(in),optional :: lattice(3,3)  !> lattice (optional)
     !> OUTPUT
     real(wp),intent(out) :: energy
@@ -172,51 +178,51 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(out),optional :: sigma(3,3) !> stress (optional)
     integer,intent(out),optional  :: iostat
     call gfnff_singlepoint(nat,at,xyz,self,energy,gradient, &
-    & verbose=verbose,iostat=iostat,lattice=lattice,sigma=sigma)
+    & printlevel=printlevel,printunit=printunit,iostat=iostat,lattice=lattice,sigma=sigma)
   end subroutine gfnff_singlepoint_wrapper
 
 !========================================================================================!
 
-  subroutine print_gfnff_results(iunit,res_gff,lsolv)
-    integer,intent(in) :: iunit ! file handle (usually output_unit=6)
+  subroutine print_gfnff_results(printunit,res_gff,lsolv)
+    integer,intent(in) :: printunit ! file handle (usually output_unit=6)
     type(gfnff_results),intent(in) :: res_gff
     logical,intent(in) :: lsolv
     character(len=*),parameter :: outfmt = &
                                   '(2x,a,f23.12,1x,a)'
-    write (iunit,outfmt) "total energy      ",res_gff%e_total,"Eh   "
-    write (iunit,outfmt) "gradient norm     ",res_gff%gnorm,"Eh/a0"
-    write (iunit,'(a)') repeat('-',50)
-    write (iunit,outfmt) "bond energy       ",res_gff%e_bond,"Eh   "
-    write (iunit,outfmt) "angle energy      ",res_gff%e_angl,"Eh   "
-    write (iunit,outfmt) "torsion energy    ",res_gff%e_tors,"Eh   "
-    write (iunit,outfmt) "repulsion energy  ",res_gff%e_rep,"Eh   "
-    write (iunit,outfmt) "electrostat energy",res_gff%e_es,"Eh   "
-    write (iunit,outfmt) "dispersion energy ",res_gff%e_disp,"Eh   "
-    write (iunit,outfmt) "HB energy         ",res_gff%e_hb,"Eh   "
-    write (iunit,outfmt) "XB energy         ",res_gff%e_xb,"Eh   "
-    write (iunit,outfmt) "bonded atm energy ",res_gff%e_batm,"Eh   "
-    write (iunit,outfmt) "external energy   ",res_gff%e_ext,"Eh   "
+    write (printunit,outfmt) "total energy      ",res_gff%e_total,"Eh   "
+    write (printunit,outfmt) "gradient norm     ",res_gff%gnorm,"Eh/a0"
+    write (printunit,'(a)') repeat('-',50)
+    write (printunit,outfmt) "bond energy       ",res_gff%e_bond,"Eh   "
+    write (printunit,outfmt) "angle energy      ",res_gff%e_angl,"Eh   "
+    write (printunit,outfmt) "torsion energy    ",res_gff%e_tors,"Eh   "
+    write (printunit,outfmt) "repulsion energy  ",res_gff%e_rep,"Eh   "
+    write (printunit,outfmt) "electrostat energy",res_gff%e_es,"Eh   "
+    write (printunit,outfmt) "dispersion energy ",res_gff%e_disp,"Eh   "
+    write (printunit,outfmt) "HB energy         ",res_gff%e_hb,"Eh   "
+    write (printunit,outfmt) "XB energy         ",res_gff%e_xb,"Eh   "
+    write (printunit,outfmt) "bonded atm energy ",res_gff%e_batm,"Eh   "
+    write (printunit,outfmt) "external energy   ",res_gff%e_ext,"Eh   "
     if (lsolv) then
-      write (iunit,'(2x,a)') repeat('-',44)
-      write (iunit,outfmt) "-> Gsolv          ",res_gff%g_solv,"Eh   "
-      write (iunit,outfmt) "   -> Gborn       ",res_gff%g_born,"Eh   "
-      write (iunit,outfmt) "   -> Gsasa       ",res_gff%g_sasa,"Eh   "
-      write (iunit,outfmt) "   -> Ghb         ",res_gff%g_hb,"Eh   "
-      write (iunit,outfmt) "   -> Gshift      ",res_gff%g_shift,"Eh   "
+      write (printunit,'(2x,a)') repeat('-',44)
+      write (printunit,outfmt) "-> Gsolv          ",res_gff%g_solv,"Eh   "
+      write (printunit,outfmt) "   -> Gborn       ",res_gff%g_born,"Eh   "
+      write (printunit,outfmt) "   -> Gsasa       ",res_gff%g_sasa,"Eh   "
+      write (printunit,outfmt) "   -> Ghb         ",res_gff%g_hb,"Eh   "
+      write (printunit,outfmt) "   -> Gshift      ",res_gff%g_shift,"Eh   "
     end if
-    write (iunit,'(a)') repeat('-',50)
+    write (printunit,'(a)') repeat('-',50)
   end subroutine print_gfnff_results
 
-  subroutine gfnff_print_results_wrapper(self,iunit)
+  subroutine gfnff_print_results_wrapper(self,printunit)
     implicit none
     class(gfnff_data) :: self
     !> INPUT
-    integer,intent(in),optional :: iunit
+    integer,intent(in),optional :: printunit
     !> LOCAL
     integer :: myunit
 
-    if (present(iunit)) then
-      myunit = iunit
+    if (present(printunit)) then
+      myunit = printunit
     else
       myunit = stdout
     end if
@@ -227,7 +233,7 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   subroutine gfnff_initialize(nat,at,xyz,dat, &
-  &                 print,verbose,iunit,version,iostat,ichrg,lattice,npbc)
+  &                 printlevel,printunit,version,iostat,ichrg,lattice,npbc)
     !*************************************************************
     !* Initialize a GFN-FF calculation: load parameters, build
     !* topology, and optionally set up periodic boundary conditions.
@@ -237,9 +243,8 @@ contains  !> MODULE PROCEDURES START HERE
     !*   at(nat)     - atomic numbers
     !*   xyz(3,nat)  - Cartesian coordinates (Bohr)
     !*   dat         - bundled GFN-FF data (modified in-place)
-    !*   print       - optional: enable standard printout
-    !*   verbose     - optional: enable extended printout
-    !*   iunit       - optional: output unit (default: stdout)
+    !*   printlevel  - optional verbosity (0=silent,1=errors,2=info,3=verbose)
+    !*   printunit   - optional output unit (default: stdout)
     !*   version     - optional: GFN-FF parametrisation version
     !*   ichrg       - optional: total molecular charge (default: 0)
     !*   lattice(3,3)- optional: lattice vectors in Bohr (column-major)
@@ -256,9 +261,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat
     integer,intent(in) :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    logical,intent(in),optional  :: print
-    logical,intent(in),optional  :: verbose
-    integer,intent(in),optional  :: iunit
+    integer,intent(in),optional  :: printlevel  !> verbosity level
+    integer,intent(in),optional  :: printunit   !> output unit
     integer,intent(in),optional  :: version
     integer,intent(out),optional :: iostat
     integer,intent(in),optional  :: ichrg
@@ -268,24 +272,17 @@ contains  !> MODULE PROCEDURES START HERE
     type(gfnff_data),intent(inout) :: dat
     !> LOCAL
     character(len=:),allocatable :: fname
-    integer :: ich,io,myunit
-    logical :: ex,pr,pr2
+    integer :: ich,io,mylevel,myunit
+    logical :: ex
     logical :: restart
 
-!> mapping of optional instuctions
-    if (present(print)) then
-      pr = print
+    if (present(printlevel)) then
+      mylevel = printlevel
     else
-      pr = .false.
+      mylevel = 0
     end if
-    if (present(verbose)) then
-      pr2 = verbose
-    else
-      pr2 = .false.
-    end if
-    if (pr2) pr = pr2
-    if (present(iunit)) then
-      myunit = iunit
+    if (present(printunit)) then
+      myunit = printunit
     else
       myunit = stdout
     end if
@@ -340,7 +337,7 @@ contains  !> MODULE PROCEDURES START HERE
       close (ich)
     else !> no parameter file, try to load internal version
       call gfnff_load_param(dat%version,dat%param,ex)
-      if (.not.ex.and.pr) then
+      if (.not.ex.and.mylevel >= 1) then
         write (myunit,'("Parameter file ",a," not found!",a)') fname,source
         return
       end if
@@ -348,21 +345,21 @@ contains  !> MODULE PROCEDURES START HERE
 
     call newD3Model(dat%topo%dispm,nat,at)
 
-    call gfnff_setup(nat,at,xyz,dat%ichrg,pr,restart,dat%write_topo, &
+    call gfnff_setup(nat,at,xyz,dat%ichrg,mylevel,restart,dat%write_topo, &
     &        dat%gen,dat%param,dat%topo,dat%neigh,dat%cell,dat%accuracy,dat%version,io, &
-    &        verbose=verbose,iunit=myunit)
+    &        printunit=myunit)
 
     !> Optional, ALPB solvation
     if (allocated(dat%solvent)) then
       if (.not. (allocated(dat%solvation))) allocate (dat%solvation)
       call gfnff_gbsa_init(nat,at,dat%solvent,dat%solvation)
-      if (pr) then
+      if (mylevel >= 2) then
         write (myunit,*)
         call gfnff_gbsa_print(dat%solvation,myunit)
       end if
     end if
 
-    if ((io /= 0).and.pr) then
+    if ((io /= 0).and.mylevel >= 1) then
       write (myunit,'("Could not create force field calculator ",a)') source
     end if
     if (present(iostat)) then
@@ -371,7 +368,7 @@ contains  !> MODULE PROCEDURES START HERE
   end subroutine gfnff_initialize
 
   subroutine gfnff_initialize_wrapper(self,nat,at,xyz, &
-     &                 print,verbose,iunit,version,iostat,ichrg,solvent,lattice,npbc)
+     &                 printlevel,printunit,version,iostat,ichrg,solvent,lattice,npbc)
 !******************************************************************
 !* A wrapper to the initialize routine, allowing
 !* the energy routine to be called with "call dat%init(...)"
@@ -382,9 +379,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat
     integer,intent(in) :: at(nat)
     real(wp),intent(in) :: xyz(3,nat)
-    logical,intent(in),optional  :: print
-    logical,intent(in),optional  :: verbose
-    integer,intent(in),optional  :: iunit
+    integer,intent(in),optional  :: printlevel  !> verbosity level
+    integer,intent(in),optional  :: printunit   !> output unit
     integer,intent(in),optional  :: version
     integer,intent(out),optional :: iostat
     integer,intent(in),optional  :: ichrg
@@ -397,7 +393,7 @@ contains  !> MODULE PROCEDURES START HERE
     end if
 
     call gfnff_initialize(nat,at,xyz,self, &
-    &       print=print,verbose=verbose,iunit=iunit,&
+    &       printlevel=printlevel,printunit=printunit, &
     &       version=version,iostat=iostat,ichrg=ichrg,lattice=lattice,npbc=npbc)
   end subroutine gfnff_initialize_wrapper
 

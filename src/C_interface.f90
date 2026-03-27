@@ -74,8 +74,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,pointer :: at(:)
     real(wp),pointer :: xyz(:,:)
     character(len=:),allocatable :: solvent
-    logical :: verbose,pr
-    integer :: iunit,printlevel,iostatus
+    integer :: printlevel,iostatus
     integer :: ichrg
 
     !> Convert C arguments to Fortran types
@@ -83,19 +82,14 @@ contains  !> MODULE PROCEDURES START HERE
     call c_f_pointer(c_loc(c_at),at, [nat])
     call c_f_pointer(c_loc(c_xyz),xyz, [3,nat]) !> assumes xyz[nat][3] in C
     ichrg = c_ichrg
-    pr = .false.
-    verbose = .false.
-    iunit = stdout !> use a default here.
     printlevel = c_printlevel
-    if (printlevel > 0) pr = .true.
-    if (printlevel > 1) verbose = .true.
     solvent = c_string_to_fortran(c_solvent)
     if (len_trim(solvent) == 0) deallocate (solvent)
 
     !> Allocate and initialize the Fortran calculator
     allocate (calc)
     call calc%init(nat,at,xyz,ichrg=ichrg, &
-    &              print=pr,verbose=verbose,iunit=iunit,iostat=iostatus,&
+    &              printlevel=printlevel,iostat=iostatus,&
     &              solvent=solvent)
     if (iostatus == 0) then
       !> Store the pointer in the C-compatible structure

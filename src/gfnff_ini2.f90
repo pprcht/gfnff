@@ -35,7 +35,12 @@ module gfnff_ini2
 contains
 
   subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,cell,rab,fq,f_in,f2_in,lintr, &
-                        & mchar,hyb,itag,param,topo,neigh,nb_call)
+                        & mchar,hyb,itag,param,topo,neigh,nb_call,printlevel,printunit)
+    !***********************************************************************
+    !* Determine hybridisation states and neighbour lists.
+    !* printlevel >= 1: print warnings/errors (bond, hybridisation, CN)
+    !* printunit: output unit (default: stdout)
+    !***********************************************************************
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_neigh'
     type(TGFFData),intent(in) :: param
@@ -53,7 +58,10 @@ contains
     real(wp) :: fq
     real(wp) :: f_in,f2_in               ! radius scaling for atoms/metal atoms recpectively
     real(wp) :: lintr                    ! threshold for linearity
+    integer,intent(in),optional :: printlevel  !< verbosity (0=silent,1=errors,2=info,3=verbose)
+    integer,intent(in),optional :: printunit   !< output unit (default: stdout)
 
+    integer :: mylevel,myunit
     logical :: etacoord,da,strange_iat,metal_iat
     integer,allocatable :: nbdum(:,:,:),nbdum2(:,:),locarr(:,:)
     real(wp),allocatable :: cn(:),rtmp(:)
@@ -87,6 +95,14 @@ contains
     fat(76) = 1.02
     fat(82) = 1.06
     fat(83) = 0.95
+
+    mylevel = 0
+    if (present(printlevel)) mylevel = printlevel
+    if (present(printunit)) then
+      myunit = printunit
+    else
+      myunit = stdout
+    end if
 
     nat = natoms
     allocate (cn(natoms),rtmp(natoms*(natoms+1)/2),nbdum2(20,natoms))
@@ -135,9 +151,11 @@ contains
 ! tag atoms in nb(19,i) if they belong to a cluster (which avoids the ring search)
     do i = 1,natoms
       if (sum(neigh%nbf(neigh%numnb,i,:)) .eq. 0.and.param%group(at(i)) .ne. 8) then
-        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
-        write (stdout,'(''  warning: no bond partners for atom'',i4)') i
-        write (stdout,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+        if (mylevel >= 1) then
+          write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+          write (myunit,'(''  warning: no bond partners for atom'',i4)') i
+          write (myunit,'(''!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'')')
+        end if
       end if
       if (at(i) .lt. 11.and.sum(neigh%nbf(neigh%numnb,i,:)) .gt. 2) then
         do iTr = 1,numctr
@@ -263,7 +281,7 @@ contains
             iTr2 = locarr(neigh%numnb,2)
             deallocate (locarr)
           else
-            write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
+            if (mylevel >= 1) write (myunit,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
           end if
           call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh%transVec,phi)
           if (phi*180./pi .lt. 150.0) then                         ! geometry dep. setup! GEODEP
@@ -323,7 +341,7 @@ contains
             iTr2 = locarr(neigh%numnb,2)
             deallocate (locarr)
           else
-            write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
+            if (mylevel >= 1) write (myunit,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
           end if
           call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh%transVec,phi)
           jj = idxdum
@@ -399,7 +417,7 @@ contains
       end do
     end do
     if (dble(j)/dble(natoms) .gt. 0.3.and.nb_call) then
-      write (stdout,'("**ERROR**",a,1x,a)') ' too many atoms with extreme high CN',source
+      if (mylevel >= 1) write (myunit,'("**ERROR**",a,1x,a)') ' too many atoms with extreme high CN',source
     end if
 
   end subroutine gfnff_neigh
@@ -1618,7 +1636,12 @@ contains
 ! included up to 1,4 interactions
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine goedeckera(n,at,pair,q,es,topo)
+  subroutine goedeckera(n,at,pair,q,es,topo,printlevel,printunit)
+    !***********************************************************************
+    !* EEQ charge solver (molecular).
+    !* printlevel >= 1: print linear-equation solver errors
+    !* printunit: output unit (default: stdout)
+    !***********************************************************************
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
     type(TGFFTopology),intent(in) :: topo
@@ -1627,8 +1650,11 @@ contains
     real(wp),intent(in)  :: pair(n*(n+1)/2)
     real(wp),intent(out) :: q(n)       ! output charges
     real(wp),intent(out) :: es         ! ES energy
+    integer,intent(in),optional :: printlevel  !< verbosity (0=silent,1=errors,2=info,3=verbose)
+    integer,intent(in),optional :: printunit   !< output unit (default: stdout)
 
 !  local variables
+    integer :: mylevel,myunit
     logical :: exitRun
     integer  :: m,i,j,k,l,ii,jj,kk
     integer  :: ij,lj
@@ -1645,6 +1671,14 @@ contains
     integer :: io1,io2
 !  parameter
     parameter(tsqrt2pi=0.797884560802866_wp)
+
+    mylevel = 0
+    if (present(printlevel)) mylevel = printlevel
+    if (present(printunit)) then
+      myunit = printunit
+    else
+      myunit = stdout
+    end if
 
     m = n+topo%nfrag ! # atoms frag constrain
     allocate (A(m,m),x(m),ipiv(m))
@@ -1686,7 +1720,7 @@ contains
 
     exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
+      if (mylevel >= 1) write (myunit,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
@@ -1712,7 +1746,12 @@ contains
   end subroutine goedeckera
 
 !> version of EEQ
-  subroutine goedeckera_PBC(nat,at,xyz,cell,pair,topo,q,es)
+  subroutine goedeckera_PBC(nat,at,xyz,cell,pair,topo,q,es,printlevel,printunit)
+    !***********************************************************************
+    !* EEQ charge solver with Ewald summation (periodic).
+    !* printlevel >= 1: print linear-equation solver errors
+    !* printunit: output unit (default: stdout)
+    !***********************************************************************
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_goedeckera'
     integer,intent(in) :: nat,at(nat)
@@ -1722,8 +1761,11 @@ contains
     type(TGFFTopology),intent(in) :: topo
     real(wp),intent(out) :: q(nat)       ! output charges
     real(wp),intent(out) :: es         ! ES energy
+    integer,intent(in),optional :: printlevel  !< verbosity (0=silent,1=errors,2=info,3=verbose)
+    integer,intent(in),optional :: printunit   !< output unit (default: stdout)
 
 !  local variables
+    integer :: mylevel,myunit
     logical :: exitRun
     integer  :: m,i,j,k,l,ii,jj,kk,n
     integer  :: ij,lj
@@ -1747,6 +1789,14 @@ contains
     integer :: io1,io2
 !  parameter
     parameter(tsqrt2pi=0.797884560802866_wp)
+
+    mylevel = 0
+    if (present(printlevel)) mylevel = printlevel
+    if (present(printunit)) then
+      myunit = printunit
+    else
+      myunit = stdout
+    end if
 
     n = nat
 
@@ -1817,7 +1867,7 @@ contains
 
     exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
+      if (mylevel >= 1) write (myunit,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
@@ -2293,7 +2343,7 @@ contains
     amideH = .false. ! don't know
     if (sum(nb(numnb,a,:)) .ne. 1) return
     call neigh%nbLoc(n,nb,a,locarr) ! locarr gives iTr of cell with the neighbor
-    if (size(locarr,dim=2) .gt. 1) write (*,*) 'WARNING: Neighbors in more cells than expected! source: ini2, amideH'
+    if (size(locarr,dim=2) .gt. 1) write (stdout,*) 'WARNING: Neighbors in more cells than expected! source: ini2, amideH'
     nn = nb(1,a,locarr(numnb,1))       ! the N
     deallocate (locarr)
     if (.not.amide(n,at,hyb,numnb,numctr,nb,pi,nn)) return

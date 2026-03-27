@@ -35,8 +35,18 @@ contains   !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_setup(nat,at,xyz,ichrg,pr,restart,write_topo, &
-  &                      gen,param,topo,neigh,cell,accuracy,version,io,verbose,iunit)
+  subroutine gfnff_setup(nat,at,xyz,ichrg,printlevel,restart,write_topo, &
+  &                      gen,param,topo,neigh,cell,accuracy,version,io,printunit)
+    !***********************************************************************
+    !* Orchestrate GFN-FF topology setup and parameter loading.
+    !* Input:
+    !*   printlevel  - verbosity (0=silent, 1=errors, 2=info, 3=verbose)
+    !*   restart     - attempt to read topology from file
+    !*   write_topo  - write topology to file after setup
+    !*   printunit   - output unit (optional, default: stdout)
+    !* Output:
+    !*   io          - error status (0 = success)
+    !***********************************************************************
     use gfnff_restart
     use gfnff_param,only:ini,gfnff_set_param
     implicit none
@@ -54,13 +64,12 @@ contains   !> MODULE PROCEDURES START HERE
     type(TGFFData),intent(inout) :: param
     integer,intent(in) :: version
     logical,intent(in) :: restart
-    logical,intent(in) :: pr          !> printout flag
+    integer,intent(in) :: printlevel   !< verbosity (0=silent,1=errors,2=info,3=verbose)
     logical,intent(in) :: write_topo
     real(wp) :: efield(3) = 0.0_wp
     real(wp),intent(in) :: accuracy
     integer,intent(out) :: io
-    logical,intent(in),optional :: verbose !> extended prinout
-    integer,intent(in),optional :: iunit
+    integer,intent(in),optional :: printunit  !< output unit (default: stdout)
 
 !> Stack
     integer :: newichrg,myunit
@@ -68,8 +77,8 @@ contains   !> MODULE PROCEDURES START HERE
 
 !> initialize
     io = 0
-    if (present(iunit)) then
-      myunit = iunit
+    if (present(printunit)) then
+      myunit = printunit
     else
       myunit = stdout
     end if
@@ -87,11 +96,11 @@ contains   !> MODULE PROCEDURES START HERE
       if (ex) then
         call read_restart_gff(topo%filename,nat,version,success,.true.,topo)
         if (success) then
-          if (pr) write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
+          if (printlevel >= 2) write (myunit,'(/,"> GFN-FF topology read successfully from file ",a," !")') &
           & topo%filename
           return
         else
-          write (myunit,'("**ERROR** Could not read topology file. ",a)') source
+          if (printlevel >= 1) write (myunit,'("**ERROR** Could not read topology file. ",a)') source
           exitRun = .true.
           if (exitRun) then
             return
@@ -103,12 +112,12 @@ contains   !> MODULE PROCEDURES START HERE
 ! ──────────────────────────────────────────────────────────────────────────────
 !> Run initialization
 ! ──────────────────────────────────────────────────────────────────────────────
-    call gfnff_ini(pr,ini,nat,at,xyz,ichrg, &
+    call gfnff_ini(printlevel,ini,nat,at,xyz,ichrg, &
     &                  gen,param,topo,neigh,cell,efield, &
-    &                  accuracy,io,iunit=myunit)
+    &                  accuracy,io,printunit=myunit)
 
     if (io /= 0) then
-      write (myunit,'("Failed to generate topology ",a)') source
+      if (printlevel >= 1) write (myunit,'("Failed to generate topology ",a)') source
       return
     end if
 

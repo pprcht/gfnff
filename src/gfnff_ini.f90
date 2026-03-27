@@ -36,9 +36,23 @@ module gfnff_ini_mod
 contains   !> MODULE PROCEDURES START HERE
 ! ══════════════════════════════════════════════════════════════════════════════
 
-  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg, &
+  subroutine gfnff_ini(printlevel,makeneighbor,nat,at,xyz,ichrg, &
     &                  gen,param,topo,neigh,cell,efield, &
-    &                  accuracy,io,iunit)
+    &                  accuracy,io,printunit)
+    !***********************************************************************
+    !* Main GFN-FF topology and parameter initialization.
+    !* Input:
+    !*   printlevel  - verbosity (0=silent, 1=errors, 2=info, 3=verbose)
+    !*   makeneighbor - rebuild neighbour list if .true.
+    !*   nat/at/xyz  - system definition
+    !*   ichrg       - total charge
+    !*   gen/param/topo/neigh/cell - GFN-FF data structures
+    !*   efield      - external electric field
+    !*   accuracy    - threshold accuracy parameter
+    !* Output:
+    !*   io          - error status (0 = success)
+    !*   printunit   - output unit (optional, default: stdout)
+    !***********************************************************************
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini'
 !--------------------------------------------------------------------------------------------------
@@ -54,10 +68,10 @@ contains   !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: efield(3)
     real(wp),intent(in) :: accuracy
 
-    logical,intent(in) :: pr            ! print flag
-    logical,intent(in) :: makeneighbor  ! make a neigbor list or use existing one?
+    integer,intent(in) :: printlevel    !< verbosity (0=silent,1=errors,2=info,3=verbose)
+    logical,intent(in) :: makeneighbor  !< rebuild neighbour list if .true.
     integer,intent(out) :: io
-    integer,intent(in),optional :: iunit
+    integer,intent(in),optional :: printunit  !< output unit (default: stdout)
 !--------------------------------------------------------------------------------------------------
 
     integer :: ati,atj,atk,i,j,k,l,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no,nbi
@@ -120,23 +134,20 @@ contains   !> MODULE PROCEDURES START HERE
     character(len=255) atmp
     integer  :: ich,err,myunit
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
-    logical :: exitRun,nb_call,adjLnAn,pr2
+    logical :: exitRun,nb_call,adjLnAn,pr,pr2
 
     real(wp),parameter :: pi = 3.1415926535897932385_wp
 
 !> initialization
     io = 0
     exitRun = .false.
-    if (present(iunit)) then
-      myunit = iunit
+    if (present(printunit)) then
+      myunit = printunit
     else
       myunit = stdout
     end if
-!    if (present(verbose)) then
-!      pr2 = verbose
-!    else
-    pr2 = .false.
-!    end if
+    pr  = printlevel >= 2
+    pr2 = printlevel >= 3
 
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 
@@ -144,19 +155,21 @@ contains   !> MODULE PROCEDURES START HERE
     lattice(:,:) = cell%lattice
     boundaryCondition = cell%npbc
 
-    if (pr) then
+    if (printlevel >= 2) then
       write (myunit,*)
       write (myunit,'(10x,"entering GFN-FF setup routine... ",i0)') nat
     end if
 
-    write (myunit,*)
-    write (myunit,'(10x,"==================== Thresholds ====================")')
-    write (myunit,'(10x,"CN  :",f12.5)') cnthr
-    write (myunit,'(10x,"rep :",f12.5)') repthr
-    write (myunit,'(10x,"disp:",f12.5)') dispthr
-    write (myunit,'(10x,"HB1 :",f12.5)') hbthr1
-    write (myunit,'(10x,"HB2 :",f12.5)') hbthr2
-    write (myunit,*)
+    if (printlevel >= 2) then
+      write (myunit,*)
+      write (myunit,'(10x,"==================== Thresholds ====================")')
+      write (myunit,'(10x,"CN  :",f12.5)') cnthr
+      write (myunit,'(10x,"rep :",f12.5)') repthr
+      write (myunit,'(10x,"disp:",f12.5)') dispthr
+      write (myunit,'(10x,"HB1 :",f12.5)') hbthr1
+      write (myunit,'(10x,"HB2 :",f12.5)') hbthr2
+      write (myunit,*)
+    end if
 
     allocate (rab(nat*(nat+1)/2),source=0.0d0)
     allocate (cn(nat),source=0.0d0)
@@ -193,20 +206,21 @@ contains   !> MODULE PROCEDURES START HERE
       niel(at(i)) = niel(at(i))+1
     end do
 
-    write (myunit,'(10x,"Pauling EN used:")')
-    do i = 1,103
-      if (niel(i) .gt. 0) write (myunit,'(10x,"Z :",i2,"  EN :",f6.2)') i,param%en(i)
-    end do
-
-    dum = sqrt(sum(efield**2))
-    write (myunit,'(10x,"electric field strengths (au):",f6.3)') dum
-!     alp = alp *(1.+0.0*dum)
-
-    write (myunit,*)
-    write (myunit,'(10x," ------------------------------------------------- ")')
-    write (myunit,'(10x,"|           Force Field Initialization            |")')
-    write (myunit,'(10x," ------------------------------------------------- ")')
-    write (myunit,*)
+    if (printlevel >= 2) then
+      write (myunit,'(10x,"Pauling EN used:")')
+      do i = 1,103
+        if (niel(i) .gt. 0) write (myunit,'(10x,"Z :",i2,"  EN :",f6.2)') i,param%en(i)
+      end do
+      dum = sqrt(sum(efield**2))
+      write (myunit,'(10x,"electric field strengths (au):",f6.3)') dum
+      write (myunit,*)
+      write (myunit,'(10x," ------------------------------------------------- ")')
+      write (myunit,'(10x,"|           Force Field Initialization            |")')
+      write (myunit,'(10x," ------------------------------------------------- ")')
+      write (myunit,*)
+    else
+      dum = sqrt(sum(efield**2))
+    end if
 
     ! get translation vectors within maximum cutoff (at least central 27)
     ! routine for generating the lattice vectors
@@ -227,7 +241,7 @@ contains   !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     topo%xyze0 = xyz ! initial geom
 
-    write (myunit,'(10x,"distances ...")')
+    if (printlevel >= 2) write (myunit,'(10x,"distances ...")')
     pbo = 0
     rab = 0
     sqrab = 0
@@ -244,8 +258,10 @@ contains   !> MODULE PROCEDURES START HERE
         rab(k) = NORM2(xyz(:,i)-xyz(:,j))
         sqrab(k) = rab(k)**2
         if (rab(k) .lt. 1.d-3) then
-          write (myunit,*) i,j,ati,atj,rab(k)
-          write (myunit,'("**ERROR** ",a,1x,a)') "Particular close distance present",source
+          if (printlevel >= 1) then
+            write (myunit,*) i,j,ati,atj,rab(k)
+            write (myunit,'("**ERROR** ",a,1x,a)') "Particular close distance present",source
+          end if
           exitRun = .true.
           exit
         end if
@@ -305,10 +321,13 @@ contains   !> MODULE PROCEDURES START HERE
 !  do the loop only if factor is significant
     do while ((qloop_count .lt. 2.and.gen%rqshrink .gt. 1.d-3).or.adjLnAn)
 
-      write (myunit,'(10x,"----------------------------------------")')
-      write (myunit,'(10x,"generating topology and atomic info file ...")')
+      if (printlevel >= 2) then
+        write (myunit,'(10x,"----------------------------------------")')
+        write (myunit,'(10x,"generating topology and atomic info file ...")')
+      end if
       call gfnff_neigh(makeneighbor,nat,at,xyz,cell,rab,gen%rqshrink, &
-         & gen%rthr,gen%rthr2,gen%linthr,mchar,topo%hyb,itag,param,topo,neigh,nb_call)
+         & gen%rthr,gen%rthr2,gen%linthr,mchar,topo%hyb,itag,param,topo,neigh,nb_call, &
+         & printlevel,myunit)
       nb_call = .true.
 
       ! special treatment for hydrogen bound to Ln or An
@@ -376,7 +395,7 @@ contains   !> MODULE PROCEDURES START HERE
       if (allocated(cdum)) deallocate (cdum)
       !check blist
       if (k .ne. neigh%nbond) then
-        write (myunit,'("**WARNING** ",a,1x,a)') "Setup of blist not as expected, check your results.",source
+        if (printlevel >= 1) write (myunit,'("**WARNING** ",a,1x,a)') "Setup of blist not as expected, check your results.",source
       end if
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -492,14 +511,14 @@ contains   !> MODULE PROCEDURES START HERE
 ! topology based charges
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      write (myunit,'(10x,"pair mat ...")')
+      if (printlevel >= 2) write (myunit,'(10x,"pair mat ...")')
       ! get number of cov. bonds between atoms up to 4 bonds with pbc
       if (qloop_count .eq. 1) then
         call nbondmat_pbc(nat,neigh%numnb,neigh%numctr,neigh%nb,&
                 & neigh%iTrNeg,neigh,neigh%bpair)
       end if
 
-      write (myunit,'(10x,"computing topology distances matrix with Floyd-Warshall algo ...")')
+      if (printlevel >= 2) write (myunit,'(10x,"computing topology distances matrix with Floyd-Warshall algo ...")')
       allocate (rabd(nat,nat),source=0.0e0_sp)
       rabd = rabd_cutoff
 !     determine topology distances by Floyd-Warshall algo
@@ -537,11 +556,11 @@ contains   !> MODULE PROCEDURES START HERE
       deallocate (rabd)
 
       frag_charges_known = .false.
-      write (myunit,'(10x,"making topology EEQ charges ...")')
+      if (printlevel >= 2) write (myunit,'(10x,"making topology EEQ charges ...")')
       if (topo%nfrag .le. 1) then                           ! nothing is known
 !     first check for fragments
         call mrecgffPBC(nat,neigh%numctr,neigh%numnb,neigh%nbf,topo%nfrag,topo%fraglist)
-        write (myunit,'(10x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
+        if (printlevel >= 2) write (myunit,'(10x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
 !     read QM info if it exists
        ! open (newunit=ich,file='charges')
        ! if (ich /= -1) then
@@ -583,10 +602,12 @@ contains   !> MODULE PROCEDURES START HERE
           do i = 1,nat
             itmp(topo%fraglist(i)) = itmp(topo%fraglist(i))+1
           end do
-          do i = 1,topo%nfrag
-            write (myunit,*) i,itmp(i)
-          end do
-          write (myunit,'("**ERROR** ",a,1x,a)') 'fragment charge input required',source
+          if (printlevel >= 1) then
+            do i = 1,topo%nfrag
+              write (myunit,*) i,itmp(i)
+            end do
+            write (myunit,'("**ERROR** ",a,1x,a)') 'fragment charge input required',source
+          end if
           return
         end if
         if (nat .ge. 100.and.topo%nfrag .gt. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
@@ -594,20 +615,20 @@ contains   !> MODULE PROCEDURES START HERE
           topo%qfrag(2:topo%nfrag) = 0
         end if
         if (topo%nfrag .eq. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
-          write (myunit,*) 'trying auto detection of charge on 2 fragments:'
+          if (printlevel >= 2) write (myunit,*) 'trying auto detection of charge on 2 fragments:'
           topo%qfrag(1) = 0
           topo%qfrag(2) = ichrg
-          call goedeckera(nat,at,rtmp,topo%qa,dum1,topo)
+          call goedeckera(nat,at,rtmp,topo%qa,dum1,topo,printlevel,myunit)
           if (exitRun) then
-            write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
+            if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
             io = -1
             return
           end if
           topo%qfrag(2) = 0
           topo%qfrag(1) = ichrg
-          call goedeckera(nat,at,rtmp,topo%qa,dum2,topo)
+          call goedeckera(nat,at,rtmp,topo%qa,dum2,topo,printlevel,myunit)
           if (exitRun) then
-            write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
+            if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
             io = -1
             return
           end if
@@ -615,8 +636,10 @@ contains   !> MODULE PROCEDURES START HERE
             topo%qfrag(1) = 0
             topo%qfrag(2) = ichrg
           end if
-          write (myunit,*) 'dEes      :',dum1-dum2
-          write (myunit,*) 'charge 1/2:',topo%qfrag(1:2)
+          if (printlevel >= 2) then
+            write (myunit,*) 'dEes      :',dum1-dum2
+            write (myunit,*) 'charge 1/2:',topo%qfrag(1:2)
+          end if
         end if
 !      else if (allocated(mol%pdb).and.qloop_count .eq. 0) then ! frag_charges_known
 !        write (myunit,'(10x,"#fragments for EEQ constrain from pdb file: ",i0)') topo%nfrag
@@ -624,9 +647,9 @@ contains   !> MODULE PROCEDURES START HERE
       end if
 
 !     make estimated, topology only EEQ charges from rabd values, including "right" fragment charge
-      call goedeckera(nat,at,rtmp,topo%qa,ees,topo)
+      call goedeckera(nat,at,rtmp,topo%qa,ees,topo,printlevel,myunit)
       if (exitRun) then
-        write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
+        if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
         io = -1
         return
       end if
@@ -659,9 +682,9 @@ contains   !> MODULE PROCEDURES START HERE
             end do
             dum2 = topo%qfrag(ifrag) ! save
             topo%qfrag(ifrag) = 0 ! make only this EEQ fragment neutral
-            call goedeckera(nat,at,rtmp,topo%qa,ees,topo) ! for neutral
+            call goedeckera(nat,at,rtmp,topo%qa,ees,topo,printlevel,myunit) ! for neutral
             if (exitRun) then
-              write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
+              if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') "Failed to generate charges",source
               io = -1
               return
             end if
@@ -763,7 +786,7 @@ contains   !> MODULE PROCEDURES START HERE
         end do
       end do
     end if
-    write (myunit,'(10x,"rings ...")')
+    if (printlevel >= 2) write (myunit,'(10x,"rings ...")')
 !$omp parallel default(none) private(i,cr,sr) shared(nat,at,xyz,neigh,nbrngs,cring,sring)
 !$omp do
     do i = 1,nat
@@ -814,11 +837,13 @@ contains   !> MODULE PROCEDURES START HERE
       end do
     end do
     if (topo%nbatm .gt. idum) then
-      write (myunit,*) idum,topo%nbatm
-      write (myunit,'("**ERROR** ",a,1x,a)') 'overflow in ini',source
+      if (printlevel >= 1) then
+        write (myunit,*) idum,topo%nbatm
+        write (myunit,'("**ERROR** ",a,1x,a)') 'overflow in ini',source
+      end if
       return
     end if
-    write (myunit,'(10x,"# BATM",3x,i0)') topo%nbatm
+    if (printlevel >= 2) write (myunit,'(10x,"# BATM",3x,i0)') topo%nbatm
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! non bonded pair exponents
@@ -926,7 +951,7 @@ contains   !> MODULE PROCEDURES START HERE
         topo%hbatHl(2,topo%nathbH) = iTr
       end if
     end do
-    write (myunit,'(10x,"# H in HB",3x,i0)') topo%nathbH
+    if (printlevel >= 2) write (myunit,'(10x,"# H in HB",3x,i0)') topo%nathbH
 
     topo%nathbAB = 0
     do i = 1,nat
@@ -1010,7 +1035,7 @@ contains   !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     if (picount .gt. 0) then
-      write (myunit,'(10x,"doing iterative Hueckel for ",i0," subsystem(s) ...")') picount
+      if (printlevel >= 2) write (myunit,'(10x,"doing iterative Hueckel for ",i0," subsystem(s) ...")') picount
       allocate (pispop(picount),pisip(picount),pisea(picount),source=0.0d0)
       allocate (piel(nat),source=0)
       itmp = 0 ! save pi atom info
@@ -1018,7 +1043,7 @@ contains   !> MODULE PROCEDURES START HERE
       pisip = 0
       pisea = 0
 
-      if (pr) then
+      if (printlevel >= 2) then
         write (myunit,'(10x,"iterative Hueckel run to get P ...")')
       end if
       do pis = 1,picount ! loop over pi systems
@@ -1089,7 +1114,7 @@ contains   !> MODULE PROCEDURES START HERE
           end do
 
           apisave = Api
-          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)  !diagonalize, 4000 better than 300
+          call gfnffqmsolve(printlevel,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io,myunit)  !diagonalize, 4000 better than 300
 
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
@@ -1102,18 +1127,20 @@ contains   !> MODULE PROCEDURES START HERE
           eold = dum
         end do
 ! end of iterative loop
-        if (pr) then
+        if (printlevel >= 2) then
           write (myunit,'(''Hueckel system :'',i3,'' charge : '',i3,'' ndim/Nel :'',2i5, &
       &         3x, ''eps(HOMO/LUMO)'',2f12.6)') pis,ipis(pis),npi,nelpi,pisip(pis),pisea(pis)
         end if
         if (pisip(pis) .gt. 0.40) then
-          write (myunit,'(a,i0,a)') 'WARNING: probably wrong pi occupation for system ',pis,'. Second attempt with Nel=Nel-1!'
-          do i = 1,nat
-            if (piadr4(i) .ne. 0) write (myunit,*) 'at,nb,topo%hyb,Npiel:',i,pse(at(i)),sum(neigh%nb(neigh%numnb,i,:)),topo%hyb(i),piel(i)
-          end do
+          if (printlevel >= 1) then
+            write (myunit,'(a,i0,a)') 'WARNING: probably wrong pi occupation for system ',pis,'. Second attempt with Nel=Nel-1!'
+            do i = 1,nat
+              if (piadr4(i) .ne. 0) write (myunit,*) 'at,nb,topo%hyb,Npiel:',i,pse(at(i)),sum(neigh%nb(neigh%numnb,i,:)),topo%hyb(i),piel(i)
+            end do
+          end if
           nelpi = nelpi-1
           Api = Apisave
-          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)  !diagonalize
+          call gfnffqmsolve(printlevel,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io,myunit)  !diagonalize
           !call PREIG(6,occ,1.0d0,eps,1,npi)
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
@@ -1121,7 +1148,7 @@ contains   !> MODULE PROCEDURES START HERE
               if (i+1 .lt. npi) pisea(pis) = eps(i+1) ! EA
             end if
           end do
-          if (pr) then
+          if (printlevel >= 2) then
             write (myunit,'(''Hueckel system :'',i3,'' charge : '',i3,'' ndim/Nel :'',2i5, &
         &         3x, ''eps(HOMO/LUMO)'',2f12.6)') pis,ipis(pis),npi,nelpi,pisip(pis),pisea(pis)
           end if
@@ -1195,18 +1222,20 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end do
 
-    write (myunit,*)
-    write (myunit,'(2x,"atom   neighbors  erfCN metchar sp-hybrid imet pi  qest     coordinates")')
-    do i = 1,nat
-      j = topo%hyb(i)
-      if (amide(nat,at,topo%hyb,neigh%numnb,neigh%numctr,neigh%nb,piadr,i)) j = -topo%hyb(i)
-      if (at(i) .eq. 6.and.itag(i) .eq. 1) j = -topo%hyb(i)
-      write (myunit,'(i5,2x,a2,3x,i4,3x,f5.2,2x,f5.2,8x,i2,3x,i2,3x,i2,2x,f6.3,3f12.6)') &
-  &             i,pse(at(i)),sum(neigh%nb(neigh%numnb,i,:)),cn(i),mchar(i),j,imetal(i),piadr(i),topo%qa(i),xyz(1:3,i)
-    end do
+    if (printlevel >= 2) then
+      write (myunit,*)
+      write (myunit,'(2x,"atom   neighbors  erfCN metchar sp-hybrid imet pi  qest     coordinates")')
+      do i = 1,nat
+        j = topo%hyb(i)
+        if (amide(nat,at,topo%hyb,neigh%numnb,neigh%numctr,neigh%nb,piadr,i)) j = -topo%hyb(i)
+        if (at(i) .eq. 6.and.itag(i) .eq. 1) j = -topo%hyb(i)
+        write (myunit,'(i5,2x,a2,3x,i4,3x,f5.2,2x,f5.2,8x,i2,3x,i2,3x,i2,2x,f6.3,3f12.6)') &
+    &             i,pse(at(i)),sum(neigh%nb(neigh%numnb,i,:)),cn(i),mchar(i),j,imetal(i),piadr(i),topo%qa(i),xyz(1:3,i)
+      end do
+    end if
 
 !     compute fragments and charges for output (check for CT)
-    if (pr) then
+    if (printlevel >= 2) then
       write (myunit,'(/,''molecular fragment  # atoms  topo charge'')')
       do i = 1,topo%nfrag
         dum = 0
@@ -1233,10 +1262,12 @@ contains   !> MODULE PROCEDURES START HERE
     topo%nbond_vbond = neigh%nbond
     allocate (neigh%vbond(3,neigh%nbond),source=0.0d0)
 
-    write (myunit,*)
-    write (myunit,'(10x,"#atoms :",3x,i0)') nat
-    write (myunit,'(10x,"#bonds :",3x,i0)') neigh%nbond
-    if (pr) then
+    if (printlevel >= 2) then
+      write (myunit,*)
+      write (myunit,'(10x,"#atoms :",3x,i0)') nat
+      write (myunit,'(10x,"#bonds :",3x,i0)') neigh%nbond
+    end if
+    if (printlevel >= 3) then
       write (myunit,*)
       write (myunit,*) 'bond atoms        type  in ring    R      R0    piBO    fqq  kbond(tot)  alp'
     end if
@@ -1446,7 +1477,7 @@ contains   !> MODULE PROCEDURES START HERE
 
 ! output
       r0 = (rtmp(ij)+neigh%vbond(1,i))*0.529167
-      if (pr) write (myunit,'(2a3,2i5,2x,2i5,2x,6f8.3)') &
+      if (printlevel >= 3) write (myunit,'(2a3,2i5,2x,2i5,2x,6f8.3)') &
   &   pse(at(ii)),pse(at(jj)),ii,jj,bbtyp,rings,0.529167*rab(ij),r0,pibo(i),fqq,neigh%vbond(3,i),neigh%vbond(2,i)
     end do
 
@@ -1545,8 +1576,8 @@ contains   !> MODULE PROCEDURES START HERE
       end do
     end do
 
-    write (myunit,'(10x,"#angl  :",3x,i0)') topo%nangl
-    if (pr) then
+    if (printlevel >= 2) write (myunit,'(10x,"#angl  :",3x,i0)') topo%nangl
+    if (printlevel >= 3) then
       write (myunit,*)
       write (myunit,*) 'angle atoms        phi0    phi      FC  pi rings'
     end if
@@ -1824,7 +1855,7 @@ contains   !> MODULE PROCEDURES START HERE
 
 !              central*neigbor charge spec. met.  small angle corr.
               topo%vangl(2,topo%nangl) = fijk*fqq*f2*fn*fbsmall*feta
-              if (pr) write (myunit,'(3i5,2x,3f8.3,l2,i4)') ii,jj,kk,r0,phi*180./pi,topo%vangl(2,topo%nangl),picon,rings
+              if (printlevel >= 3) write (myunit,'(3i5,2x,3f8.3,l2,i4)') ii,jj,kk,r0,phi*180./pi,topo%vangl(2,topo%nangl),picon,rings
             end do
           end do
         end do
@@ -1851,7 +1882,7 @@ contains   !> MODULE PROCEDURES START HERE
       topo%ntors = topo%ntors+nni*nnj*2 ! upper limit
     end do
     maxtors = topo%ntors
-    if (pr) write (myunit,*) 'torsion atoms        nrot   rings    phi0    phi      FC'
+    if (printlevel >= 3) write (myunit,*) 'torsion atoms        nrot   rings    phi0    phi      FC'
 
     topo%ntors_alloc = topo%ntors
     allocate (topo%tlist(8,topo%ntors),source=0)
@@ -2008,7 +2039,7 @@ contains   !> MODULE PROCEDURES START HERE
               if (fctot .gt. gen%fcthr) then ! avoid tiny potentials
                 topo%ntors = topo%ntors+1
                 if (topo%ntors .gt. maxtors) then
-                  write (myunit,'("**ERROR** ",a,1x,a)') 'internal (torsion setup) error',source
+                  if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') 'internal (torsion setup) error',source
                   return
                 end if
                 topo%tlist(1,topo%ntors) = ll
@@ -2023,7 +2054,7 @@ contains   !> MODULE PROCEDURES START HERE
                 topo%vtors(2,topo%ntors) = fctot
 !                 printout
                 phi = valijklff(nat,xyz,ll,ii,jj,kk)
-                if (pr) write (myunit,'(4i5,2x,i2,5x,i2,4x,3f8.3)') &
+                if (printlevel >= 3) write (myunit,'(4i5,2x,i2,5x,i2,4x,3f8.3)') &
    &            ii,jj,kk,ll,topo%tlist(5,topo%ntors),rings,topo%vtors(1,topo%ntors)*180./pi,phi*180./pi,topo%vtors(2,topo%ntors)
               end if
 
@@ -2032,7 +2063,7 @@ contains   !> MODULE PROCEDURES START HERE
               if (sp3kl.and.sp3ij.and.(.not.lring).and.btyp(m) .lt. 5) then
                 topo%ntors = topo%ntors+1
                 if (topo%ntors .gt. maxtors) then
-                  write (myunit,'("**ERROR** ",a,1x,a)') 'internal (torsion setup) error',source
+                  if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') 'internal (torsion setup) error',source
                   return
                 end if
                 ff = gen%torsf(6)
@@ -2048,7 +2079,7 @@ contains   !> MODULE PROCEDURES START HERE
                 topo%tlist(5,topo%ntors) = 1
                 topo%vtors(1,topo%ntors) = pi
                 topo%vtors(2,topo%ntors) = ff*fij*fkl*fqq
-                if (pr) write (myunit,'(4i5,2x,i2,5x,i2,4x,3f8.3)') &
+                if (printlevel >= 3) write (myunit,'(4i5,2x,i2,5x,i2,4x,3f8.3)') &
    &            ii,jj,kk,ll,topo%tlist(5,topo%ntors),rings,topo%vtors(1,topo%ntors)*180./pi,phi*180./pi,topo%vtors(2,topo%ntors)
               end if
 
@@ -2063,7 +2094,7 @@ contains   !> MODULE PROCEDURES START HERE
 ! out-of-plane, improper (three-fold coordinated central pi atom i or an N)
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    if (pr) write (myunit,*) 'out-of-plane atoms          phi0    phi      FC'
+    if (printlevel >= 3) write (myunit,*) 'out-of-plane atoms          phi0    phi      FC'
     do i = 1,nat
       if (sum(neigh%nb(neigh%numnb,i,:)) .ne. 3) cycle
       if (piadr(i) .eq. 0) then
@@ -2173,11 +2204,13 @@ contains   !> MODULE PROCEDURES START HERE
       vTrj = neigh%transVec(:,iTrj)
       vTrk = neigh%transVec(:,iTrk)
       phi = omegaPBC(nat,xyz,i,jj,kk,ll,vTrl,vTrj,vTrk)
-      if (pr) write (myunit,'(4i5,7x,3f8.3)') i,jj,kk,ll,topo%vtors(1,topo%ntors)*180./pi,phi*180./pi,topo%vtors(2,topo%ntors)
+      if (printlevel >= 3) write (myunit,'(4i5,7x,3f8.3)') i,jj,kk,ll,topo%vtors(1,topo%ntors)*180./pi,phi*180./pi,topo%vtors(2,topo%ntors)
     end do
 
-    write (myunit,'(10x,"#tors  :",3x,i0)') topo%ntors
-    write (myunit,'(10x,"#nmol  :",3x,i0)') topo%nfrag
+    if (printlevel >= 2) then
+      write (myunit,'(10x,"#tors  :",3x,i0)') topo%ntors
+      write (myunit,'(10x,"#nmol  :",3x,i0)') topo%nfrag
+    end if
 
 ! all done
 
@@ -2190,7 +2223,7 @@ contains   !> MODULE PROCEDURES START HERE
       topo%nsystem = 1
     end if
 
-    write (myunit,'(10x,"#optfrag :",3x,i0)') topo%nfrag
+    if (printlevel >= 2) write (myunit,'(10x,"#optfrag :",3x,i0)') topo%nfrag
 
     ! check if triple bonded carbon is present (for torsion term)
     nn = 0
@@ -2214,7 +2247,7 @@ contains   !> MODULE PROCEDURES START HERE
       call specialTorsList(nn,nat,at,xyz,topo,neigh,topo%sTorsl)
     end if
 
-    if (pr) then
+    if (printlevel >= 2) then
       write (myunit,*)
       write (myunit,*) 'GFN-FF setup done.'
       write (myunit,*)
