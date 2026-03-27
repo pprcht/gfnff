@@ -31,9 +31,13 @@ module gfnff_ini_mod
 
   public :: gfnff_ini
 
-contains
+! ══════════════════════════════════════════════════════════════════════════════
+contains   !> MODULE PROCEDURES START HERE
+! ══════════════════════════════════════════════════════════════════════════════
 
-  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,iunit)
+  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg, &
+    &                  gen,param,topo,neigh,cell,efield, &
+    &                  accuracy,io,iunit)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini'
 !--------------------------------------------------------------------------------------------------

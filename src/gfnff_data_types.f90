@@ -20,6 +20,7 @@
 !> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
+
 !> Topological data for force field type calculations and neighbor lists
 module gfnff_data_types
   use iso_fortran_env,only:wp => real64,sp => real32
@@ -35,7 +36,7 @@ module gfnff_data_types
   public :: TDispersionData,initgffdispersion
   public :: TGFFGenerator
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Periodic cell / lattice data for a given system
   type :: TCell
@@ -51,7 +52,7 @@ module gfnff_data_types
     procedure :: init_wsc
   end type TCell
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Data for the dispersion contribution
   type :: TDispersionData
@@ -84,7 +85,8 @@ module gfnff_data_types
     real(wp),allocatable :: c6(:,:,:,:)
 
   end type TDispersionData
-!========================================================================================!
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Topology information for a given system
   type :: TGFFTopology
@@ -166,7 +168,7 @@ module gfnff_data_types
 
   end type TGFFTopology
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Neighbourlist storage
   type :: TGFFNeighbourList
@@ -192,7 +194,8 @@ module gfnff_data_types
   interface new
     module procedure :: newGFFNeighbourList
   end interface
-!========================================================================================!
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Parametrisation data for the force field
   type :: TGFFData
@@ -312,7 +315,7 @@ module gfnff_data_types
     module procedure :: initGFFData
   end interface init
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   !> Generator for the force field topology
   type TGFFGenerator
@@ -517,7 +520,8 @@ contains  !> MODULE PROCEDURES START HERE
     self%read_file_type = 0
 
   end subroutine zero
-!========================================================================================!
+
+! ──────────────────────────────────────────────────────────────────────────────
 
   !> Initialize new instance for the neighbourlist
   subroutine newGFFNeighbourList(self,n,nhb1,nhb2,nxb)
@@ -539,7 +543,8 @@ contains  !> MODULE PROCEDURES START HERE
     allocate (self%hbe2(self%nhb2),source=0.0_wp)
     allocate (self%hbe3(self%nxb),source=0.0_wp)
   end subroutine newGFFNeighbourList
-!========================================================================================!
+
+! ──────────────────────────────────────────────────────────────────────────────
 
   !> Initialize a new instance of the parametrisation data
   subroutine initGFFData(self,ndim)
@@ -586,7 +591,8 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine initGFFData
 
-!========================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
+
   subroutine initGFFDispersion(self)
     type(TDispersionData),intent(out) :: self
     integer :: elem,ref,freq
@@ -651,5 +657,5 @@ contains  !> MODULE PROCEDURES START HERE
     call generate_wsc(nat,at,xyz,self%lattice,self%pbc,self%wsc)
   end subroutine init_wsc
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 end module gfnff_data_types

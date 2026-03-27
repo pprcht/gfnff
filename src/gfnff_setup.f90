@@ -77,6 +77,9 @@ contains   !> MODULE PROCEDURES START HERE
     newichrg = ichrg
     call gfnff_input(nat,at,xyz,newichrg,topo)
 
+! ──────────────────────────────────────────────────────────────────────────────
+!> Load parameters
+! ──────────────────────────────────────────────────────────────────────────────
     call gfnff_set_param(nat,gen,param)
     param%dispscale = 1.0_wp
     if (restart) then
@@ -97,7 +100,13 @@ contains   !> MODULE PROCEDURES START HERE
       end if
     end if
 
-    call gfnff_ini(pr,ini,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,verbose=verbose,iunit=myunit)
+! ──────────────────────────────────────────────────────────────────────────────
+!> Run initialization
+! ──────────────────────────────────────────────────────────────────────────────
+    call gfnff_ini(pr,ini,nat,at,xyz,ichrg, &
+    &                  gen,param,topo,neigh,cell,efield, &
+    &                  accuracy,io,iunit=myunit)
+
     if (io /= 0) then
       write (myunit,'("Failed to generate topology ",a)') source
       return
@@ -105,7 +114,7 @@ contains   !> MODULE PROCEDURES START HERE
 
     if (write_topo) then
       call write_restart_gff('gfnff_topo',nat,version,topo)
-      call write_gfnff_adjacency('gfnff_adjacency',topo)
+      !call write_gfnff_adjacency('gfnff_adjacency',topo)
     end if
 
   end subroutine gfnff_setup
@@ -122,9 +131,9 @@ contains   !> MODULE PROCEDURES START HERE
     type(TGFFTopology),intent(inout) :: topo
     ! Stack
 
-    if(.false.) write(*,*) at,xyz ! silences -Wunused-dummy-argument  
+    if (.false.) write (*,*) at,xyz ! silences -Wunused-dummy-argument
 
-    if (.not.allocated(topo%nb)) allocate (topo%nb(20,nat),source=0)
+    !if (.not.allocated(topo%nb)) allocate (topo%nb(20,nat),source=0)
     if (.not.allocated(topo%qfrag)) allocate (topo%qfrag(nat),source=0.0d0)
     if (.not.allocated(topo%fraglist)) allocate (topo%fraglist(nat),source=0)
 
@@ -157,23 +166,23 @@ contains   !> MODULE PROCEDURES START HERE
   end subroutine gfnff_input
 !========================================================================================!
 
-  subroutine write_gfnff_adjacency(fname,topo)
-    implicit none
-    character(len=*),intent(in) :: fname
-    integer :: ifile ! file handle
-    type(TGFFTopology) :: topo
-    integer :: i,j
-
-    open (newunit=ifile,file=fname)
-    ! looping over topology neighboring list
-    if (ifile .ne. -1) then
-      write (ifile,'(a)') '# indices of neighbouring atoms (max seven)'
-      do i = 1,size(topo%nb,2)
-        write (ifile,'(*(i0:, 1x))') (topo%nb(j,i),j=1,topo%nb(size(topo%nb,1),i))
-      end do
-    end if
-    close (ifile)
-  end subroutine write_gfnff_adjacency
+!  subroutine write_gfnff_adjacency(fname,topo)
+!    implicit none
+!    character(len=*),intent(in) :: fname
+!    integer :: ifile ! file handle
+!    type(TGFFTopology) :: topo
+!    integer :: i,j
+!
+!    open (newunit=ifile,file=fname)
+!    ! looping over topology neighboring list
+!    if (ifile .ne. -1) then
+!      write (ifile,'(a)') '# indices of neighbouring atoms (max seven)'
+!      do i = 1,size(topo%nb,2)
+!        write (ifile,'(*(i0:, 1x))') (topo%nb(j,i),j=1,topo%nb(size(topo%nb,1),i))
+!      end do
+!    end if
+!    close (ifile)
+!  end subroutine write_gfnff_adjacency
 
 !========================================================================================!
 end module gfnff_setup_mod

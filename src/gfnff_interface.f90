@@ -78,22 +78,22 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 !========================================================================================!
 
-  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,verbose,iostat,sigma)
-    !*************************************************************
-    !* GFN-FF single-point energy and gradient calculation.
-    !*
-    !* INPUT:
-    !*   nat          - number of atoms
-    !*   at(nat)      - atomic numbers
-    !*   xyz(3,nat)   - Cartesian coordinates (Bohr)
-    !*   dat          - bundled GFN-FF data and settings
-    !*   verbose      - optional printout flag
-    !* OUTPUT:
-    !*   energy       - total energy (Eh)
-    !*   gradient     - gradient (Eh/Bohr)
-    !*   iostat       - optional error status
-    !*   sigma(3,3)   - optional stress tensor (Eh); zero for non-PBC
-    !*************************************************************
+  subroutine gfnff_singlepoint(nat,at,xyz,dat,energy,gradient,lattice,sigma,verbose,iostat)
+!**********************************************************************
+!* GFN-FF single-point energy and gradient calculation.
+!*
+!* INPUT:
+!*   nat          - number of atoms
+!*   at(nat)      - atomic numbers
+!*   xyz(3,nat)   - Cartesian coordinates (Bohr)
+!*   dat          - bundled GFN-FF data and settings
+!*   verbose      - optional printout flag
+!* OUTPUT:
+!*   energy       - total energy (Eh)
+!*   gradient     - gradient (Eh/Bohr)
+!*   iostat       - optional error status
+!*   sigma(3,3)   - optional stress tensor (Eh); zero for non-PBC
+!*********************************************************************
     implicit none
     !> INPUT
     integer,intent(in)  :: nat        !> number of atoms
@@ -101,6 +101,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
     logical,intent(in),optional    :: verbose  !> printout activation
     type(gfnff_data),intent(inout) :: dat  !> collection of gfnff datatypes and settings
+    real(wp),intent(in),optional :: lattice(3,3)
     !> OUTPUT
     real(wp),intent(out) :: energy
     real(wp),intent(out) :: gradient(3,nat)
@@ -109,7 +110,8 @@ contains  !> MODULE PROCEDURES START HERE
     !> LOCAL
     integer :: io
     logical :: pr
-    real(wp) :: sigma_loc(3,3)
+    real(wp) :: sigma_loc(3,3),lattice_loc(3,3),efield_loc(3)
+    real(wp) :: lthr = sqrt(epsilon(1.0_wp))
 
     !> printout activation via verbosity
     if (present(verbose)) then
@@ -118,14 +120,29 @@ contains  !> MODULE PROCEDURES START HERE
       pr = .false. !> (there is close to no printout anyways)
     end if
 
+! ── init datafields ───────────────────────────────────────────────────────────
     energy = 0.0_wp
     gradient(:,:) = 0.0_wp
     io = 0
     sigma_loc = 0.0_wp
+    lattice_loc = 0.0_wp
+    efield_loc = 0.0_wp
+    if (present(lattice)) lattice_loc(:,:) = lattice(:,:)
 
-    call gfnff_eg(pr,nat,dat%ichrg,at,xyz,dat%make_chrg,gradient,energy,   &
-    &             dat%res,dat%param,dat%topo,dat%neigh,dat%cell,dat%nlist,dat%solvation, &
-    &             dat%update,dat%version,dat%accuracy,io,sigma=sigma_loc)
+! ── update lattice, wsc, ... ──────────────────────────────────────────────────
+    if (any(abs(lattice_loc-dat%cell%lattice) .gt. lthr)) then
+      call dat%cell%init(lattice_loc)
+    end if
+    if (dat%cell%npbc > 0) then
+      call dat%cell%init_wsc(nat,at,xyz)
+    end if
+
+! ── call E+Grd ────────────────────────────────────────────────────────────────
+    call gfnff_eg(pr,nat,at,xyz,dat%cell,sigma_loc,dat%ichrg,gradient,energy, &
+    &            dat%res,dat%param,dat%topo,dat%neigh,dat%nlist,efield_loc,   &
+    &            dat%solvation,dat%update,dat%version,dat%accuracy,.false.)
+
+! ── transfer optional outputs ─────────────────────────────────────────────────
     if (present(sigma)) sigma = sigma_loc
 
     if (present(iostat)) then
@@ -134,7 +151,9 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine gfnff_singlepoint
 
-  subroutine gfnff_singlepoint_wrapper(self,nat,at,xyz,energy,gradient,verbose,iostat)
+! ══════════════════════════════════════════════════════════════════════════════
+  subroutine gfnff_singlepoint_wrapper(self,nat,at,xyz,energy,gradient, &
+  &                                    verbose,iostat,lattice,sigma)
 !******************************************************************
 !* A wrapper to the singlepoint routine, allowing
 !* the energy routine to be called with "call dat%singlepoint(...)"
@@ -145,12 +164,15 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in)  :: nat        !> number of atoms
     integer,intent(in)  :: at(nat)    !> atom types
     real(wp),intent(in) :: xyz(3,nat) !> Cartesian coordinates in Bohr
-    logical,intent(in),optional    :: verbose  !> printout activation
+    logical,intent(in),optional  :: verbose  !> printout activation
+    real(wp),intent(in),optional :: lattice(3,3)  !> lattice (optional)
     !> OUTPUT
     real(wp),intent(out) :: energy
     real(wp),intent(out) :: gradient(3,nat)
+    real(wp),intent(out),optional :: sigma(3,3) !> stress (optional)
     integer,intent(out),optional  :: iostat
-    call gfnff_singlepoint(nat,at,xyz,self,energy,gradient,verbose=verbose,iostat=iostat)
+    call gfnff_singlepoint(nat,at,xyz,self,energy,gradient, &
+    & verbose=verbose,iostat=iostat,lattice=lattice,sigma=sigma)
   end subroutine gfnff_singlepoint_wrapper
 
 !========================================================================================!
