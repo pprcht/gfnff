@@ -27,10 +27,13 @@ module gfnff_ini_mod
   use gfnff_qm_setup,only:gfnffqmsolve
   use gfnff_fraghess
   use gfnff_rab
+  private
+
+  public :: gfnff_ini
 
 contains
 
-  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,)
+  subroutine gfnff_ini(pr,makeneighbor,nat,at,xyz,ichrg,gen,param,topo,neigh,cell,efield,accuracy,io,iunit)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini'
 !--------------------------------------------------------------------------------------------------
@@ -48,8 +51,8 @@ contains
 
     logical,intent(in) :: pr            ! print flag
     logical,intent(in) :: makeneighbor  ! make a neigbor list or use existing one?
-    real(wp),intent(in),optional :: lat(3,3)
-    integer,intent(in),optional :: boundaryCond
+    integer,intent(out) :: io
+    integer,intent(in),optional :: iunit
 !--------------------------------------------------------------------------------------------------
 
     integer :: ati,atj,atk,i,j,k,l,lin,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no,nbi
@@ -115,9 +118,9 @@ contains
     logical :: tDbl
 
     character(len=255) atmp
-    integer  :: ich,err
+    integer  :: ich,err,myunit
     real(wp) :: dispthr,cnthr,repthr,hbthr1,hbthr2
-    logical :: exitRun,nb_call,adjLnAn
+    logical :: exitRun,nb_call,adjLnAn,pr2
 
     real(wp),parameter :: pi = 3.1415926535897932385_wp
 
@@ -129,18 +132,17 @@ contains
     else
       myunit = stdout
     end if
-    if (present(verbose)) then
-      pr2 = verbose
-    else
-      pr2 = .false.
-    end if
+!    if (present(verbose)) then
+!      pr2 = verbose
+!    else
+    pr2 = .false.
+!    end if
 
     call gfnff_thresholds(accuracy,dispthr,cnthr,repthr,hbthr1,hbthr2)
 
 !> parameter for periodic setup
     lattice(:,:) = cell%lattice
     boundaryCondition = cell%npbc
-
 
     if (pr) then
       write (myunit,*)
@@ -266,7 +268,7 @@ contains
         & -2*dot_product(vec,lattice(:,3)))+1.0_wp !
       MaxCutOff = max(MaxCutoff,60.0_wp) ! at least 60
 
-      call init_l(latPoint,lattice,boundaryCondition,MaxCutOff)
+      call init_l(latPoint,nat,at,xyz,cell%lattice,cell%npbc,MaxCutOff)
       call latPoint%getLatticepoints(transVec,MaxCutOff)
       latPoint%ntrans = size(transVec,dim=2)
       allocate (dcndL(3,3,nat),source=0.0d0)
@@ -747,7 +749,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     allocate (nbrngs(neigh%numnb,nat),source=0)
     nbrngs = neigh%nbm(:,:,1)
-    if (natpbc .ne. 0) then
+    if (cell%npbc .ne. 0) then
       do i = 1,nat
         nni = neigh%nbm(neigh%numnb,i,1)
         do iTr = 2,neigh%numctr
@@ -847,7 +849,7 @@ contains
           topo%zetac6(ij) = f1*f2  ! D4 zeta scaling using qref=0
         end do
         ! setup alphanb for all i j that are "far" apart (at least one cell in between)
-        if (natpbc .ne. 0) then
+        if (cell%npbc .ne. 0) then
           ff = 1.0d0
           if (ati .eq. 1.and.atj .eq. 1) then
             ff = 1.0d0*gen%hhfac       ! special H ... H case
@@ -1087,7 +1089,7 @@ contains
           end do
 
           apisave = Api
-          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps)  !diagonalize, 4000 better than 300
+          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)  !diagonalize, 4000 better than 300
 
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
@@ -1111,7 +1113,7 @@ contains
           end do
           nelpi = nelpi-1
           Api = Apisave
-          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps)  !diagonalize
+          call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)  !diagonalize
           call PREIG(6,occ,1.0d0,eps,1,npi)
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
@@ -1460,10 +1462,10 @@ contains
 
     !Set up fix hblist just like for the HB term
     allocate (topo%isABH(nat),source=.false.)
-    call bond_hbset0(nat,at,xyz,natpbc,bond_hbn,topo,neigh,hbthr1,hbthr2)
+    call bond_hbset0(nat,at,xyz,cell%npbc,bond_hbn,topo,neigh,hbthr1,hbthr2)
     allocate (bond_hbl(6,bond_hbn))
     allocate (neigh%nr_hb(neigh%nbond),source=0)
-    call bond_hbset(nat,at,xyz,natpbc,bond_hbn,bond_hbl,&
+    call bond_hbset(nat,at,xyz,cell%npbc,bond_hbn,bond_hbl,&
          &           topo,neigh,hbthr1,hbthr2)
     !Set up AH, B and nr. of B list
     call bond_hb_AHB_set0(nat,at,neigh%nbond,bond_hbn,bond_hbl,AHB_nr,neigh)
@@ -2181,9 +2183,9 @@ contains
 
     topo%maxsystem = 5000
 
-    if (.true.) then
-      call fragmentize(nat,at,xyz,topo%maxsystem,500,rab,neigh%numnb,neigh%numctr,neigh%nb, &
-         & topo%ispinsyst,topo%nspinsyst,topo%nsystem)
+    if (.false.) then
+      !call fragmentize(nat,at,xyz,topo%maxsystem,500,rab,neigh%numnb,neigh%numctr,neigh%nb, &
+      !   & topo%ispinsyst,topo%nspinsyst,topo%nsystem)
     else
       topo%nsystem = 1
     end if
@@ -2218,83 +2220,83 @@ contains
       write (myunit,*)
     end if
 
-  contains
+  end subroutine gfnff_ini
 
 ! remove hydrogen bonds from topology if bound to Ln or An and topo%qa(H)>-0.0281
-    subroutine adjust_NB_LnH_AnH(param,nat,at,xyz,topo,neigh)
-      type(TGFFData),intent(in) :: param
-      integer,intent(in) :: nat
-      integer,intent(in) :: at(nat)
-      real(wp),intent(in) :: xyz(3,nat)
-      type(TGFFTopology),intent(in) :: topo
-      type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
-      integer nb_tmp(neigh%numnb)
-      integer :: i,iTr,iTrH,idx,inb,l,k,m,nnb,count_idx
-      real(wp),parameter :: qthr = -0.0281_wp ! charge threshold
+  subroutine adjust_NB_LnH_AnH(param,nat,at,xyz,topo,neigh)
+    type(TGFFData),intent(in) :: param
+    integer,intent(in) :: nat
+    integer,intent(in) :: at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
+    integer nb_tmp(neigh%numnb)
+    integer :: i,iTr,iTrH,idx,inb,l,k,m,nnb,count_idx
+    real(wp),parameter :: qthr = -0.0281_wp ! charge threshold
 
-      ! loop over all atoms
-      do i = 1,nat
-        ! only apply changes for Ln and An
-        if ((at(i) .ge. 57.and.at(i) .le. 71).or.(at(i) .ge. 89.and.at(i) .le. 103)) then
-          ! loop over all cells
-          do iTr = 1,neigh%numctr
-            ! loop over all neighbors
-            nnb = neigh%nb(neigh%numnb,i,iTr)
-            idx = 0
-            do count_idx = 1,nnb
-              idx = idx+1
-              inb = neigh%nb(idx,i,iTr) ! atom index of neighbor of i
-              if (inb .eq. 0) cycle
-              ! check if neighbor is H
-              if (at(inb) .eq. 1) then
-                ! remove hydrogen as neighbor if charge is gt threshold
-                if (topo%qa(inb) .gt. qthr) then
-                  ! setup copy of neighbor list for this An or Ln
-                  nb_tmp = neigh%nb(:,i,iTr)
-                  nb_tmp(neigh%numnb) = neigh%nb(neigh%numnb,i,iTr)-1
-                  nb_tmp(idx) = 0
-                  ! reset neigh%nb
-                  neigh%nb(1:neigh%numnb-2,i,iTr) = 0
-                  ! update neigh%nb with copied nb list
-                  neigh%nb(neigh%numnb,i,iTr) = nb_tmp(neigh%numnb) ! number neighbors
-                  l = 0
-                  do k = 1,neigh%numnb-2
-                    if (nb_tmp(k) .ne. 0) then
-                      l = l+1
-                      neigh%nb(l,i,iTr) = nb_tmp(k)
+    ! loop over all atoms
+    do i = 1,nat
+      ! only apply changes for Ln and An
+      if ((at(i) .ge. 57.and.at(i) .le. 71).or.(at(i) .ge. 89.and.at(i) .le. 103)) then
+        ! loop over all cells
+        do iTr = 1,neigh%numctr
+          ! loop over all neighbors
+          nnb = neigh%nb(neigh%numnb,i,iTr)
+          idx = 0
+          do count_idx = 1,nnb
+            idx = idx+1
+            inb = neigh%nb(idx,i,iTr) ! atom index of neighbor of i
+            if (inb .eq. 0) cycle
+            ! check if neighbor is H
+            if (at(inb) .eq. 1) then
+              ! remove hydrogen as neighbor if charge is gt threshold
+              if (topo%qa(inb) .gt. qthr) then
+                ! setup copy of neighbor list for this An or Ln
+                nb_tmp = neigh%nb(:,i,iTr)
+                nb_tmp(neigh%numnb) = neigh%nb(neigh%numnb,i,iTr)-1
+                nb_tmp(idx) = 0
+                ! reset neigh%nb
+                neigh%nb(1:neigh%numnb-2,i,iTr) = 0
+                ! update neigh%nb with copied nb list
+                neigh%nb(neigh%numnb,i,iTr) = nb_tmp(neigh%numnb) ! number neighbors
+                l = 0
+                do k = 1,neigh%numnb-2
+                  if (nb_tmp(k) .ne. 0) then
+                    l = l+1
+                    neigh%nb(l,i,iTr) = nb_tmp(k)
+                  end if
+                end do
+                ! setup copy of neighbor list for this H
+                do iTrH = 1,neigh%numctr
+                  do k = 1,neigh%nb(neigh%numnb,inb,iTrH)
+                    if (neigh%nb(k,inb,iTrH) .eq. i) then
+                      nb_tmp = neigh%nb(:,inb,iTrH)
+                      nb_tmp(neigh%numnb) = neigh%nb(neigh%numnb,inb,iTrH)-1
+                      nb_tmp(k) = 0
+                      ! reset neigh%nb
+                      neigh%nb(1:neigh%numnb-2,inb,iTrH) = 0
+                      ! update neigh%nb with copied nb list
+                      neigh%nb(neigh%numnb,inb,iTrH) = nb_tmp(neigh%numnb) ! number neighbors
+                      l = 0
+                      do m = 1,neigh%numnb-2
+                        if (nb_tmp(m) .ne. 0) then
+                          l = l+1
+                          neigh%nb(l,inb,iTrH) = nb_tmp(m)
+                        end if
+                      end do
                     end if
                   end do
-                  ! setup copy of neighbor list for this H
-                  do iTrH = 1,neigh%numctr
-                    do k = 1,neigh%nb(neigh%numnb,inb,iTrH)
-                      if (neigh%nb(k,inb,iTrH) .eq. i) then
-                        nb_tmp = neigh%nb(:,inb,iTrH)
-                        nb_tmp(neigh%numnb) = neigh%nb(neigh%numnb,inb,iTrH)-1
-                        nb_tmp(k) = 0
-                        ! reset neigh%nb
-                        neigh%nb(1:neigh%numnb-2,inb,iTrH) = 0
-                        ! update neigh%nb with copied nb list
-                        neigh%nb(neigh%numnb,inb,iTrH) = nb_tmp(neigh%numnb) ! number neighbors
-                        l = 0
-                        do m = 1,neigh%numnb-2
-                          if (nb_tmp(m) .ne. 0) then
-                            l = l+1
-                            neigh%nb(l,inb,iTrH) = nb_tmp(m)
-                          end if
-                        end do
-                      end if
-                    end do
-                  end do
-                  ! since the current element was removed from neigh%nb, idx should be reduced by one
-                  idx = idx-1
-                end if ! if topo%qa < -0.0282
-              end if
-            end do
+                end do
+                ! since the current element was removed from neigh%nb, idx should be reduced by one
+                idx = idx-1
+              end if ! if topo%qa < -0.0282
+            end if
           end do
-        end if
-      end do
+        end do
+      end if
+    end do
 
-    end subroutine adjust_NB_LnH_AnH
+  end subroutine adjust_NB_LnH_AnH
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! special treatment for rotation around carbon triple bonds
@@ -2311,116 +2313,116 @@ contains
 ! C-- C               C4--C
 !
 ! using C1=ii, C2=jj, C3=kk, C4=ll
-    subroutine specialTorsList(nst,nat,at,xyz,topo,neigh,sTorsList)
-      integer,intent(in) :: nst
-      integer,intent(in) :: nat
-      integer,intent(in) :: at(nat)
-      real(wp),intent(in) :: xyz(3,nat)
-      type(TGFFTopology),intent(in) :: topo
-      type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
-      integer,intent(inout) :: sTorsList(6,nst)
-      integer :: i,j,k,ii,jj,kk,ll,idx,iTr,nbi,nbk
-      logical :: iiok,llok
-      ! initialize variables
-      idx = 0
-      ii = -1
-      jj = -1
-      kk = -1
-      ll = -1
+  subroutine specialTorsList(nst,nat,at,xyz,topo,neigh,sTorsList)
+    integer,intent(in) :: nst
+    integer,intent(in) :: nat
+    integer,intent(in) :: at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TGFFTopology),intent(in) :: topo
+    type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
+    integer,intent(inout) :: sTorsList(6,nst)
+    integer :: i,j,k,ii,jj,kk,ll,idx,iTr,nbi,nbk
+    logical :: iiok,llok
+    ! initialize variables
+    idx = 0
+    ii = -1
+    jj = -1
+    kk = -1
+    ll = -1
 
-      do i = 1,nat
-        ! carbon with two neighbors bonded to other carbon* with two neighbors
-        if (at(i) .eq. 6.and.sum(neigh%nb(neigh%numnb,i,:)) .eq. 2) then
-          do j = 1,2
-            call neigh%jth_nb(nat,xyz,nbi,j,i,iTr)  ! nbi is the jth nb of i in cell iTr
-            if (nbi .eq. 0.or.iTr .eq. 0) cycle
-            if (at(nbi) .eq. 6.and.sum(neigh%nb(neigh%numnb,nbi,:)) .eq. 2) then  ! *other carbon
-              ! check carbon triple bond distance
-              if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)) .le. 2.37) then
-                ! at this point we know that i and nbi are carbons bonded through triple bond
-                ! check C2 and C3
-                do k = 1,2  ! C2 is other nb of Ci
-                  nbk = 0
-                  call neigh%jth_nb(nat,xyz,nbk,k,i,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
-                  if (nbk .ne. nbi.and.nbk .ne. 0.and.at(nbk) .eq. 6) then
-                    jj = nbk ! C2 index
-                  end if
-                end do
-                do k = 1,2  ! C3 is other nb of Cnbi
-                  nbk = 0
-                  call neigh%jth_nb(nat,xyz,nbk,k,nbi,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
-                  if (nbk .ne. i.and.nbk .ne. 0.and.at(nbk) .eq. 6) then
-                    kk = nbk ! C3 index
-                  end if
-                end do
-                if (jj .eq. -1.or.kk .eq. -1) then
-                  exit ! next atom i
+    do i = 1,nat
+      ! carbon with two neighbors bonded to other carbon* with two neighbors
+      if (at(i) .eq. 6.and.sum(neigh%nb(neigh%numnb,i,:)) .eq. 2) then
+        do j = 1,2
+          call neigh%jth_nb(nat,xyz,nbi,j,i,iTr)  ! nbi is the jth nb of i in cell iTr
+          if (nbi .eq. 0.or.iTr .eq. 0) cycle
+          if (at(nbi) .eq. 6.and.sum(neigh%nb(neigh%numnb,nbi,:)) .eq. 2) then  ! *other carbon
+            ! check carbon triple bond distance
+            if (NORM2(xyz(1:3,i)-xyz(1:3,nbi)) .le. 2.37) then
+              ! at this point we know that i and nbi are carbons bonded through triple bond
+              ! check C2 and C3
+              do k = 1,2  ! C2 is other nb of Ci
+                nbk = 0
+                call neigh%jth_nb(nat,xyz,nbk,k,i,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
+                if (nbk .ne. nbi.and.nbk .ne. 0.and.at(nbk) .eq. 6) then
+                  jj = nbk ! C2 index
                 end if
-                ! check C1 through C4 are sp2 carbon
-                if (topo%hyb(jj) .eq. 2.and.topo%hyb(kk) .eq. 2 &
-                &   .and.at(jj) .eq. 6.and.at(kk) .eq. 6) then
-                  iiok = .false.
-                  llok = .false.
-                  ! which of the two valid neighbors is picked as C1 depends
-                  !  on atom sorting in input file !!! The last one in file.
-                  do k = 1,sum(neigh%nb(neigh%numnb,jj,:))
-                    nbk = 0
-                    call neigh%jth_nb(nat,xyz,nbk,k,jj,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
-                    if (topo%hyb(k) .eq. 2.and.at(k) .eq. 6.and.sum(neigh%nb(neigh%numnb,k,:)) .eq. 3.and. &
-                       & nbk .ne. i.and.nbk .ne. 0) then
-                      ii = nbk
-                      iiok = .true.
-                    end if
-                  end do
-                  ! which of the two valid neighbors is picked as C4 depends
-                  !  on atom sorting in input file !!! The last one in file.
-                  do k = 1,sum(neigh%nb(neigh%numnb,kk,:))
-                    nbk = 0
-                    call neigh%jth_nb(nat,xyz,nbk,k,jj,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
-                    if (topo%hyb(k) .eq. 2.and.at(k) .eq. 6.and.sum(neigh%nb(neigh%numnb,i,:)) .eq. 3.and. &
-                       & nbk .ne. nbi.and.nbk .ne. 0) then
-                      ll = nbk
-                      llok = .true.
-                    end if
-                  end do
-                  if (nbi .gt. i.and.iiok.and.llok) then ! to avoid double counting
-                    idx = idx+1
-                    sTorsList(1,idx) = ii  ! C1
-                    sTorsList(2,idx) = jj  ! C2
-                    sTorsList(3,idx) = i   ! Ci
-                    sTorsList(4,idx) = nbi ! Cnbi
-                    sTorsList(5,idx) = kk  ! C3
-                    sTorsList(6,idx) = ll  ! C4
+              end do
+              do k = 1,2  ! C3 is other nb of Cnbi
+                nbk = 0
+                call neigh%jth_nb(nat,xyz,nbk,k,nbi,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
+                if (nbk .ne. i.and.nbk .ne. 0.and.at(nbk) .eq. 6) then
+                  kk = nbk ! C3 index
+                end if
+              end do
+              if (jj .eq. -1.or.kk .eq. -1) then
+                exit ! next atom i
+              end if
+              ! check C1 through C4 are sp2 carbon
+              if (topo%hyb(jj) .eq. 2.and.topo%hyb(kk) .eq. 2 &
+              &   .and.at(jj) .eq. 6.and.at(kk) .eq. 6) then
+                iiok = .false.
+                llok = .false.
+                ! which of the two valid neighbors is picked as C1 depends
+                !  on atom sorting in input file !!! The last one in file.
+                do k = 1,sum(neigh%nb(neigh%numnb,jj,:))
+                  nbk = 0
+                  call neigh%jth_nb(nat,xyz,nbk,k,jj,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
+                  if (topo%hyb(k) .eq. 2.and.at(k) .eq. 6.and.sum(neigh%nb(neigh%numnb,k,:)) .eq. 3.and. &
+                     & nbk .ne. i.and.nbk .ne. 0) then
+                    ii = nbk
+                    iiok = .true.
                   end if
-                end if ! C1-C4 are sp2 carbon
-              end if  ! CC distance
-            end if  ! other carbon
-          end do
-        end if ! is carbon with nnb=2
-      end do
-    end subroutine specialTorsList
+                end do
+                ! which of the two valid neighbors is picked as C4 depends
+                !  on atom sorting in input file !!! The last one in file.
+                do k = 1,sum(neigh%nb(neigh%numnb,kk,:))
+                  nbk = 0
+                  call neigh%jth_nb(nat,xyz,nbk,k,jj,iTr)  ! nbk is the jth nb of i in cell iTr .ne.nbi
+                  if (topo%hyb(k) .eq. 2.and.at(k) .eq. 6.and.sum(neigh%nb(neigh%numnb,i,:)) .eq. 3.and. &
+                     & nbk .ne. nbi.and.nbk .ne. 0) then
+                    ll = nbk
+                    llok = .true.
+                  end if
+                end do
+                if (nbi .gt. i.and.iiok.and.llok) then ! to avoid double counting
+                  idx = idx+1
+                  sTorsList(1,idx) = ii  ! C1
+                  sTorsList(2,idx) = jj  ! C2
+                  sTorsList(3,idx) = i   ! Ci
+                  sTorsList(4,idx) = nbi ! Cnbi
+                  sTorsList(5,idx) = kk  ! C3
+                  sTorsList(6,idx) = ll  ! C4
+                end if
+              end if ! C1-C4 are sp2 carbon
+            end if  ! CC distance
+          end if  ! other carbon
+        end do
+      end if ! is carbon with nnb=2
+    end do
+  end subroutine specialTorsList
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !> zeta(g_a,gam(ia)*g_c,refq(ii,ia)+iz,q(i)+iz)
 
 !> @brief charge scaling function
-    pure elemental function zeta(at,q)
-      implicit none
-      integer,intent(in) :: at
-      real(wp),intent(in) :: q
+  pure elemental function zeta(at,q)
+    implicit none
+    integer,intent(in) :: at
+    real(wp),intent(in) :: q
 
-      real(wp)           :: zeta,qmod
-      real(wp),parameter :: zeff(103) = (/ &
-      &   1,2,  & ! H-He
-      &   3,4,5,6,7,8,9,10,  & ! Li-Ne
-      &  11,12,13,14,15,16,17,18,  & ! Na-Ar
-      &  19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,  & ! K-Kr
-      &   9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,  & ! Rb-Xe
-      &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43,  & ! Cs-Lu
-      &  12,13,14,15,16,17,18,19,20,21,22,23,24,25,26, &  ! Hf-Rn
-      &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43  & ! Fr-Lr
-      &/)
+    real(wp)           :: zeta,qmod
+    real(wp),parameter :: zeff(103) = (/ &
+    &   1,2,  & ! H-He
+    &   3,4,5,6,7,8,9,10,  & ! Li-Ne
+    &  11,12,13,14,15,16,17,18,  & ! Na-Ar
+    &  19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,  & ! K-Kr
+    &   9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,  & ! Rb-Xe
+    &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43,  & ! Cs-Lu
+    &  12,13,14,15,16,17,18,19,20,21,22,23,24,25,26, &  ! Hf-Rn
+    &   9,10,11,30,31,32,33,34,35,36,37,38,39,40,41,42,43  & ! Fr-Lr
+    &/)
 !! Semiempirical Evaluation of the GlobalHardness of the Atoms of 103
 !! Elements of the Periodic Table Using the Most Probable Radii as
 !! their Size Descriptors DULAL C. GHOSH, NAZMUL ISLAM 2009 in
@@ -2429,39 +2431,37 @@ contains
 !! values in the paper multiplied by two because
 !! (ii:ii)=(IP-EA)=d^2 E/dN^2 but the hardness
 !! definition they use is 1/2d^2 E/dN^2 (in Eh)
-      real(wp),parameter :: c(1:103) = (/ &
-     &0.47259288_wp,0.92203391_wp,0.17452888_wp,0.25700733_wp,0.33949086_wp,0.42195412_wp, & ! H-C
-     &0.50438193_wp,0.58691863_wp,0.66931351_wp,0.75191607_wp,0.17964105_wp,0.22157276_wp, & ! N-Mg
-     &0.26348578_wp,0.30539645_wp,0.34734014_wp,0.38924725_wp,0.43115670_wp,0.47308269_wp, & ! Al-Ar
-     &0.17105469_wp,0.20276244_wp,0.21007322_wp,0.21739647_wp,0.22471039_wp,0.23201501_wp, & ! Ca-Cr
-     &0.23933969_wp,0.24665638_wp,0.25398255_wp,0.26128863_wp,0.26859476_wp,0.27592565_wp, & ! Mn-Zn
-     &0.30762999_wp,0.33931580_wp,0.37235985_wp,0.40273549_wp,0.43445776_wp,0.46611708_wp, & ! Ga-Kr
-     &0.15585079_wp,0.18649324_wp,0.19356210_wp,0.20063311_wp,0.20770522_wp,0.21477254_wp, & ! Rb-Mo
-     &0.22184614_wp,0.22891872_wp,0.23598621_wp,0.24305612_wp,0.25013018_wp,0.25719937_wp, & ! Tc-Cd
-     &0.28784780_wp,0.31848673_wp,0.34912431_wp,0.37976593_wp,0.41040808_wp,0.44105777_wp, & ! In-Xe
-     &0.05019332_wp,0.06762570_wp,0.08504445_wp,0.10247736_wp,0.11991105_wp,0.13732772_wp, & ! Cs-Nd
-     &0.15476297_wp,0.17218265_wp,0.18961288_wp,0.20704760_wp,0.22446752_wp,0.24189645_wp, & ! Pm-Dy
-     &0.25932503_wp,0.27676094_wp,0.29418231_wp,0.31159587_wp,0.32902274_wp,0.34592298_wp, & ! Ho-Hf
-     &0.36388048_wp,0.38130586_wp,0.39877476_wp,0.41614298_wp,0.43364510_wp,0.45104014_wp, & ! Ta-Pt
-     &0.46848986_wp,0.48584550_wp,0.12526730_wp,0.14268677_wp,0.16011615_wp,0.17755889_wp, & ! Au-Po
-     &0.19497557_wp,0.21240778_wp,& ! At, Rn
-     &0.07263133_wp,0.09421788_wp,0.09920108_wp,0.10418429_wp,0.14235212_wp,0.16393866_wp, & ! Fr-U
-     &0.18675998_wp,0.22370039_wp,0.25113742_wp,0.25026279_wp,0.28843797_wp,0.31002451_wp, & ! Np-Cf
-     &0.33159636_wp,0.35316820_wp,0.36822807_wp,0.39634864_wp,0.40135389_wp & ! Es-Lr
-     &/)
+    real(wp),parameter :: c(1:103) = (/ &
+   &0.47259288_wp,0.92203391_wp,0.17452888_wp,0.25700733_wp,0.33949086_wp,0.42195412_wp, & ! H-C
+   &0.50438193_wp,0.58691863_wp,0.66931351_wp,0.75191607_wp,0.17964105_wp,0.22157276_wp, & ! N-Mg
+   &0.26348578_wp,0.30539645_wp,0.34734014_wp,0.38924725_wp,0.43115670_wp,0.47308269_wp, & ! Al-Ar
+   &0.17105469_wp,0.20276244_wp,0.21007322_wp,0.21739647_wp,0.22471039_wp,0.23201501_wp, & ! Ca-Cr
+   &0.23933969_wp,0.24665638_wp,0.25398255_wp,0.26128863_wp,0.26859476_wp,0.27592565_wp, & ! Mn-Zn
+   &0.30762999_wp,0.33931580_wp,0.37235985_wp,0.40273549_wp,0.43445776_wp,0.46611708_wp, & ! Ga-Kr
+   &0.15585079_wp,0.18649324_wp,0.19356210_wp,0.20063311_wp,0.20770522_wp,0.21477254_wp, & ! Rb-Mo
+   &0.22184614_wp,0.22891872_wp,0.23598621_wp,0.24305612_wp,0.25013018_wp,0.25719937_wp, & ! Tc-Cd
+   &0.28784780_wp,0.31848673_wp,0.34912431_wp,0.37976593_wp,0.41040808_wp,0.44105777_wp, & ! In-Xe
+   &0.05019332_wp,0.06762570_wp,0.08504445_wp,0.10247736_wp,0.11991105_wp,0.13732772_wp, & ! Cs-Nd
+   &0.15476297_wp,0.17218265_wp,0.18961288_wp,0.20704760_wp,0.22446752_wp,0.24189645_wp, & ! Pm-Dy
+   &0.25932503_wp,0.27676094_wp,0.29418231_wp,0.31159587_wp,0.32902274_wp,0.34592298_wp, & ! Ho-Hf
+   &0.36388048_wp,0.38130586_wp,0.39877476_wp,0.41614298_wp,0.43364510_wp,0.45104014_wp, & ! Ta-Pt
+   &0.46848986_wp,0.48584550_wp,0.12526730_wp,0.14268677_wp,0.16011615_wp,0.17755889_wp, & ! Au-Po
+   &0.19497557_wp,0.21240778_wp,& ! At, Rn
+   &0.07263133_wp,0.09421788_wp,0.09920108_wp,0.10418429_wp,0.14235212_wp,0.16393866_wp, & ! Fr-U
+   &0.18675998_wp,0.22370039_wp,0.25113742_wp,0.25026279_wp,0.28843797_wp,0.31002451_wp, & ! Np-Cf
+   &0.33159636_wp,0.35316820_wp,0.36822807_wp,0.39634864_wp,0.40135389_wp & ! Es-Lr
+   &/)
 
-      intrinsic :: exp
+    intrinsic :: exp
 
-      qmod = zeff(at)+q
-      if (qmod .lt. 0._wp) then
-        zeta = exp(3.0d0)
-      else
-        zeta = exp(3.0d0*(1._wp-exp(c(at)*(1._wp-zeff(at)/qmod))))
-      end if
+    qmod = zeff(at)+q
+    if (qmod .lt. 0._wp) then
+      zeta = exp(3.0d0)
+    else
+      zeta = exp(3.0d0*(1._wp-exp(c(at)*(1._wp-zeff(at)/qmod))))
+    end if
 
-    end function zeta
-
-  end subroutine gfnff_ini
+  end function zeta
 
   subroutine gfnff_topo_changes(neigh,myunit)
     type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
@@ -2470,31 +2470,33 @@ contains
     integer :: int_tmp(40)
     integer :: i,j,idx,iTr,d1,d2,numnb,nnb
 
-    ! only do something if there are changes stored in set%ffnb
-    if (allocated(set%ffnb)) then
-      ! check if hardcoded size of ffnb is still up to date
-      if (size(set%ffnb,dim=1) .ne. neigh%numnb) write (myunit,'(a,1x,a)') 'The array set%ffnb has not been adjusted to changes in neigh%numnb.',source
-      ! there should not be any "-1" in set%ffnb anymore, if it was set up correctly
-      if (any(set%ffnb .eq. -1)) write (myunit,'(a,1x,a)') 'GFN-FF neighbor list could not be adjusted!',source
-      d2 = size(set%ffnb,dim=2)
-      do i = 1,d2
-        if (set%ffnb(1,i) .eq. -1) exit
-        idx = set%ffnb(1,i)
-        int_tmp = set%ffnb(2:41,i)
-        ! Do heavy atom neighbor list
-        neigh%nb(1:40,idx,1) = int_tmp
-        neigh%nb(neigh%numnb,idx,1) = set%ffnb(42,i)
-        ! Do full neighbor list
-        neigh%nbf(1:40,idx,1) = int_tmp
-        neigh%nbf(neigh%numnb,idx,1) = set%ffnb(42,i)
-        ! Do no metal neighbor list
-        neigh%nbm(1:40,idx,1) = int_tmp
-        neigh%nbm(neigh%numnb,idx,1) = set%ffnb(42,i)
-      end do
-      write (myunit,*) ''
-      write (myunit,*) 'The neighborlist has been adjusted according to the input file.'
-      write (myunit,*) ''
-    end if
+    !> old xtb set-block globals
+
+!    ! only do something if there are changes stored in set%ffnb
+!    if (allocated(set%ffnb)) then
+!      ! check if hardcoded size of ffnb is still up to date
+!      if (size(set%ffnb,dim=1) .ne. neigh%numnb) write (myunit,'(a,1x,a)') 'The array set%ffnb has not been adjusted to changes in neigh%numnb.',source
+!      ! there should not be any "-1" in set%ffnb anymore, if it was set up correctly
+!      if (any(set%ffnb .eq. -1)) write (myunit,'(a,1x,a)') 'GFN-FF neighbor list could not be adjusted!',source
+!      d2 = size(set%ffnb,dim=2)
+!      do i = 1,d2
+!        if (set%ffnb(1,i) .eq. -1) exit
+!        idx = set%ffnb(1,i)
+!        int_tmp = set%ffnb(2:41,i)
+!        ! Do heavy atom neighbor list
+!        neigh%nb(1:40,idx,1) = int_tmp
+!        neigh%nb(neigh%numnb,idx,1) = set%ffnb(42,i)
+!        ! Do full neighbor list
+!        neigh%nbf(1:40,idx,1) = int_tmp
+!        neigh%nbf(neigh%numnb,idx,1) = set%ffnb(42,i)
+!        ! Do no metal neighbor list
+!        neigh%nbm(1:40,idx,1) = int_tmp
+!        neigh%nbm(neigh%numnb,idx,1) = set%ffnb(42,i)
+!      end do
+!      write (myunit,*) ''
+!      write (myunit,*) 'The neighborlist has been adjusted according to the input file.'
+!      write (myunit,*) ''
+!    end if
 
   end subroutine gfnff_topo_changes
 

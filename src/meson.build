@@ -18,6 +18,7 @@ srcs += files(
   'gfnff_cn.f90',
   'gfnff_gdisp0.f90',
   'gfnff_qm.f90',
+  'gfnff_wsc.f90',
   'gfnff_timer_mod.f90',
   'gfnff_ini2.f90',
   'gfnff_ini.f90',

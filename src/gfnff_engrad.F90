@@ -23,10 +23,11 @@ module gfnff_engrad_module
     &                       TCell,TDispersionData
   use gfnff_neighbor,only:TNeigh
   use gfnff_gbsa,only:TBorn
-  use gfnff_param,only:sqrtZr4r2
+  use gfnff_param,only:sqrtZr4r2,gffVersion
   use gfnff_helpers
   use gfnff_cn
-  use gfnff_timer_mod, only: gfnff_timer
+  use gfnff_timer_mod,only:gfnff_timer
+  use gfnff_math_wrapper
   implicit none
   private
   public :: gfnff_eg,gfnff_results
@@ -97,8 +98,8 @@ contains  !> MODULE PROCEDURES START HERE
     character(len=*),parameter :: source = 'gfnff_eg'
     real(wp),allocatable :: rec_tVec(:,:)
     type(TNeigh),intent(inout) :: neigh ! main type for introducing PBC
-    integer,intent(in)  :: n,ichrg,at(n) 
-    real(wp),intent(in) :: xyz(3,n)      
+    integer,intent(in)  :: n,ichrg,at(n)
+    real(wp),intent(in) :: xyz(3,n)
     type(TCell),intent(in) :: cell
     type(TDispersionData) :: disp_par,mcdisp_par
     type(gfnff_results),intent(out) :: res_gff
@@ -204,13 +205,13 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (pr) then
 
-      call timer%new(10+count([allocated(solvation)]),.false.)
+      call timer%new(10+count([allocated(solvation)]))
 
     else if (present(minpr)) then
 
       ! to iteration time for single cycle !
       if (minpr) then
-        call timer%new(1,.false.)
+        call timer%new(1)
         call timer%measure(1,'iter. time')
       end if
 
@@ -242,7 +243,7 @@ contains  !> MODULE PROCEDURES START HERE
     end do
     if (cell%npbc .ne. 0) then
       dist = 0.0_wp
-      !$omp parallel do collapse(2) default(none) shared(dist,mol) &
+      !$omp parallel do collapse(2) default(none) shared(dist,xyz) &
       !$omp private(i,j)
       do i = 1,n
         do j = 1,n
@@ -268,11 +269,11 @@ contains  !> MODULE PROCEDURES START HERE
     require_update = .not.nlist%initialized
     if (.not.nlist%initialized) then
       if (pr) then
-        write (env%unit,'(10x,"Number of HB bonds (bound hydrogen)",5x,i0,x,i0,x,i0)') &
+        write (stdout,'(10x,"Number of HB bonds (bound hydrogen)",5x,i0,x,i0,x,i0)') &
               & nhb1
-        write (env%unit,'(10x,"Number of HB bonds (unbound hydrogen)",3x,i0,x,i0,x,i0)') &
+        write (stdout,'(10x,"Number of HB bonds (unbound hydrogen)",3x,i0,x,i0,x,i0)') &
               & nhb2
-        write (env%unit,'(10x,"Number of XB bonds",22x,i0,x,i0,x,i0)') &
+        write (stdout,'(10x,"Number of XB bonds",22x,i0,x,i0,x,i0)') &
               & nxb
       end if
       call new(nlist,n,5*nhb1,5*nhb2,3*nxb)
@@ -289,7 +290,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (allocated(solvation)) then
       call timer%measure(11,"GBSA")
-      call solvation%update(env,at,xyz)
+      call solvation%update(at,xyz)
       call timer%measure(11)
     end if
 
@@ -382,7 +383,7 @@ contains  !> MODULE PROCEDURES START HERE
     else
       if (pr) call timer%measure(3,'dCN')
       if (sum(neigh%nr_hb) .gt. 0) call dncoord_erf(n,at,xyz,param%rcov,hb_cn,hb_dcn,900.0d0,topo,neigh,dhbcndL) ! HB erf CN
-      call getCoordinationNumber(mol,neigh%nTrans,neigh%transVec,60.0_wp,5,cn,dcndr,dcndL,param)
+      call getCoordinationNumber(n,at,xyz,neigh%nTrans,neigh%transVec,60.0_wp,5,cn,dcndr,dcndL,param)
       if (pr) call timer%measure(3)
     end if
 
@@ -392,12 +393,12 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (cell%npbc .eq. 0) then
       if (pr) call timer%measure(4,'EEQ energy and q')
-      call goed_gfnff(env,accuracy .gt. 1,n,at,sqrab,srab,&         ! modified version
+      call goed_gfnff(accuracy .gt. 1,n,at,sqrab,srab,&         ! modified version
       &                dfloat(ichrg),eeqtmp,cn,nlist%q,ees,solvation,param,topo)  ! without dq/dr
       if (pr) call timer%measure(4)
     else
       if (pr) call timer%measure(4,'EEQ energy and q')
-      call goed_pbc_gfnff(env,mol,accuracy .gt. 1,n,at,dist, &
+      call goed_pbc_gfnff(accuracy .gt. 1,n,at,dist,cell, &
       & dfloat(ichrg),eeqtmp,cn,nlist%q,ees,solvation,param,topo,gTrans, &
       & rTrans,xtmp,convF)  ! without dq/dr
       ees = ees*mcf_ees
@@ -419,10 +420,10 @@ contains  !> MODULE PROCEDURES START HERE
     else
       ! use adjusted dispersion parameters for inter-molecular interactions
       ! calculate inter-molecular dispersion
-      call d3_gradientPBC(topo%dispm,mol,topo%fraglist,neigh%nTrans,neigh%transVec,mcdisp_par,4.0_wp,topo%zetac6, &
+      call d3_gradientPBC(topo%dispm,n,at,xyz,cell,topo%fraglist,neigh%nTrans,neigh%transVec,mcdisp_par,4.0_wp,topo%zetac6, &
            & param%d3r0,60.0_wp,.true.,cn,dcndr,dcndL,edisp,g,sigma)
       ! calculate intra-molecular dispersion
-      call d3_gradientPBC(topo%dispm,mol,topo%fraglist,neigh%nTrans,neigh%transVec,disp_par,4.0_wp,topo%zetac6, &
+      call d3_gradientPBC(topo%dispm,n,at,xyz,cell,topo%fraglist,neigh%nTrans,neigh%transVec,disp_par,4.0_wp,topo%zetac6, &
            & param%d3r0,60.0_wp,.false.,cn,dcndr,dcndL,edisp,g,sigma)
     end if
 
@@ -455,8 +456,8 @@ contains  !> MODULE PROCEDURES START HERE
 
       if (allocated(solvation)) then
         call timer%measure(11,"GBSA")
-        call solvation%addGradient(env,at,xyz,nlist%q,nlist%q,g)
-        call solvation%getEnergyParts(env,nlist%q,nlist%q,gborn,ghb,gsasa, &
+        call solvation%addGradient(at,xyz,nlist%q,nlist%q,g)
+        call solvation%getEnergyParts(nlist%q,nlist%q,gborn,ghb,gsasa, &
         & gshift)
         gsolv = gsasa+gborn+ghb+gshift
         call timer%measure(11)
@@ -469,20 +470,20 @@ contains  !> MODULE PROCEDURES START HERE
         qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
       end do
 
-      call mctc_gemv(dcn,qtmp,g,alpha=-1.0_wp,beta=1.0_wp)
+      call gemv(dcn,qtmp,g,alpha=-1.0_wp,beta=1.0_wp)
       if (pr) call timer%measure(6)
     else ! periodic case
       if (pr) call timer%measure(6,'EEQ gradient')
 
-      call es_grad_sigma(mol,topo,nlist,rTrans,gTrans,xtmp,convF, &
+      call es_grad_sigma(n,at,xyz,cell,topo,nlist,rTrans,gTrans,xtmp,convF, &
                  & sigma,g,mcf_ees)
 
       if (.not.pr) deallocate (eeqtmp)
 
       if (allocated(solvation)) then
         call timer%measure(11,"GBSA")
-        call solvation%addGradient(env,at,xyz,nlist%q,nlist%q,g)
-        call solvation%getEnergyParts(env,nlist%q,nlist%q,gborn,ghb,gsasa, &
+        call solvation%addGradient(at,xyz,nlist%q,nlist%q,g)
+        call solvation%getEnergyParts(nlist%q,nlist%q,gborn,ghb,gsasa, &
         & gshift)
         gsolv = gsasa+gborn+ghb+gshift
         call timer%measure(11)
@@ -496,8 +497,8 @@ contains  !> MODULE PROCEDURES START HERE
         qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
       end do
 
-      call mctc_gemv(dcndr,qtmp,g,alpha=-mcf_ees,beta=1.0_wp)
-      call mctc_gemv(dcndL,qtmp,sigma,alpha=-mcf_ees,beta=1.0_wp)
+      call gemv(dcndr,qtmp,g,alpha=-mcf_ees,beta=1.0_wp)
+      call gemv(dcndL,qtmp,sigma,alpha=-mcf_ees,beta=1.0_wp)
 
       if (pr) call timer%measure(6)
     end if
@@ -544,7 +545,7 @@ contains  !> MODULE PROCEDURES START HERE
         end if
       end do
       !$omp end parallel do
-      call mctc_gemv(dcndL,dEdcn,sigma,alpha=1.0_wp,beta=1.0_wp)
+      call gemv(dcndL,dEdcn,sigma,alpha=1.0_wp,beta=1.0_wp)
 
       deallocate (dcndL)
       deallocate (hb_dcn)
@@ -603,7 +604,7 @@ contains  !> MODULE PROCEDURES START HERE
     if (pr) call timer%measure(8,'bend and torsion')
     if (topo%nangl .gt. 0) then
       !$omp parallel do default(none) reduction (+:eangl, g, sigma) &
-      !$omp shared(n, at, xyz, topo, neigh, param, mol) &
+      !$omp shared(n, at, xyz, topo, neigh, param) &
       !$omp private(m, j, i, k, etmp, g3tmp,ds)
       do m = 1,topo%nangl
         i = topo%alist(1,m)
@@ -625,7 +626,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     if (topo%ntors .gt. 0) then
       !$omp parallel do default(none) reduction(+:etors, g, sigma) &
-      !$omp shared(param, topo, neigh, n, at, xyz, mol) &
+      !$omp shared(param, topo, neigh, n, at, xyz) &
       !$omp private(m, i, j, k, l,iTrl,iTrj,iTrk, etmp, g4tmp,ds)
       do m = 1,topo%ntors
         i = topo%tlist(1,m)  ! is actually l  ! for out-of-plane it is correct
@@ -838,9 +839,9 @@ contains  !> MODULE PROCEDURES START HERE
 
       call timer%write(6,'E+G')
       if (abs(sum(nlist%q)-ichrg) .gt. 1.d-1) then ! check EEQ only once
-        write (env%unit,*) nlist%q
-        write (env%unit,*) sum(nlist%q),ichrg
-        call env%error('EEQ charge constrain error',source)
+        write (stdout,*) nlist%q
+        write (stdout,*) sum(nlist%q),ichrg
+        write (stdout,'("**ERROR**",a,1x,a)') 'EEQ charge constrain error',source
         return
       end if
       r3 = 0
@@ -857,11 +858,11 @@ contains  !> MODULE PROCEDURES START HERE
       ! asymtotically for R=inf, Etot is the SIE contaminted EES !
       ! which is computed here to get the atomization energy De,n,at(n) !
       if (cell%npbc .eq. 0) then
-        call goed_gfnff(env,.true.,n,at,sqrab,srab,dfloat(ichrg),eeqtmp,cn,qtmp,eesinf,solvation,param,topo)
+        call goed_gfnff(.true.,n,at,sqrab,srab,dfloat(ichrg),eeqtmp,cn,qtmp,eesinf,solvation,param,topo)
       else
         if (allocated(gTrans)) deallocate (gTrans)
         if (allocated(rTrans)) deallocate (rTrans)
-        call goed_pbc_gfnff(env,mol,.true.,n,at,rinf, &
+        call goed_pbc_gfnff(.true.,n,at,rinf,cell, &
         & dfloat(ichrg),eeqtmp,cn,qtmp,eesinf,solvation,param,topo,gTrans, &
         & rTrans,xtmp,convF)  ! without dq/dr
       end if
@@ -873,7 +874,7 @@ contains  !> MODULE PROCEDURES START HERE
       if (minpr) then
         call timer%measure(1)
         ! stop timer and add tag !
-        call timer%write_timing(env%unit,1)
+        !call timer%write_timing(stdout,1)
       end if
 
     end if
@@ -897,7 +898,7 @@ contains  !> MODULE PROCEDURES START HERE
     res_gff%g_shift = gshift
     res_gff%g_sasa = gsasa
 
-    call mctc_gemv(xyz,nlist%q,res_gff%dipole)
+    call gemv(xyz,nlist%q,res_gff%dipole)
 
   end subroutine gfnff_eg
 
@@ -1110,8 +1111,6 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine dncoord_erf(nat,at,xyz,rcov,cn,dcn,thr,topo,neigh,dcndL)
 
-    use xtb_mctc_accuracy,only:wp
-
     implicit none
 
     type(TGFFTopology),intent(in) :: topo
@@ -1181,7 +1180,6 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine egbend(m,j,i,k,n,at,xyz,e,g,ds,param,topo,neigh)
-    use xtb_mctc_constants
     implicit none
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
@@ -1265,8 +1263,6 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine egbend_nci_mul(j,i,k,vTrB,vTrC,c0,fc,n,at,xyz,e,g)
-
-    use xtb_mctc_constants
     implicit none
 
     integer n,at(n)
@@ -1326,7 +1322,6 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine egbend_nci(j,i,k,c0,kijk,n,at,xyz,e,g,param)
 
-    use xtb_mctc_constants
     implicit none
 
     type(TGFFData),intent(in) :: param
@@ -1392,7 +1387,6 @@ contains  !> MODULE PROCEDURES START HERE
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   subroutine egtors(m,i,j,k,l,iTrl,iTrj,iTrk,n,at,xyz,e,g,ds,param,topo,neigh)
-    use xtb_mctc_constants
     implicit none
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
@@ -1533,7 +1527,6 @@ contains  !> MODULE PROCEDURES START HERE
 
 !> torsion without distance damping !!! damping is inherint in the HB term
   subroutine egtors_nci_mul(i,j,k,l,vTrR,vTrB,vTrC,rn,phi,phi0,tshift,n,at,xyz,e,g)
-    use xtb_mctc_constants
     implicit none
     !Dummy
     integer n,at(n)
@@ -1580,7 +1573,6 @@ contains  !> MODULE PROCEDURES START HERE
 
   subroutine egtors_nci(i,j,k,l,rn,phi0,fc,n,at,xyz,e,g,param)
 
-    use xtb_mctc_constants
     implicit none
 
     type(TGFFData),intent(in) :: param
@@ -1705,14 +1697,11 @@ contains  !> MODULE PROCEDURES START HERE
 !       based on charge densities obtained by a neural network
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  subroutine goed_gfnff(env,single,n,at,sqrab,r,chrg,eeqtmp,cn,q,es,gbsa,param,topo)
+  subroutine goed_gfnff(single,n,at,sqrab,r,chrg,eeqtmp,cn,q,es,gbsa,param,topo)
 
-    use xtb_mctc_accuracy,only:wp,sp
-    use xtb_mctc_la
     implicit none
 
     character(len=*),parameter :: source = 'gfnff_eg_goed'
-    type(TEnvironment),intent(inout) :: env
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
 
@@ -1749,7 +1738,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> Solvation
     type(TBorn),allocatable,intent(in) :: gbsa
 
-    integer  :: m,i,j,k,ii,ij
+    integer  :: m,i,j,k,ii,ij,io1,io2
     integer,allocatable :: ipiv(:)
     real(wp) :: gammij,tsqrt2pi,r2,tmp
     real(wp),allocatable :: A(:,:),x(:)
@@ -1820,24 +1809,23 @@ contains  !> MODULE PROCEDURES START HERE
       A4 = A
       x4 = x
       deallocate (A,x)
-      call mctc_sytrf(env,a4,ipiv)
-      call mctc_sytrs(env,a4,x4,ipiv)
+      call sytrf_wrap(a4,ipiv,io1)
+      call sytrs_wrap(a4,x4,ipiv,io2)
       q(1:n) = x4(1:n)
       deallocate (A4,x4)
 
     else
 
-      call mctc_sytrf(env,a,ipiv)
-      call mctc_sytrs(env,a,x,ipiv)
+      call sytrf_wrap(a,ipiv,io1)
+      call sytrs_wrap(a,x,ipiv,io2)
       q(1:n) = x(1:n)
       deallocate (A,x)
 
     end if
 
-    call env%check(exitRun)
-
+    exitrun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      call env%error('Solving linear equations failed',source)
+      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
@@ -1863,23 +1851,18 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine goed_gfnff
 
-  subroutine goed_pbc_gfnff(env,mol,single,n,at,r,chrg,eeqtmp,cn,q,es,&
+  subroutine goed_pbc_gfnff(single,n,at,r,cell,chrg,eeqtmp,cn,q,es,&
                         & gbsa,param,topo,gTrans,rTrans,x,cf)
-    use xtb_mctc_accuracy,only:wp,sp
-    use xtb_mctc_la
-    use xtb_mctc_blas,only:mctc_symv
     implicit none
     character(len=*),parameter :: source = 'gfnff_eg_goed'
     ! Molecular structure information
-    type(TMolecule),intent(in) :: mol
-    type(TEnvironment),intent(inout) :: env
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
     logical,intent(in)  :: single     ! real*4 flag for solver
     integer,intent(in)  :: n          ! number of atoms
-    !integer, intent(in)  :: numctr
-    integer,intent(in)  :: at(n)      ! ordinal numbers
-    real(wp),intent(in)  :: r(n,n)       ! dist
+    integer,intent(in)     :: at(n)   ! ordinal numbers
+    real(wp),intent(in)    :: r(n,n)  ! dist
+    type(TCell),intent(in) :: cell
     real(wp),intent(in)  :: chrg       ! total charge on system
     real(wp),intent(in)  :: cn(n)      ! CN
     real(wp),intent(out) :: q(n)       ! output charges
@@ -1890,7 +1873,7 @@ contains  !> MODULE PROCEDURES START HERE
     type(TBorn),allocatable,intent(in) :: gbsa
 
     ! local variables
-    integer  :: m,i,j,k,ii,ij
+    integer  :: m,i,j,k,ii,ij,io1,io2
     integer,allocatable :: ipiv(:)
     real(wp) :: gammij,tsqrt2pi,r2,tmp
     real(wp),allocatable :: A(:,:),x_right(:)
@@ -1962,7 +1945,7 @@ contains  !> MODULE PROCEDURES START HERE
     cf = get_cf(rTrans,gTrans,cell%volume,avgAlpeeq)
 
     ! build Ewald matrix
-    call get_amat_3d(mol,topo,cf,rTrans,gTrans,Amat)
+    call get_amat_3d(n,at,xyz,topo,cf,rTrans,gTrans,Amat)
 
     !  setup RHS
     do i = 1,n
@@ -1993,38 +1976,403 @@ contains  !> MODULE PROCEDURES START HERE
       x4 = x
       x_right(1:n) = x(1:n)
       deallocate (Amat)
-      call mctc_sytrf(env,a4,ipiv)
-      call mctc_sytrs(env,a4,x4,ipiv)
+      call sytrf_wrap(a4,ipiv,io1)
+      call sytrs_wrap(a4,x4,ipiv,io2)
       q(1:n) = x4(1:n)
       x = x4
       deallocate (A4,x4)
     else
       x_right(1:n) = x(1:n)
-      call mctc_sytrf(env,Amat,ipiv)
-      call mctc_sytrs(env,Amat,x,ipiv)
+      call sytrf_wrap(Amat,ipiv,io1)
+      call sytrs_wrap(Amat,x,ipiv,io2)
       q(1:n) = x(1:n)
       deallocate (Amat)
     end if
 
-    call env%check(exitRun)
+    exitRUn = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
-      call env%error('Solving linear equations failed',source)
+      write (stdout,'("**ERROR**",a,1x,a)') 'Solving linear equations failed',source
       return
     end if
 
     if (n .eq. 1) q(1) = chrg
 
     ! calculate E_es = q^T*(0.5*A*q-X) |  ^T is the transpose
-    ! First calc bracket term with mctc_symv, result is saved in x_right
+    ! First calc bracket term with symv, result is saved in x_right
     ! now the x is used as q to save memory
-    call mctc_symv(Amat_or,x,x_right,alpha=0.5_wp,beta=-1.0_wp)
-    ! from src/mctc/blas/level2.F90 about mctc_symv similar to mctc_gemv
+    call symv(Amat_or,x,x_right,alpha=0.5_wp,beta=-1.0_wp)
+    ! about symv similar to gemv
     ! y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y
 
     !Calc ES as dot product (=matrix product) since q and x are vectors
     !es = dot_product(x, x_right)
-    es = mctc_dot(x,x_right)!*1.05_wp
+    es = dot(x,x_right)!*1.05_wp
   end subroutine goed_pbc_gfnff
+
+  function get_cf(rTrans,gTrans,vol,avgAlp) result(cf)
+    ! output the ewald splitting parameter
+    real(wp) :: cf
+    ! parameter from goed_pbc_gfnff ewaldCutD and ewaldCutR
+    integer,parameter :: ewaldCutD(3) = 2
+    integer,parameter :: ewaldCutR(3) = 2
+    ! real space lattice vectors
+    real(wp),intent(in) :: rTrans(:,:)
+    ! reciprocal space lattice vectors
+    real(wp),intent(in) :: gTrans(:,:)
+    ! unit cell volume
+    real(wp),intent(in) :: vol
+    ! average alphaEEQ value
+    real(wp),intent(in) :: avgAlp
+    ! smallest reciprocal and real space Vectors
+    real(wp) :: minG,minR
+    ! approx Value of reciprocal and real part electrostatics
+    real(wp) :: gPart,rPart
+    !
+    real(wp) :: gam
+    ! current cf
+    real(wp) :: cfCurr
+    !
+    real(wp) :: lenR,minTmp,gr_diff,diffMin
+    real(wp) :: a(100)
+    ! tolerance for golden-section search
+    real(wp),parameter :: tol = 1.0e-4_wp
+    ! golden ratio
+    real(wp),parameter :: goldr = (1.0_wp+sqrt(2.0_wp))/2.0_wp
+    ! evaluation points for gss
+    real(wp) :: x1,x2,x3,x4
+    !
+    integer :: i,j,iter
+
+    cf = 0.14999_wp ! default
+    gam = 1.0_wp/sqrt(2*avgAlp)
+
+    ! get smallest real and reciprocal vector
+    minG = sqrt(minval(sum(gTrans(:,:)**2,dim=1)))
+    minR = huge(1.0_wp)
+    do i = 1,size(rTrans,dim=2)
+      lenR = sqrt(sum(rTrans(:,i)**2))
+      if (lenR .ne. 0.0_wp) then
+        minR = min(minR,lenR)
+      end if
+    end do
+
+    ! golden-section search algorithm for convergence factor
+    iter = 0
+    x1 = 1.0e-8_wp  ! left margin
+    x4 = 2.0e+0_wp  ! right margin
+    x2 = x4-(x4-x1)/goldr
+    x3 = x1+(x4-x1)/goldr
+    do while ((x4-x1) > tol)
+      iter = iter+1
+      if (grFct(x2,minG,minR,vol,gam) .lt. grFct(x3,minG,minR,vol,gam)) then
+        x4 = x3
+      else
+        x1 = x2
+      end if
+      ! recalculate x2 and x3
+      x2 = x4-(x4-x1)/goldr
+      x3 = x1+(x4-x1)/goldr
+    end do
+
+    cf = (x1+x4)/2.0_wp
+  end function get_cf
+
+  function grFct(cfCurr,minG,minR,vol,gam) result(gr_diff)
+    real(wp) :: gr_diff
+    ! smallest reciprocal and real space Vectors
+    real(wp),intent(in) :: cfCurr,minG,minR,vol,gam
+    ! approx Value of reciprocal and real part electrostatics
+    real(wp) :: gPart,rPart
+
+    gPart = 4.0_wp*pi*exp(-minG**2/(4.0_wp*cfCurr**2))/(vol*minG**2)
+    rPart = -erf(cfCurr*minR)/minR+erf(gam*minR)/minR
+    gr_diff = abs(gPart-rPart)
+  end function grFct
+
+  subroutine es_grad_sigma(nat,at,xyz,cell,topo,nlist,rTrans,gTrans,xtmp,cf, &
+           & sigma,gradient,mcf_ees)
+    integer,intent(in) :: nat,at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TCell),intent(in) :: cell
+    type(TGFFTopology),intent(in) :: topo
+    type(TGFFNeighbourList),intent(in) :: nlist
+    real(wp),intent(in) :: cf
+    !real(wp), intent(in) :: qvec(:)
+    real(wp),intent(in) :: gTrans(:,:)
+    real(wp),intent(in) :: rTrans(:,:)
+    real(wp),intent(in) :: xtmp(nat+topo%nfrag)
+    real(wp),intent(inout) :: sigma(3,3)
+    real(wp),intent(inout) :: gradient(3,nat)
+    real(wp),intent(in) :: mcf_ees
+    real(wp),allocatable :: dXvecdr(:,:,:)
+    real(wp),allocatable :: amatdr(:,:,:)
+    real(wp),allocatable :: amatdL(:,:,:)
+    real(wp),allocatable :: atrace(:,:)
+    allocate (amatdr(3,nat,nat),amatdL(3,3,nat),source=0.0_wp)
+    allocate (atrace(3,nat),source=0.0_wp)
+
+    ! new routine from D4 for calculating derivatives
+    call get_damat_3d(nat,at,xyz,cell,topo,cf,xtmp,rTrans,gTrans,amatdr,amatdL,atrace)
+
+    ! y := alpha*A*x + beta*y,   or   y := alpha*A**T*x + beta*y
+    call gemv(amatdr,nlist%q,gradient,alpha=mcf_ees,beta=1.0_wp)
+
+    ! Ees=q^T*(0.5*A*q-X)  here is the 0.5qA'q part. The -qX' part is below the es_grad_sigma call
+    call gemv(amatdL,nlist%q,sigma,alpha=0.5_wp*mcf_ees,beta=1.0_wp)
+
+  end subroutine es_grad_sigma
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!               code below taken from dftd4                                     !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  subroutine get_amat_3d(nat,at,xyz,cell,topo,alpha,rTrans,gTrans,amat)
+    integer,intent(in) :: nat,at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TCell),intent(in) :: cell
+    type(TGFFTopology),intent(in) :: topo
+    real(wp),intent(in) :: alpha
+    real(wp),intent(in) :: rTrans(:,:)
+    real(wp),intent(in) :: gTrans(:,:)
+    real(wp),intent(out) :: amat(:,:)
+
+    integer :: iat,jat,izp,jzp,img
+    real(wp) :: vec(3),gam,wsw,dtmp,rtmp,vol
+    real(wp),parameter :: zero(3) = 0.0_wp
+    real(wp),parameter :: sqrt2pi = sqrt(2.0_wp/pi)
+    real(wp),parameter :: sqrtpi = 1.772453850905516_wp
+
+    amat(:,:) = 0.0_wp
+
+    vol = cell%volume ! abs(matdet_3x3(cell%lattice))
+
+    !$omp parallel do default(none) schedule(runtime) &
+    !$omp reduction(+:amat) shared(nat,at,xyz,cell, topo, rTrans, gTrans, alpha, vol) &
+    !$omp private(iat, jat, gam, wsw, vec, dtmp, rtmp)
+    do iat = 1,nat
+      do jat = 1,iat-1
+        gam = 1.0_wp/sqrt(topo%alpeeq(iat)+topo%alpeeq(jat))
+        wsw = cell%wsc%w(jat,iat)
+        do img = 1,cell%wsc%itbl(jat,iat)
+          vec = xyz(:,iat)-xyz(:,jat) &
+             & -(cell%lattice(:,1)*cell%wsc%lattr(1,img,jat,iat) &
+             &  +cell%lattice(:,2)*cell%wsc%lattr(2,img,jat,iat) &
+             &  +cell%lattice(:,3)*cell%wsc%lattr(3,img,jat,iat))
+          call get_amat_dir_3d(vec,gam,alpha,rTrans,dtmp)
+          call get_amat_rec_3d(vec,vol,alpha,gTrans,rtmp)
+          amat(jat,iat) = amat(jat,iat)+(dtmp+rtmp)*wsw
+          amat(iat,jat) = amat(iat,jat)+(dtmp+rtmp)*wsw
+        end do
+      end do
+
+      gam = 1.0_wp/sqrt(2.0_wp*topo%alpeeq(iat))
+      wsw = cell%wsc%w(iat,iat)
+      do img = 1,cell%wsc%itbl(iat,iat)
+        vec = zero
+
+        call get_amat_dir_3d(vec,gam,alpha,rTrans,dtmp)
+        call get_amat_rec_3d(vec,vol,alpha,gTrans,rtmp)
+        amat(iat,iat) = amat(iat,iat)+(dtmp+rtmp)*wsw
+      end do
+
+      dtmp = topo%gameeq(iat)+sqrt2pi/sqrt(topo%alpeeq(iat))-2*alpha/sqrtpi
+      amat(iat,iat) = amat(iat,iat)+dtmp
+    end do
+    !$omp end parallel do
+
+    amat(nat+1,1:nat+1) = 1.0_wp
+    amat(1:nat+1,nat+1) = 1.0_wp
+    amat(nat+1,nat+1) = 0.0_wp
+
+  end subroutine get_amat_3d
+
+  subroutine get_amat_dir_3d(rij,gam,alp,trans,amat)
+    real(wp),intent(in) :: rij(3)
+    real(wp),intent(in) :: gam
+    real(wp),intent(in) :: alp
+    real(wp),intent(in) :: trans(:,:)
+    real(wp),intent(out) :: amat
+
+    integer :: itr
+    real(wp) :: vec(3),r1,tmp
+    real(wp),parameter :: eps = 1.0e-9_wp
+
+    amat = 0.0_wp
+
+    do itr = 1,size(trans,2)
+      vec(:) = rij+trans(:,itr)
+      r1 = norm2(vec)
+      if (r1 < eps) cycle
+      tmp = erf(gam*r1)/r1-erf(alp*r1)/r1
+      amat = amat+tmp
+    end do
+
+  end subroutine get_amat_dir_3d
+
+  subroutine get_amat_rec_3d(rij,vol,alp,trans,amat)
+    real(wp),intent(in) :: rij(3)
+    real(wp),intent(in) :: vol
+    real(wp),intent(in) :: alp
+    real(wp),intent(in) :: trans(:,:)
+    real(wp),intent(out) :: amat
+
+    integer :: itr
+    real(wp) :: fac,vec(3),g2,tmp
+    real(wp),parameter :: eps = 1.0e-9_wp
+
+    amat = 0.0_wp
+    fac = 4*pi/vol
+
+    do itr = 1,size(trans,2)
+      vec(:) = trans(:,itr)
+      g2 = dot_product(vec,vec)
+      if (g2 < eps) cycle
+      tmp = cos(dot_product(rij,vec))*fac*exp(-0.25_wp*g2/(alp*alp))/g2
+      amat = amat+tmp
+    end do
+
+  end subroutine get_amat_rec_3d
+
+  subroutine get_damat_3d(nat,at,xyz,cell,topo,alpha,qvec,rTrans,gTrans,dadr,dadL,atrace)
+    integer,intent(in) :: nat,at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    type(TCell),intent(in) :: cell
+    type(TGFFTopology),intent(in) :: topo
+    real(wp),intent(in) :: alpha
+    real(wp),intent(in) :: qvec(:)
+    real(wp),intent(in) :: rTrans(:,:)
+    real(wp),intent(in) :: gTrans(:,:)
+    real(wp),intent(out) :: dadr(:,:,:)
+    real(wp),intent(out) :: dadL(:,:,:)
+    real(wp),intent(out) :: atrace(:,:)
+
+    integer :: iat,jat,izp,jzp,img
+    real(wp) :: vol,gam,wsw,vec(3),dG(3),dS(3,3)
+    real(wp) :: dGd(3),dSd(3,3),dGr(3),dSr(3,3)
+    real(wp),parameter :: zero(3) = 0.0_wp
+
+    atrace(:,:) = 0.0_wp
+    dadr(:,:,:) = 0.0_wp
+    dadL(:,:,:) = 0.0_wp
+
+    vol = cell%volume ! abs(matdet_3x3(cell%lattice))
+
+    !$omp parallel do default(none) schedule(runtime) &
+    !$omp reduction(+:atrace, dadr, dadL) &
+    !$omp shared(nat,at,xyz,cell, topo, alpha, vol, rTrans, gTrans, qvec) &
+    !$omp private(iat, jat, img, gam, wsw, vec, dG, dS, &
+    !$omp& dGr, dSr, dGd, dSd)
+    do iat = 1,nat
+      do jat = 1,iat-1
+        dG(:) = 0.0_wp
+        dS(:,:) = 0.0_wp
+        gam = 1.0_wp/sqrt(topo%alpeeq(iat)+topo%alpeeq(jat))
+        wsw = cell%wsc%w(jat,iat)
+        do img = 1,cell%wsc%itbl(jat,iat)
+          vec = xyz(:,iat)-xyz(:,jat) &
+             & -(cell%lattice(:,1)*cell%wsc%lattr(1,img,jat,iat) &
+             &  +cell%lattice(:,2)*cell%wsc%lattr(2,img,jat,iat) &
+             &  +cell%lattice(:,3)*cell%wsc%lattr(3,img,jat,iat))
+          call get_damat_dir_3d(vec,gam,alpha,rTrans,dGd,dSd)
+          call get_damat_rec_3d(vec,vol,alpha,gTrans,dGr,dSr)
+          dG = dG+(dGd+dGr)*wsw
+          dS = dS+(dSd+dSr)*wsw
+        end do
+        atrace(:,iat) = +dG*qvec(jat)+atrace(:,iat)
+        atrace(:,jat) = -dG*qvec(iat)+atrace(:,jat)
+        dadr(:,iat,jat) = +dG*qvec(iat)+dadr(:,iat,jat)
+        dadr(:,jat,iat) = -dG*qvec(jat)+dadr(:,jat,iat)
+        dadL(:,:,jat) = +dS*qvec(iat)+dadL(:,:,jat)
+        dadL(:,:,iat) = +dS*qvec(jat)+dadL(:,:,iat)
+      end do
+
+      dS(:,:) = 0.0_wp
+      gam = 1.0_wp/sqrt(2.0_wp*topo%alpeeq(iat))
+      wsw = cell%wsc%w(iat,iat)
+      do img = 1,cell%wsc%itbl(iat,iat)
+        vec = zero
+        call get_damat_dir_3d(vec,gam,alpha,rTrans,dGd,dSd)
+        call get_damat_rec_3d(vec,vol,alpha,gTrans,dGr,dSr)
+        dS = dS+(dSd+dSr)*wsw
+      end do
+      dadL(:,:,iat) = +dS*qvec(iat)+dadL(:,:,iat)
+    end do
+    !$omp end parallel do
+
+  end subroutine get_damat_3d
+
+  subroutine get_damat_dir_3d(rij,gam,alp,trans,dg,ds)
+    real(wp),intent(in) :: rij(3)
+    real(wp),intent(in) :: gam
+    real(wp),intent(in) :: alp
+    real(wp),intent(in) :: trans(:,:)
+    real(wp),intent(out) :: dg(3)
+    real(wp),intent(out) :: ds(3,3)
+
+    integer :: itr
+    real(wp) :: vec(3),r1,r2,gtmp,atmp,gam2,alp2
+    real(wp),parameter :: eps = 1.0e-9_wp
+    real(wp),parameter :: sqrtpi = 1.772453850905516_wp
+
+    dg(:) = 0.0_wp
+    ds(:,:) = 0.0_wp
+
+    gam2 = gam*gam
+    alp2 = alp*alp
+
+    do itr = 1,size(trans,2)
+      vec(:) = rij+trans(:,itr)
+      r1 = norm2(vec)
+      if (r1 < eps) cycle
+      r2 = r1*r1
+      gtmp = +2*gam*exp(-r2*gam2)/(sqrtpi*r2)-erf(r1*gam)/(r2*r1)
+      atmp = -2*alp*exp(-r2*alp2)/(sqrtpi*r2)+erf(r1*alp)/(r2*r1)
+      dg(:) = dg+(gtmp+atmp)*vec
+      ds(:,1) = ds(:,1)+(gtmp+atmp)*vec(1)*vec
+      ds(:,2) = ds(:,2)+(gtmp+atmp)*vec(2)*vec
+      ds(:,3) = ds(:,3)+(gtmp+atmp)*vec(3)*vec
+    end do
+
+  end subroutine get_damat_dir_3d
+
+  subroutine get_damat_rec_3d(rij,vol,alp,trans,dg,ds)
+    real(wp),intent(in) :: rij(3)
+    real(wp),intent(in) :: vol
+    real(wp),intent(in) :: alp
+    real(wp),intent(in) :: trans(:,:)
+    real(wp),intent(out) :: dg(3)
+    real(wp),intent(out) :: ds(3,3)
+
+    integer :: itr
+    real(wp) :: fac,vec(3),g2,gv,etmp,dtmp,alp2
+    real(wp),parameter :: unity(3,3) = reshape(&
+       & [1,0,0,0,1,0,0,0,1],shape(unity))
+    real(wp),parameter :: eps = 1.0e-9_wp
+
+    dg(:) = 0.0_wp
+    ds(:,:) = 0.0_wp
+    fac = 4*pi/vol
+    alp2 = alp*alp
+
+    do itr = 1,size(trans,2)
+      vec(:) = trans(:,itr)
+      g2 = dot_product(vec,vec)
+      if (g2 < eps) cycle
+      gv = dot_product(rij,vec)
+      etmp = fac*exp(-0.25_wp*g2/alp2)/g2
+      dtmp = -sin(gv)*etmp
+      dg(:) = dg+dtmp*vec
+      ds(:,1) = ds(:,1)+etmp*cos(gv) &
+               & *((2.0_wp/g2+0.5_wp/alp2)*vec(1)*vec-unity(:,1))
+      ds(:,2) = ds(:,2)+etmp*cos(gv) &
+               & *((2.0_wp/g2+0.5_wp/alp2)*vec(2)*vec-unity(:,2))
+      ds(:,3) = ds(:,3)+etmp*cos(gv) &
+               & *((2.0_wp/g2+0.5_wp/alp2)*vec(3)*vec-unity(:,3))
+    end do
+
+  end subroutine get_damat_rec_3d
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!               code above taken from dftd4                                     !
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 !cccccccccccccccccccccccccccccccccccc
 ! HB energy and analytical gradient

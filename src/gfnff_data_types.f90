@@ -23,6 +23,7 @@
 !> Topological data for force field type calculations and neighbor lists
 module gfnff_data_types
   use iso_fortran_env,only:wp => real64,sp => real32
+  use gfnff_type_wsc
   implicit none
   private
 
@@ -43,8 +44,11 @@ module gfnff_data_types
     real(wp) :: lattice(3,3) = 0.0_wp  !> Direct lattice vectors (columns), in Bohr
     real(wp) :: rec_lat(3,3) = 0.0_wp  !> Reciprocal lattice vectors (columns), in 1/Bohr (without 2pi factor)
     real(wp) :: volume = 0.0_wp        !> Unit-cell volume, in Bohr^3
+
+    type(gfnff_wsc) :: wsc
   contains
     procedure :: init => init_cell
+    procedure :: init_wsc
   end type TCell
 
 !========================================================================================!
@@ -167,7 +171,6 @@ module gfnff_data_types
   !> Neighbourlist storage
   type :: TGFFNeighbourList
     logical :: initialized = .false.
-    logical :: force_hbond_update = .false.
     integer :: nhb1
     integer :: nhb2
     integer :: nxb
@@ -177,10 +180,13 @@ module gfnff_data_types
     real(wp),allocatable :: hbrefgeo(:,:)
     !> HBs loose
     integer,allocatable :: hblist1(:,:)
+    real(wp),allocatable :: hbe1(:) ! energies of HB bonds
     !> HBs bonded
     integer,allocatable :: hblist2(:,:)
+    real(wp),allocatable :: hbe2(:)
     !> XBs
     integer,allocatable :: hblist3(:,:)
+    real(wp),allocatable :: hbe3(:)
   end type TGFFNeighbourList
 
   interface new
@@ -526,9 +532,12 @@ contains  !> MODULE PROCEDURES START HERE
     self%nxb = nxb
     allocate (self%q(n),source=0.0_wp)
     allocate (self%hbrefgeo(3,n),source=0.0_wp)
-    allocate (self%hblist1(3,self%nhb1),source=0)
-    allocate (self%hblist2(3,self%nhb2),source=0)
-    allocate (self%hblist3(3,self%nxb),source=0)
+    allocate (self%hblist1(5,self%nhb1),source=0)
+    allocate (self%hblist2(5,self%nhb2),source=0)
+    allocate (self%hblist3(5,self%nxb),source=0)
+    allocate (self%hbe1(self%nhb1),source=0.0_wp)
+    allocate (self%hbe2(self%nhb2),source=0.0_wp)
+    allocate (self%hbe3(self%nxb),source=0.0_wp)
   end subroutine newGFFNeighbourList
 !========================================================================================!
 
@@ -634,6 +643,13 @@ contains  !> MODULE PROCEDURES START HERE
     self%rec_lat(2,3) = (lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/self%volume
     self%rec_lat(3,3) = (lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/self%volume
   end subroutine init_cell
+
+  subroutine init_wsc(self,nat,at,xyz)
+    class(TCell) :: self
+    integer,intent(in) :: nat,at(nat)
+    real(wp),intent(in) :: xyz(3,nat)
+    call generate_wsc(nat,at,xyz,self%lattice,self%pbc,self%wsc)
+  end subroutine init_wsc
 
 !========================================================================================!
 end module gfnff_data_types
