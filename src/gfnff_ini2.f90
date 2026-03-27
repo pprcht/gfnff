@@ -19,9 +19,10 @@ module gfnff_ini2
   use iso_fortran_env,only:wp => real64,sp => real32,stdout => output_unit
 
   use gfnff_data_types,only:TGFFData,TGFFNeighbourList,TGFFTopology,TCell
-  use gfnff_helpers,only:lin,bangl
+  use gfnff_helpers,only:lin,bangl,banglPBC
   use gfnff_neighbor,only:TNeigh
-
+  use gfnff_rab
+  use gfnff_math_wrapper
   implicit none
   private
   public :: gfnff_neigh,getnb,nbondmat,nbondmat_pbc
@@ -56,7 +57,7 @@ contains
     logical :: etacoord,da,strange_iat,metal_iat
     integer,allocatable :: nbdum(:,:,:),nbdum2(:,:),locarr(:,:)
     real(wp),allocatable :: cn(:),rtmp(:)
-    integer :: iat,i,j,k,ni,ii,jj,kk,ll,lin,ati,nb20i,nbdiff,hc_crit,nbmdiff,nnf,nni,nh,nm
+    integer :: iat,i,j,k,ni,ii,jj,kk,ll,ati,nb20i,nbdiff,hc_crit,nbmdiff,nnf,nni,nh,nm
     integer :: ai,aj,nn,im,ncm,l,no,iTr,iTr2,numnbf,numnbm,numnb,idx,idxdum,idxdum2,numctr
     integer :: nat
     real(wp) :: r,a1,f,f1,phi,f2,rco,fat(103)
@@ -264,7 +265,7 @@ contains
           else
             write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
           end if
-          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh,phi)
+          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh%transVec,phi)
           if (phi*180./pi .lt. 150.0) then                         ! geometry dep. setup! GEODEP
             hyb(i) = 2  ! otherwise, carbenes will not be recognized
             itag(i) = 1  ! tag for Hueckel and HB routines
@@ -324,7 +325,7 @@ contains
           else
             write (stdout,'("**ERROR**",a,1x,a)') ' Hybridization failed. Neighbors could not be located.',source
           end if
-          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh,phi)
+          call banglPBC(1,xyz,idxdum,i,idxdum2,iTr,iTr2,neigh%transVec,phi)
           jj = idxdum
           kk = idxdum2
           if (sum(nbdum(neigh%numnb,jj,:)) .eq. 1.and.at(jj) .eq. 6) hyb(i) = 1  ! R-N=C
@@ -413,9 +414,9 @@ contains
     integer n,at(n),nbf(20,n),nb(20,n)
     real(wp) rad(n*(n+1)/2),r(n*(n+1)/2),mchar(n),f,f2
 
-    integer i,j,k,nn,icase,hc_crit,nnfi,nnfj,lin
-    integer tag(n*(n+1)/2)
-    real(wp) rco,fm
+    integer :: i,j,k,nn,icase,hc_crit,nnfi,nnfj
+    integer :: tag(n*(n+1)/2)
+    real(wp) :: rco,fm
 
     nb = 0 ! resulting array (nbf is full from first call)
     tag = 0
@@ -734,9 +735,9 @@ contains
 
     chktors = .true.
 
-    call banglPBC(1,xyz,j,i,k,iTrj,iTrk,neigh,phi)
+    call banglPBC(1,xyz,j,i,k,iTrj,iTrk,neigh%transVec,phi)
     if (phi*180./3.1415926d0 .gt. 170.0d0) return
-    call banglPBC(2,xyz,i,j,l,iTrj,iTrl,neigh,phi)
+    call banglPBC(2,xyz,i,j,l,iTrj,iTrl,neigh%transVec,phi)
     if (phi*180./3.1415926d0 .gt. 170.0d0) return
 
     chktors = .false.
@@ -1083,7 +1084,6 @@ contains
     integer :: i,j
     integer :: ii,jj,iTr,iTrA,iTrH,iTrB
     integer :: ia,ja
-    integer :: lin
     integer :: hbH,hbA
     integer :: Hat,Aat
     integer :: Bat,atB
@@ -1180,7 +1180,6 @@ contains
     integer :: i,j
     integer :: ii,jj,iTr,iTrA,iTrH,iTrB
     integer :: ia,ja
-    integer :: lin
     integer :: hbH,hbA
     integer :: Hat,Aat
     integer :: Bat,atB
@@ -1582,31 +1581,6 @@ contains
     return
   end subroutine getring36
 
-!   subroutine ssort(n,edum,ind)
-!     implicit none
-!     integer n,ii,k,j,m,i,sc1
-!     real(wp) edum(n),pp
-!     integer ind(n)
-!
-!     do 140 ii = 2,n
-!       i = ii-1
-!       k = i
-!       pp = edum(i)
-!       do 120 j = ii,n
-!         if (edum(j) .gt. pp) go to 120
-!         k = j
-!         pp = edum(j)
-! 120     continue
-!         if (k .eq. i) go to 140
-!         edum(k) = edum(i)
-!         edum(i) = pp
-!         sc1 = ind(i)
-!         ind(i) = ind(k)
-!         ind(k) = sc1
-! 140     continue
-!
-!        end subroutine ssort
-
   subroutine ssort(n,edum,ind)
     implicit none
 
@@ -1707,8 +1681,8 @@ contains
       end do
     end do
 
-    call sytrd(a,ipiv,io1)
-    call sytrs(a,x,ipiv,io2)
+    call sytrf_wrap(a,ipiv,io1)
+    call sytrs_wrap(a,x,ipiv,io2)
 
     exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
@@ -1838,8 +1812,8 @@ contains
       end do
     end do
 
-    call sytrd(a,ipiv,io1)
-    call sytrs(a,x,ipiv,io2)
+    call sytrf_wrap(a,ipiv,io1)
+    call sytrs_wrap(a,x,ipiv,io2)
 
     exitRun = (io1 /= 0).or.(io2 /= 0)
     if (exitRun) then
@@ -1907,9 +1881,9 @@ contains
     integer,intent(in)  :: nb(numnb,n,numctr)
     integer,intent(out) ::  pair(n*(n+1)/2)
 !     Stack
-    integer i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,jj,k,lin
+    integer :: i,ni,newi,j,newatom,tag,d,i1,ni1,iii,ii,jj,k
     integer,allocatable :: list(:,:),nlist(:,:),nnn(:),nn(:)
-    logical da
+    logical :: da
 
     allocate (nnn(n),nn(n),list(5*n,n),nlist(5*n,n))
 

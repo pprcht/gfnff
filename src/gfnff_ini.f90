@@ -27,7 +27,7 @@ module gfnff_ini_mod
   use gfnff_qm_setup,only:gfnffqmsolve
   use gfnff_fraghess
   use gfnff_rab
-  use gfnff_helpers, only: lin
+  use gfnff_helpers
   private
 
   public :: gfnff_ini
@@ -73,7 +73,7 @@ contains   !> MODULE PROCEDURES START HERE
     integer :: iTr,iTr2,iTri,iTrj,iTrk,iTrDum,iTrlDum,iTrl,iTrtmp
     real(wp) :: vTrl(3),vTrj(3),vTrk(3),vec(3),MaxCutOff
 
-    real(wp) :: r0,ff,omega,omegaPBC,f1,f2,phi,valijklff,ringf,fcn
+    real(wp) :: r0,ff,f1,f2,phi,ringf,fcn
     real(wp) :: shift,dum,dum1,dum2,dum4,qafac,fqq,feta
     real(wp) :: sumppi,fpi,fxh,fijk,fsrb2,ees
     real(wp) :: fheavy,fn,eold,fctot,fij
@@ -543,41 +543,41 @@ contains   !> MODULE PROCEDURES START HERE
         call mrecgffPBC(nat,neigh%numctr,neigh%numnb,neigh%nbf,topo%nfrag,topo%fraglist)
         write (myunit,'(10x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
 !     read QM info if it exists
-        call open_file(ich,'charges','r')
-        if (ich /= -1) then
-          qtmp = 0
-          err = 0
-          i = 0
-          do while (err == 0)
-            read (ich,*,iostat=err) dum
-            if (err /= 0) exit
-            if (i < nat) then
-              i = i+1
-              qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+dum
-            else
-              write (myunit,'("**WARNING** ",a,1x,a)') "More charges than atoms present, assuming missmatch",source
-              err = 1
-            end if
-          end do
-          if (is_iostat_end(err).and.i == nat) err = 0
-          call close_file(ich)
-          if (err == 0) then
-            if (i < nat.or.abs(sum(qtmp)-ichrg) > 1.0e-3_wp) then
-              write (myunit,'("**WARNING** ",a,1x,a)') "Rejecting external charges input due to missmatch",source
-            else
-              topo%qfrag = dnint(qtmp)
-              write (myunit,'(10x,"fragment charges from <charges> :",10F7.3)') topo%qfrag(1:topo%nfrag)
-            end if
-          else
-            write (myunit,'("**ERROR** ",a,1x,a)') "Could not initialize fragment charges from file",source
-            exitRun = .true.
-          end if
+       ! open (newunit=ich,file='charges')
+       ! if (ich /= -1) then
+       !   qtmp = 0
+       !   err = 0
+       !   i = 0
+       !   do while (err == 0)
+       !     read (ich,*,iostat=err) dum
+       !     if (err /= 0) exit
+       !     if (i < nat) then
+       !       i = i+1
+       !       qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+dum
+       !     else
+       !       write (myunit,'("**WARNING** ",a,1x,a)') "More charges than atoms present, assuming missmatch",source
+       !       err = 1
+       !     end if
+       !   end do
+       !   if (is_iostat_end(err).and.i == nat) err = 0
+       !   close (ich)
+       !   if (err == 0) then
+       !     if (i < nat.or.abs(sum(qtmp)-ichrg) > 1.0e-3_wp) then
+       !       write (myunit,'("**WARNING** ",a,1x,a)') "Rejecting external charges input due to missmatch",source
+       !     else
+       !       topo%qfrag = dnint(qtmp)
+       !       write (myunit,'(10x,"fragment charges from <charges> :",10F7.3)') topo%qfrag(1:topo%nfrag)
+       !     end if
+       !   else
+       !     write (myunit,'("**ERROR** ",a,1x,a)') "Could not initialize fragment charges from file",source
+       !     exitRun = .true.
+       !   end if
 
-          if (exitRun) then
-            io = -1
-            return
-          end if
-        end if
+       !   if (exitRun) then
+       !     io = -1
+       !     return
+       !   end if
+       ! end if
         if (nat .lt. 100.and.topo%nfrag .gt. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
           itmp = 0
           do i = 1,nat
@@ -1590,7 +1590,7 @@ contains   !> MODULE PROCEDURES START HERE
               cDbl(2,cdi) = kk
               cDbl(3,cdi) = iTr
               cDbl(4,cdi) = iTr2
-              call banglPBC(1,xyz,jj,i,kk,iTr,iTr2,neigh,phi)
+              call banglPBC(1,xyz,jj,i,kk,iTr,iTr2,neigh%transVec,phi)
               if (param%metal(ati) .gt. 0.and.phi*180./pi .lt. 60.) cycle ! skip eta cases even if CN < 6 (e.g. CaCp+)
               feta = 1.0d0
               if (imetal(ii) .eq. 2.and.itag(jj) .eq. -1.and.piadr(jj) .gt. 0) feta = 0.3d0       ! eta coord.

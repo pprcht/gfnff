@@ -17,6 +17,7 @@
 
 module gfnff_rab
   use iso_fortran_env,only:wp => real64
+  use gfnff_helpers, only: lin
   implicit none
   private
 
@@ -228,7 +229,6 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rab(n*(n+1)/2)     ! output bond lengths estimates
 
     integer m,i,j,k,ii,jj,ati,atj,ir,jr
-    INTEGER iTabRow6,lin
 
     real(wp) :: ra,rb,k1,k2,den,ff,p(6,2)
     real(wp) :: scaleF(103,103)

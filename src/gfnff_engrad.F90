@@ -27,6 +27,7 @@ module gfnff_engrad_module
   use gfnff_helpers
   use gfnff_cn
   use gfnff_rab
+  use gfnff_gdisp0
   use gfnff_timer_mod,only:gfnff_timer
   use gfnff_math_wrapper
   implicit none

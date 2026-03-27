@@ -30,9 +30,9 @@ module gfnff_helpers
   !> public from this module
   public :: lin
   public :: mrecgff,mrecgffPBC
-  public :: getring36,ssort
+  !public :: getring36,ssort
   public :: vlen,vsub,valijklff,valijklffPBC
-  public :: omega,domegadr,dphidr,bangl,impsc
+  public :: omega,domegadr,dphidr,bangl,banglPBC,impsc
   public :: omegaPBC,domegadrPBC,dphidrPBC
 
   public :: crprod
@@ -184,197 +184,29 @@ contains !> MODULE PROCEDURES START HERE
 
 ! ══════════════════════════════════════════════════════════════════════════════
 
-  subroutine getring36(n,at,nbin,a0_in,cout,irout)
-    implicit none
-    integer :: cout(10,20),irout(20)  ! output: atomlist, ringsize, # of rings in irout(20)
-    integer :: at(n)
-    integer :: n,nbin(20,n),a0,i,nb(20,n),a0_in
-    integer :: i1,i2,i3,i4,i5,i6
-    integer :: n0,n1,n2,n3,n4,n5,n6
-    integer :: a1,a2,a3,a4,a5,a6
-    integer :: list(n),m,mm,nn,c(10),cdum(10,600),iring
-    integer :: adum1(0:n),adum2(0:n),kk,j,idum(600),same(600),k
-    real(wp) :: w(n),av,sd
-
-    if (n .le. 2) return
-
-    nn = nbin(20,a0_in)
-
-    cdum = 0
-    kk = 0
-    do m = 1,nn
-!     if(nb(m,a0_in).eq.1) cycle
-      nb = nbin
-      do i = 1,n
-        if (nb(20,i) .eq. 1) nb(20,i) = 0
-      end do
-
-      do mm = 1,nn
-        w(mm) = dble(mm)
-        list(mm) = mm
-      end do
-      w(m) = 0.0d0
-      call ssort(nn,w,list)
-      do mm = 1,nn
-        nb(mm,a0_in) = nbin(list(mm),a0_in)
-      end do
-
-      iring = 0
-      c = 0
-
-      a0 = a0_in
-      n0 = nb(20,a0)
-
-      do i1 = 1,n0
-        a1 = nb(i1,a0)
-        if (a1 .eq. a0) cycle
-        n1 = nb(20,a1)
-        do i2 = 1,n1
-          a2 = nb(i2,a1)
-          if (a2 .eq. a1) cycle
-          n2 = nb(20,a2)
-          do i3 = 1,n2
-            a3 = nb(i3,a2)
-            n3 = nb(20,a3)
-            if (a3 .eq. a2) cycle
-            c(1) = a1
-            c(2) = a2
-            c(3) = a3
-            if (a3 .eq. a0.and.chkrng(n,3,c)) then
-              iring = 3
-              kk = kk+1
-              cdum(1:iring,kk) = c(1:iring)
-              idum(kk) = iring
-            end if
-            do i4 = 1,n3
-              a4 = nb(i4,a3)
-              n4 = nb(20,a4)
-              if (a4 .eq. a3) cycle
-              c(4) = a4
-              if (a4 .eq. a0.and.chkrng(n,4,c)) then
-                iring = 4
-                kk = kk+1
-                cdum(1:iring,kk) = c(1:iring)
-                idum(kk) = iring
-              end if
-              do i5 = 1,n4
-                a5 = nb(i5,a4)
-                n5 = nb(20,a5)
-                if (a5 .eq. a4) cycle
-                c(5) = a5
-                if (a5 .eq. a0.and.chkrng(n,5,c)) then
-                  iring = 5
-                  kk = kk+1
-                  cdum(1:iring,kk) = c(1:iring)
-                  idum(kk) = iring
-                end if
-                do i6 = 1,n5
-                  a6 = nb(i6,a5)
-                  n6 = nb(20,a6)
-                  if (a6 .eq. a5) cycle
-                  c(6) = a6
-                  if (a6 .eq. a0.and.chkrng(n,6,c)) then
-                    iring = 6
-                    kk = kk+1
-                    cdum(1:iring,kk) = c(1:iring)
-                    idum(kk) = iring
-                  end if
-                end do
-              end do
-            end do
-          end do
-        end do
-      end do
-    end do
-
-! compare
-    same = 0
-    do i = 1,kk
-      do j = i+1,kk
-        if (idum(i) .ne. idum(j)) cycle ! different ring size
-        if (same(j) .eq. 1) cycle ! already double
-        adum1 = 0
-        adum2 = 0
-        do m = 1,10
-          i1 = cdum(m,i)
-          i2 = cdum(m,j)
-          adum1(i1) = 1
-          adum2(i2) = 1
-        end do
-        if (sum(abs(adum1-adum2)) .ne. 0) then
-          same(j) = 0
-        else
-          same(j) = 1
-        end if
-      end do
-    end do
-
-    m = 0
-    do i = 1,kk
-      if (same(i) .eq. 0) then
-        m = m+1
-        if (m .gt. 20) exit !stop 'too many rings'
-        irout(m) = idum(i)     ! number of atoms in ring m
-        nn = idum(i)
-        cout(1:nn,m) = cdum(1:nn,i)
-        i2 = 0
-        do k = 1,nn            ! determine if its a hetereo
-          i1 = at(cdum(k,i))
-          i2 = i2+i1
-        end do
-        av = dble(i2)/dble(nn)
-        sd = 0
-        cout(m,19) = 0
-        do k = 1,nn
-          i1 = at(cdum(k,i))
-          sd = sd+(av-dble(i1))**2
-        end do
-        if (sd .gt. 1.d-6) cout(m,19) = idint(1000.*sqrt(sd)/dble(nn))
-      end if
-    end do
-    irout(20) = m  ! number of rings for this atom
-
-    return
-  end subroutine getring36
-
-  logical function chkrng(nn,n,c)
-    implicit none
-    integer n,idum(nn),nn,c(10),i,j
-    chkrng = .true.
-    idum = 0
-    do i = 1,n
-      idum(c(i)) = idum(c(i))+1
-    end do
-    j = 0
-    do i = 1,nn
-      if (idum(i) .eq. 1) j = j+1
-    end do
-    if (j .ne. n) chkrng = .false.
-  end function chkrng
-
-  subroutine ssort(n,edum,ind)
-    implicit none
-    integer :: n,ii,k,j,i,sc1
-    real(wp) :: edum(n),pp
-    integer :: ind(n)
-
-    do ii = 2,n
-      i = ii-1
-      k = i
-      pp = edum(i)
-      do j = ii,n
-        if (edum(j) .gt. pp) exit
-        k = j
-        pp = edum(j)
-      end do
-      if (k .eq. i) exit
-      edum(k) = edum(i)
-      edum(i) = pp
-      sc1 = ind(i)
-      ind(i) = ind(k)
-      ind(k) = sc1
-    end do
-  end subroutine ssort
+!  subroutine ssort(n,edum,ind)
+!    implicit none
+!    integer :: n,ii,k,j,i,sc1
+!    real(wp) :: edum(n),pp
+!    integer :: ind(n)
+!
+!    do ii = 2,n
+!      i = ii-1
+!      k = i
+!      pp = edum(i)
+!      do j = ii,n
+!        if (edum(j) .gt. pp) exit
+!        k = j
+!        pp = edum(j)
+!      end do
+!      if (k .eq. i) exit
+!      edum(k) = edum(i)
+!      edum(i) = pp
+!      sc1 = ind(i)
+!      ind(i) = ind(k)
+!      ind(k) = sc1
+!    end do
+!  end subroutine ssort
 
 ! ══════════════════════════════════════════════════════════════════════════════
 
@@ -979,6 +811,36 @@ contains !> MODULE PROCEDURES START HERE
 
   end subroutine bangl
 
+  pure subroutine banglPBC(mode,xyz,i,j,k,iTr,iTr2,transVec,angle)
+    implicit none
+    real(wp),intent(in)  :: xyz(3,*)
+    integer,intent(in)  :: mode,i,j,k,iTr,iTr2  ! j is in the middle
+    real(wp),intent(in) :: transVec(:,:)
+!    type(TNeigh),intent(in) :: neigh
+    real(wp),intent(out) :: angle
+
+    real(wp) :: d2ij,d2jk,d2ik,xy,temp,trV(3),trV2(3)
+    !trV = neigh%transVec(:,iTr)
+    !trV2 = neigh%transVec(:,iTr2)
+    trV  = transVec(:,iTr)   
+    trV2 = transVec(:,iTr2) 
+    if (mode .eq. 1) then
+      d2ij = sum(((xyz(:,i)+trV)-xyz(:,j))**2)
+      d2jk = sum((xyz(:,j)-(xyz(:,k)+trV2))**2)
+      d2ik = sum(((xyz(:,i)+trV)-(xyz(:,k)+trV2))**2)
+    end if
+    if (mode .eq. 2) then
+      d2ij = sum((xyz(:,i)-(xyz(:,j)+trV))**2)
+      d2jk = sum(((xyz(:,j)+trV)-(xyz(:,k)+trV2))**2)
+      d2ik = sum((xyz(:,i)-(xyz(:,k)+trV2))**2)
+    end if
+    xy = sqrt(d2ij*d2jk)
+    temp = 0.5d0*(d2ij+d2jk-d2ik)/xy  ! the angle is between side dij and djk
+    if (temp .gt. 1.0d0) temp = 1.0d0
+    if (temp .lt. -1.0d0) temp = -1.0d0
+    angle = acos(temp)
+
+  end subroutine banglPBC
 !========================================================================================!
 
   pure subroutine impsc(a,b,c)

@@ -2,6 +2,7 @@ module gfnff_neighbor
   use iso_fortran_env,only:wp => real64,stdout => output_unit
   use gfnff_latticepoint,only:TLatticePoint,init_ => init_l
   use gfnff_data_types,only:TGFFData,TCell
+  use gfnff_helpers, only: lin,indexHeapSort
   implicit none
   private
 
@@ -400,7 +401,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(in) :: rad(n*(n+1)/2)
     real(wp),intent(in) :: dist(n,n,self%numctr)
     real(wp),intent(in) :: mchar(n),f,f2
-    integer i,j,k,iTr,nn,icase,hc_crit,nnfi,nnfj,lin
+    integer i,j,k,iTr,nn,icase,hc_crit,nnfi,nnfj
     integer,allocatable :: tag(:,:,:)
     real(wp) rco,fm
     allocate (tag(n,n,self%numctr),source=0)
@@ -580,7 +581,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: trVecInt(3,iTrDim)
     integer,allocatable,intent(out) :: iTrSum(:),iTrNeg(:)
     integer :: trVecInt2(3,iTrDim)
-    integer :: i,j,s,k,kk,lin
+    integer :: i,j,s,k,kk
     integer :: vec1(3),vec2(3),vsum(3)
 
     allocate (iTrSum(iTrDim*(iTrDim+1)/2),source=-1)
@@ -622,7 +623,7 @@ contains  !> MODULE PROCEDURES START HERE
     class(TNeigh) :: self
     integer :: indx1,indx2
     integer :: indxSum
-    integer :: lin,id1,id2,k,idOfSum
+    integer :: id1,id2,k,idOfSum
 
     ! if fTrSum=-1 then the atom is shifted out of the cutoff used
     !  in the last neigh%getTransVec call
