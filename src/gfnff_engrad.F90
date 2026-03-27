@@ -23,9 +23,10 @@ module gfnff_engrad_module
     &                       TCell,TDispersionData
   use gfnff_neighbor,only:TNeigh
   use gfnff_gbsa,only:TBorn
-  use gfnff_param,only:sqrtZr4r2,gffVersion
+  use gfnff_param,only:sqrtZr4r2,gffVersion,gfnff_thresholds
   use gfnff_helpers
   use gfnff_cn
+  use gfnff_rab
   use gfnff_timer_mod,only:gfnff_timer
   use gfnff_math_wrapper
   implicit none
@@ -131,8 +132,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: r2,rab,qq0,erff,dd,dum1,r3(3),t8,dum,t22,t39,vec(3)
     real(wp) :: dx,dy,dz,yy,t4,t5,t6,alpha,t20
     real(wp) :: repab,t16,t19,t26,t27,xa,ya,za,cosa,de,t28
-    real(wp) :: gammij,eesinf,etmp,phi,valijklff
-    real(wp) :: omega,rn,dr,g3tmp(3,3),g4tmp(3,4)
+    real(wp) :: gammij,eesinf,etmp,phi
+    real(wp) :: rn,dr,g3tmp(3,3),g4tmp(3,4)
     real(wp) :: rij,drij(3,n),drijdcn(2)
 
     real(wp),allocatable :: rinf(:,:)
@@ -1195,8 +1196,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) theta,deda(3),vp(3),et,dij,c1
     real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
     real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) omega,rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklff,rn
+    real(wp) rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
+    real(wp) dampjl,damp2jl,rn
     integer :: iTrj,iTrk
     real(wp)  :: vTrj(3),vTrk(3)
 
@@ -1275,11 +1276,11 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
     real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
     real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
+    real(wp) theta,deda(3),vp(3),et,dij,c1
     real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
     real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) omega,rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklff,rn
+    real(wp) rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
+    real(wp) dampjl,damp2jl,rn
 
     kijk = fc/(cos(0.0d0)-cos(c0))**2
     va(1:3) = xyz(1:3,i)+vTrC
@@ -1334,11 +1335,11 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
     real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
     real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
+    real(wp) theta,deda(3),vp(3),et,dij,c1
     real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
     real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) omega,rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklff,rn
+    real(wp) rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
+    real(wp) dampjl,damp2jl,rn
 
     va(1:3) = xyz(1:3,i)
     vb(1:3) = xyz(1:3,j)
@@ -1391,20 +1392,20 @@ contains  !> MODULE PROCEDURES START HERE
     type(TGFFData),intent(in) :: param
     type(TGFFTopology),intent(in) :: topo
     type(TNeigh),intent(in) :: neigh
-    integer m,n,at(n)
-    integer i,j,k,l,iTrl,iTrj,iTrk,dim1,dim2
-    real(wp) xyz(3,n),g(3,4),e,ds(3,3)
-    real(wp) vTrl(3),vTrj(3),vTrk(3)
+    integer :: m,n,at(n)
+    integer :: i,j,k,l,iTrl,iTrj,iTrk,dim1,dim2
+    real(wp) :: xyz(3,n),g(3,4),e,ds(3,3)
+    real(wp) :: vTrl(3),vTrj(3),vTrk(3)
 
-    real(wp) c0,kijk,va(3),vb(3),vc(3),vd(3),cosa
-    real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
-    real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) omegaPBC,rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklffPBC,rn
+    real(wp) :: c0,kijk,va(3),vb(3),vc(3),vd(3),cosa
+    real(wp) :: dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
+    real(wp) :: term1(3),term2(3),rab2,vab(3),vcb(3),rp
+    real(wp) :: rcb2,damp,dampij,damp2ij,dampjk,damp2jk
+    real(wp) :: theta,deda(3),vp(3),et,dij,c1
+    real(wp) :: term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
+    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
+    real(wp) :: rij,rijk,phi0,rkl,rjk,dampkl,damp2kl
+    real(wp) :: dampjl,damp2jl,rn
 
     rn = dble(topo%tlist(5,m))
     phi0 = topo%vtors(1,m)
@@ -1532,19 +1533,19 @@ contains  !> MODULE PROCEDURES START HERE
     integer n,at(n)
     integer i,j,k,l
     integer rn
-    real(wp) vTrR(3),vTrB(3),vTrC(3)
-    real(wp) phi,phi0,tshift
-    real(wp) xyz(3,n),g(3,4),e
+    real(wp) :: vTrR(3),vTrB(3),vTrC(3)
+    real(wp) :: phi,phi0,tshift
+    real(wp) :: xyz(3,n),g(3,4),e
     !Stack
-    real(wp) c0,fc,kijk,va(3),vb(3),vc(3),cosa
-    real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
-    real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl
-    real(wp) omega,rij,rijk,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklff
+    real(wp) :: c0,fc,kijk,va(3),vb(3),vc(3),cosa
+    real(wp) :: dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
+    real(wp) :: term1(3),term2(3),rab2,vab(3),vcb(3),rp
+    real(wp) :: rcb2,damp,dampij,damp2ij,dampjk,damp2jk
+    real(wp) :: theta,deda(3),vp(3),et,dij,c1
+    real(wp) :: term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
+    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),rjl
+    real(wp) :: rij,rijk,rkl,rjk,dampkl,damp2kl
+    real(wp) :: dampjl,damp2jl
 
     fc = (1.0d0-tshift)/2.0d0
     vab(1:3) = xyz(1:3,i)+vTrR-xyz(1:3,j)-vTrB
@@ -1576,21 +1577,21 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
 
     type(TGFFData),intent(in) :: param
-    integer n,at(n)
-    integer i,j,k,l
-    integer rn
-    real(wp) phi0,fc
-    real(wp) xyz(3,n),g(3,4),e
+    integer :: n,at(n)
+    integer :: i,j,k,l
+    integer :: rn
+    real(wp) :: phi0,fc
+    real(wp) :: xyz(3,n),g(3,4),e
 
-    real(wp) c0,kijk,va(3),vb(3),vc(3),cosa
-    real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
-    real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
-    real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
-    real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
-    real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
-    real(wp) omega,rij,rijk,rkl,rjk,dampkl,damp2kl
-    real(wp) dampjl,damp2jl,valijklff
+    real(wp) :: c0,kijk,va(3),vb(3),vc(3),cosa
+    real(wp) :: dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
+    real(wp) :: term1(3),term2(3),rab2,vab(3),vcb(3),rp
+    real(wp) :: rcb2,damp,dampij,damp2ij,dampjk,damp2jk
+    real(wp) :: theta,deda(3),vp(3),et,dij,c1
+    real(wp) :: term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
+    real(wp) :: ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
+    real(wp) :: rij,rijk,rkl,rjk,dampkl,damp2kl
+    real(wp) :: dampjl,damp2jl
 
     vab(1:3) = xyz(1:3,i)-xyz(1:3,j)
     vcb(1:3) = xyz(1:3,j)-xyz(1:3,k)
@@ -3160,7 +3161,6 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: shortcut
     integer :: tlist(6,sum(neigh%nb(neigh%numnb,C,:)))
     real(wp) :: vtors(2,sum(neigh%nb(neigh%numnb,C,:)))
-    real(wp) :: valijklffPBC
     real(wp) :: const
     real(wp) :: outl_nb,outl_nb_tot
     logical :: mask_nb,t_mask(20)
@@ -3749,7 +3749,7 @@ contains  !> MODULE PROCEDURES START HERE
     integer :: i
 
     !> torsion angle between C1-C4
-    real(wp) :: phi,valijklff
+    real(wp) :: phi
     real(wp) :: erefhalf
     real(wp) :: dp1(3),dp2(3),dp3(3),dp4(3)
 

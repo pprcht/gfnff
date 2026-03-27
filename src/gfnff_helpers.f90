@@ -1,7 +1,7 @@
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
 ! This file is part of gfnff.
 !
-! Copyright (C) 2023 Philipp Pracht
+! Copyright (C) 2023-2026 Philipp Pracht
 !
 ! gfnff is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
@@ -15,11 +15,12 @@
 !
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
-!--------------------------------------------------------------------------------!
+! ──────────────────────────────────────────────────────────────────────────────
 !> The original (unmodified) source code can be found under the GNU LGPL 3.0 license
 !> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
 !> at https://github.com/grimme-lab/xtb
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
+
 !> A collection of helper routines needed by gfnff
 module gfnff_helpers
   use iso_fortran_env,only:wp => real64
@@ -30,8 +31,9 @@ module gfnff_helpers
   public :: lin
   public :: mrecgff,mrecgffPBC
   public :: getring36,ssort
-  public :: vlen,vsub,valijklff
+  public :: vlen,vsub,valijklff,valijklffPBC
   public :: omega,domegadr,dphidr,bangl,impsc
+  public :: omegaPBC,domegadrPBC,dphidrPBC
 
   public :: crprod
   interface crprod
@@ -48,6 +50,9 @@ module gfnff_helpers
   end interface bisectSearch
 
   public :: indexHeapSort
+
+  real(wp),private,parameter :: eps = 1.0d-14
+  real(wp),private,parameter :: pi = 3.1415926535897932384626433832795029d0
 
 !========================================================================================!
 !========================================================================================!
@@ -177,7 +182,8 @@ contains !> MODULE PROCEDURES START HERE
     end do
   end subroutine mrecgff2PBC
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
+
   subroutine getring36(n,at,nbin,a0_in,cout,irout)
     implicit none
     integer :: cout(10,20),irout(20)  ! output: atomlist, ringsize, # of rings in irout(20)
@@ -369,7 +375,8 @@ contains !> MODULE PROCEDURES START HERE
       ind(k) = sc1
     end do
   end subroutine ssort
-!========================================================================================!
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   subroutine vsub(a,b,c,n)
     implicit none
@@ -382,7 +389,7 @@ contains !> MODULE PROCEDURES START HERE
     return
   end subroutine vsub
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   real(wp) function vlen(a)
     implicit none !double precision (a-h,o-z)
@@ -396,7 +403,7 @@ contains !> MODULE PROCEDURES START HERE
     return
   end function vlen
 
-!========================================================================================!
+! ══════════════════════════════════════════════════════════════════════════════
 
   real(wp) function valijklff(natoms,xyz,i,j,k,l)
     implicit none
@@ -405,9 +412,6 @@ contains !> MODULE PROCEDURES START HERE
     real(wp) :: ra(3),rb(3),rc(3),na(3),nb(3)
     real(wp) :: thab,thbc
     real(wp) :: nan,nbn,snanb,deter
-
-    real(wp),parameter :: eps = 1.0d-14
-    real(wp),parameter :: pi = 3.1415926535897932384626433832795029d0
 
     !>-- get torsion coordinate
     do ic = 1,3
@@ -438,6 +442,66 @@ contains !> MODULE PROCEDURES START HERE
 
     valijklff = acos(snanb)
   end function valijklff
+! ──────────────────────────────────────────────────────────────────────────────
+  real(wp) function valijklffPBC(mo,natoms,xyz,i,j,k,l,vTrj,vTrk,vTrl)
+
+    implicit none
+
+    integer::  ic,i,j,k,l,natoms,mo
+
+    real(wp) :: xyz(3,natoms),vTrj(3),vTrk(3),vTrl(3),vDum(3)
+    real(wp) :: ra(3),rb(3),rc(3),na(3),nb(3)
+    real(wp) :: rab,rbc,thab,thbc
+    real(wp) :: nan,nbn,rcn,snanb,deter
+
+    vDum = 0.0 ! Dummy vector for valijkPBC function
+
+    !> get torsion coordinate
+    if (mo .eq. 1) then ! egtors call -> j (=ii) in central cell
+      do ic = 1,3
+        ra(ic) = xyz(ic,j)-(xyz(ic,i)+vTrl(ic))
+        rb(ic) = (xyz(ic,k)+vTrj(ic))-xyz(ic,j)
+        rc(ic) = (xyz(ic,l)+vTrk(ic))-(xyz(ic,k)+vTrj(ic))
+      end do
+    else ! abhgfnff_eg3 call -> l (=H) in central cell
+      do ic = 1,3
+        ra(ic) = (xyz(ic,j)+vTrk(ic))-(xyz(ic,i)+vTrj(ic)) ! B - R
+        rb(ic) = (xyz(ic,k)+vTrl(ic))-(xyz(ic,j)+vTrk(ic)) ! C - B
+        rc(ic) = xyz(ic,l)-(xyz(ic,k)+vTrl(ic)) ! H - C
+      end do
+    end if
+
+    !> determinante of rb,ra,rc  (triple product)
+    deter = ra(1)*(rb(2)*rc(3)-rb(3)*rc(2)) &
+    &      -ra(2)*(rb(1)*rc(3)-rb(3)*rc(1)) &
+    &      +ra(3)*(rb(1)*rc(2)-rb(2)*rc(1))
+
+    if (mo .eq. 1) then ! not used
+      thab = valijkPBC(1,natoms,xyz,i,k,j,vTrl,vTrj,vDum)
+      thbc = valijkPBC(2,natoms,xyz,j,l,k,vTrk,vTrj,vDum)
+    else
+      thab = valijkPBC(3,natoms,xyz,i,k,j,vTrj,vTrl,vTrk) !    i=R       k=C       j=B
+      ! vTrj=vTrR vTrl=vTrC vTrk=vTrB
+      thbc = valijkPBC(4,natoms,xyz,j,l,k,vTrk,vTrl,vDum) !    j=B    l=H    k=C
+      ! vTrk=vTrB     vTrl=vTrC
+    end if
+    call crossprod(ra,rb,na)
+    call crossprod(rb,rc,nb)
+    nan = vecnorm(na,3,1)
+    nbn = vecnorm(nb,3,1)
+
+    snanb = 0.0d0
+    do ic = 1,3 ! scalar product of the crossproducts
+      snanb = snanb+na(ic)*nb(ic)
+    end do
+    if (abs(abs(snanb)-1.d0) .lt. eps) then
+      snanb = sign(1.d0,snanb)
+    end if
+
+    valijklffPBC = acos(snanb)
+  end function valijklffPBC
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   real(wp) Function valijk(nat,xyz,j,k,i)
     implicit none
@@ -464,6 +528,50 @@ contains !> MODULE PROCEDURES START HERE
     valijk = acos(rab)
 
   End Function valijk
+! ──────────────────────────────────────────────────────────────────────────────
+  real(wp) Function valijkPBC(mode,nat,xyz,j,k,i,vTr1,vTr2,vTr3)
+    implicit none
+    integer mode,nat,j,k,i,ic
+    real(wp) :: ra(3),rb(3),rab
+    real(wp) :: xyz(3,nat),ran,rbn,vTr1(3),vTr2(3),vTr3(3)
+
+    if (mode .eq. 1) then ! here j=l,k=j,i=i are inserted, vTr1=vTrl, vTr2=vTrj
+      do ic = 1,3
+        ra(ic) = (xyz(ic,j)+vTr1(ic))-xyz(ic,i)
+        rb(ic) = (xyz(ic,k)+vTr2(ic))-xyz(ic,i)
+      end do
+    elseif (mode .eq. 2) then ! here j=i,k=k,i=j are inserted vTr1=vTrk, vTr2=vTrj
+      do ic = 1,3
+        ra(ic) = xyz(ic,j)-(xyz(ic,i)+vTr2(ic))
+        rb(ic) = (xyz(ic,k)+vTr1(ic))-(xyz(ic,i)+vTr2(ic))
+      end do
+    elseif (mode .eq. 3) then ! here j=R k=C i=B vTr1=vTrR vTr2=vTrC vTr3=vTrB
+      do ic = 1,3
+        ra(ic) = (xyz(ic,j)+vTr1(ic))-(xyz(ic,i)+vTr3(ic)) ! R - B
+        rb(ic) = (xyz(ic,k)+vTr2(ic))-(xyz(ic,i)+vTr3(ic)) ! C - B
+      end do
+    elseif (mode .eq. 4) then ! here j=B k=H i=C vTr1=vTrB vTr2=vTrC
+      do ic = 1,3
+        ra(ic) = (xyz(ic,j)+vTr1(ic))-(xyz(ic,i)+vTr2(ic))
+        rb(ic) = (xyz(ic,k))-(xyz(ic,i)+vTr2(ic))
+      end do
+    end if
+
+    ran = vecnorm(ra,3,1)
+    rbn = vecnorm(rb,3,1)
+    rab = 0.d0
+    do ic = 1,3
+      rab = rab+ra(ic)*rb(ic)
+    end do
+
+    if (abs(abs(rab)-1.d0) .lt. eps) then
+      rab = sign(1.d0,rab)
+    end if
+    valijkPBC = acos(rab)
+
+  end function valijkPBC
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   subroutine crossprod(ra,rb,rab)
     implicit none
@@ -474,8 +582,8 @@ contains !> MODULE PROCEDURES START HERE
   end Subroutine crossprod
 
   function crossproduct(ra,rb) result(rab)
-    implicit none                  
-    real(wp) :: ra(3),rb(3),rab(3) 
+    implicit none
+    real(wp) :: ra(3),rb(3),rab(3)
     call crossprod(ra,rb,rab)
   end function crossproduct
 
@@ -597,12 +705,100 @@ contains !> MODULE PROCEDURES START HERE
 
   End Subroutine domegadr
 
-!========================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
+  real(wp) Function omegaPBC(nat,xyz,i,j,k,l,vTr1,vTr2,vTr3)
+    !   Calculates the inversion angle (with PBC)
+    !  .....................................................................
+    implicit none
+    integer :: ic,nat,i,j,k,l
 
+    real(wp) :: xyz(3,nat),vTr1(3),vTr2(3),vTr3(3),&
+       &        rd(3),re(3),rn(3),rv(3),rnv,&
+       &        rkjn,rljn,rnn,rvn
+    ! out-of-plane case from ini; atoms and iTr's sorted by distance to atom i
+    ! i=central, j=1st nb, k=2nd, l=3rd
+    do ic = 1,3
+      re(ic) = xyz(ic,i)-(xyz(ic,j)+vTr2(ic))                ! Vec central to 1st nb
+      rd(ic) = (xyz(ic,k)+vTr3(ic))-(xyz(ic,j)+vTr2(ic))            ! Vec 1st to 2nd nb
+      rv(ic) = (xyz(ic,l)+vTr1(ic))-xyz(ic,i) ! Vec central to 3rd nb
+    end do
+    call crossprod(re,rd,rn)
+    rnn = vecnorm(rn,3,1)
+    rvn = vecnorm(rv,3,1)
+
+    rnv = rn(1)*rv(1)+rn(2)*rv(2)+rn(3)*rv(3)
+    omegaPBC = asin(rnv)
+
+  End function omegaPBC
+! ──────────────────────────────────────────────────────────────────────────────
+
+  Subroutine domegadrPBC(nat,xyz,i,j,k,l,vTr1,vTr2,vTr3,omega,&
+        &            domegadri,domegadrj,domegadrk,domegadrl)
+    !     inversion derivatives (with PBC)
+    !  .....................................................................
+    implicit none
+    integer :: ic,i,j,k,l,nat
+
+    real(wp) ::  omega,sinomega,&
+       &         vTr1(3),vTr2(3),vTr3(3), &
+       &         xyz(3,nat),onenner,rnn,rvn,&
+       &         rn(3),rv(3),rd(3),re(3),rdme(3),rve(3),&
+       &         rne(3),rdv(3),rdn(3),&
+       &         rvdme(3),rndme(3),nenner,&
+       &         domegadri(3),domegadrj(3),domegadrk(3),domegadrl(3)
+
+    sinomega = sin(omega)
+
+    do ic = 1,3
+      re(ic) = xyz(ic,i)-(xyz(ic,j)+vTr2(ic))            ! Vec central to 1st nb
+      rd(ic) = (xyz(ic,k)+vTr3(ic))-(xyz(ic,j)+vTr2(ic))  ! Vec 1st to 2nd nb
+      rv(ic) = (xyz(ic,l)+vTr1(ic))-xyz(ic,i)             ! Vec central to 3rd nb
+
+      rdme(ic) = rd(ic)-re(ic)
+    end do
+
+    call crossprod(re,rd,rn)
+    rvn = vecnorm(rv,3,0)
+    rnn = vecnorm(rn,3,0)
+
+    call crossprod(rv,re,rve)
+    call crossprod(rn,re,rne)
+    call crossprod(rd,rv,rdv)
+    call crossprod(rd,rn,rdn)
+    call crossprod(rv,rdme,rvdme)
+    call crossprod(rn,rdme,rndme)
+
+    nenner = rnn*rvn*cos(omega)
+    if (abs(nenner) .gt. eps) then
+      onenner = 1.d0/nenner
+      do ic = 1,3
+        ! ... domega/dri
+        domegadri(ic) = onenner*(rdv(ic)-rn(ic)-&
+           &                       sinomega*(rvn/rnn*rdn(ic)-rnn/rvn*rv(ic)))
+
+        ! ... domega/drj
+        domegadrj(ic) = onenner*(rvdme(ic)-sinomega*rvn/rnn*rndme(ic))
+
+        ! ... domega/drk
+        domegadrk(ic) = onenner*(rve(ic)-sinomega*rvn/rnn*rne(ic))
+
+        ! ... domega/drl
+        domegadrl(ic) = onenner*(rn(ic)-sinomega*rnn/rvn*rv(ic))
+      end do
+    else
+      do ic = 1,3
+        domegadri(ic) = 0.d0
+        domegadrj(ic) = 0.d0
+        domegadrk(ic) = 0.d0
+        domegadrl(ic) = 0.d0
+      end do
+    end if
+  end subroutine domegadrPBC
+
+! ══════════════════════════════════════════════════════════════════════════════
   Subroutine dphidr(nat,xyz,i,j,k,l,phi, &
   &                dphidri,dphidrj,dphidrk,dphidrl)
     !> the torsion derivatives
-
     implicit none
     integer :: ic,i,j,k,l,nat
     real(wp) :: sinphi,cosphi,onenner
@@ -669,8 +865,100 @@ contains !> MODULE PROCEDURES START HERE
     end do
 
   End Subroutine dphidr
+! ──────────────────────────────────────────────────────────────────────────────
+  Subroutine dphidrPBC(mode,nat,xyz,i,j,k,l,vTrR,vTrB,vTrC,phi,&
+        &                  dphidri,dphidrj,dphidrk,dphidrl)
+    !     the torsion derivatives with PBC images
+    implicit none
 
-!========================================================================================!
+    integer :: mode,ic,i,j,k,l,nat
+
+    real(wp) :: vTrR(3),vTrB(3),vTrC(3), &
+    &           sinphi,cosphi,onenner,thab,thbc,&
+    &           ra(3),rb(3),rc(3),rab(3),rac(3),rbc(3),rbb(3),&
+    &           raa(3),rba(3),rapba(3),rapbb(3),rbpca(3),rbpcb(3),&
+    &           rapb(3),rbpc(3),na(3),nb(3),nan,nbn,&
+    &           dphidri(3),dphidrj(3),dphidrk(3),dphidrl(3),&
+    &           xyz(3,nat),phi,nenner,vz
+
+    cosphi = cos(phi)
+    sinphi = sin(phi)
+    if (mode .eq. 1) then
+      do ic = 1,3
+        ra(ic) = xyz(ic,j)+vTrB(ic)-xyz(ic,i)-vTrR(ic)
+        rb(ic) = xyz(ic,k)+vTrC(ic)-xyz(ic,j)-vTrB(ic)
+        rc(ic) = xyz(ic,l)-xyz(ic,k)-vTrC(ic)
+
+        rapb(ic) = ra(ic)+rb(ic)
+        rbpc(ic) = rb(ic)+rc(ic)
+      end do
+    elseif (mode .eq. 2) then
+      do ic = 1,3
+        ra(ic) = -(xyz(ic,i)+vTrC(ic))+xyz(ic,j)
+        rb(ic) = -xyz(ic,j)+(xyz(ic,k)+vTrR(ic))
+        rc(ic) = -(xyz(ic,k)+vTrR(ic))+(xyz(ic,l)+vTrB(ic))
+
+        rapb(ic) = ra(ic)+rb(ic)
+        rbpc(ic) = rb(ic)+rc(ic)
+      end do
+    end if
+    call crossprod(ra,rb,na)
+    call crossprod(rb,rc,nb)
+    nan = vecnorm(na,3,0)
+    nbn = vecnorm(nb,3,0)
+
+    nenner = nan*nbn*sinphi
+    if (abs(nenner) .lt. eps) then
+      dphidri = 0
+      dphidrj = 0
+      dphidrk = 0
+      dphidrl = 0
+      if (abs(nan*nbn) .gt. eps) then
+        onenner = 1.0d0/(nan*nbn)
+      else
+        onenner = 0.0d0
+      end if
+    else
+      onenner = 1.d0/nenner
+    end if
+
+    call crossprod(na,rb,rab)
+    call crossprod(nb,ra,rba)
+    call crossprod(na,rc,rac)
+    call crossprod(nb,rb,rbb)
+    call crossprod(nb,rc,rbc)
+    call crossprod(na,ra,raa)
+
+    call crossprod(rapb,na,rapba)
+    call crossprod(rapb,nb,rapbb)
+    call crossprod(rbpc,na,rbpca)
+    call crossprod(rbpc,nb,rbpcb)
+
+    if (abs(onenner) .gt. eps) then
+      do ic = 1,3
+        ! ... dphidri
+        dphidri(ic) = onenner*(cosphi*nbn/nan*rab(ic)-rbb(ic))
+        ! ... dphidrj
+        dphidrj(ic) = onenner*(cosphi*(nbn/nan*rapba(ic)&
+           &                                +nan/nbn*rbc(ic))&
+           &                        -(rac(ic)+rapbb(ic)))
+        ! ... dphidrk
+        dphidrk(ic) = onenner*(cosphi*(nbn/nan*raa(ic)&
+           &                             +nan/nbn*rbpcb(ic))&
+           &                        -(rba(ic)+rbpca(ic)))
+        ! ... dphidrl
+        dphidrl(ic) = onenner*(cosphi*nan/nbn*rbb(ic)-rab(ic))
+      end do
+    else
+      dphidri = 0.0d0
+      dphidrj = 0.0d0
+      dphidrk = 0.0d0
+      dphidrl = 0.0d0
+    end if
+
+  End subroutine dphidrPBC
+
+! ══════════════════════════════════════════════════════════════════════════════
 
   pure subroutine bangl(xyz,i,j,k,angle)
     implicit none

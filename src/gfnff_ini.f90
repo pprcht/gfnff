@@ -1114,7 +1114,7 @@ contains   !> MODULE PROCEDURES START HERE
           nelpi = nelpi-1
           Api = Apisave
           call gfnffqmsolve(.false.,Api,S,.false.,4000.0d0,npi,0,nelpi,dum,occ,eps,io)  !diagonalize
-          call PREIG(6,occ,1.0d0,eps,1,npi)
+          !call PREIG(6,occ,1.0d0,eps,1,npi)
           do i = 1,npi  ! save IP/EA
             if (occ(i) .gt. 0.5) then
               pisip(pis) = eps(i)   ! IP
