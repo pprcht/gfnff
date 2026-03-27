@@ -305,7 +305,7 @@ contains
 
       write (myunit,'(10x,"----------------------------------------")')
       write (myunit,'(10x,"generating topology and atomic info file ...")')
-      call gfnff_neigh(makeneighbor,nat,at,xyz,rab,gen%rqshrink, &
+      call gfnff_neigh(makeneighbor,nat,at,xyz,cell,rab,gen%rqshrink, &
          & gen%rthr,gen%rthr2,gen%linthr,mchar,topo%hyb,itag,param,topo,neigh,nb_call)
       nb_call = .true.
 

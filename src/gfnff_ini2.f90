@@ -33,7 +33,7 @@ module gfnff_ini2
 
 contains
 
-  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,rab,fq,f_in,f2_in,lintr, &
+  subroutine gfnff_neigh(makeneighbor,natoms,at,xyz,cell,rab,fq,f_in,f2_in,lintr, &
                         & mchar,hyb,itag,param,topo,neigh,nb_call)
     implicit none
     character(len=*),parameter :: source = 'gfnff_ini2_neigh'
@@ -47,6 +47,7 @@ contains
     integer :: itag(natoms)
     real(wp) :: rab(natoms*(natoms+1)/2)
     real(wp) :: xyz(3,natoms)
+    type(TCell),intent(in) :: cell
     real(wp) :: mchar(natoms)
     real(wp) :: fq
     real(wp) :: f_in,f2_in               ! radius scaling for atoms/metal atoms recpectively
@@ -58,8 +59,8 @@ contains
     integer :: iat,i,j,k,ni,ii,jj,kk,ll,lin,ati,nb20i,nbdiff,hc_crit,nbmdiff,nnf,nni,nh,nm
     integer :: ai,aj,nn,im,ncm,l,no,iTr,iTr2,numnbf,numnbm,numnb,idx,idxdum,idxdum2,numctr
     integer :: nat
-    real(wp) :: r,pi,a1,f,f1,phi,f2,rco,fat(103)
-    data pi/3.1415926535897932384626433832795029d0/
+    real(wp) :: r,a1,f,f1,phi,f2,rco,fat(103)
+    real(wp),parameter :: pi = 3.1415926535897932384626433832795029_wp
     data fat/103*1.0d0/
 
 !     special hacks
@@ -113,10 +114,10 @@ contains
         end do
       end do
 
-      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,1,f_in,f2_in,param) ! nbf
+      call neigh%get_nb(nat,at,xyz,cell,rab,rtmp,mchar,1,f_in,f2_in,param) ! nbf
       ! neigh%nb only used for hyb states, then overwritten with nbf
-      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,2,f_in,f2_in,param) ! nb
-      call neigh%get_nb(nat,at,xyz,rab,rtmp,mchar,3,f_in,f2_in,param) ! nbm
+      call neigh%get_nb(nat,at,xyz,cell,rab,rtmp,mchar,2,f_in,f2_in,param) ! nb
+      call neigh%get_nb(nat,at,xyz,cell,rab,rtmp,mchar,3,f_in,f2_in,param) ! nbm
 
       ! take the input
     else
