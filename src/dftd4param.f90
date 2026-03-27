@@ -1,25 +1,25 @@
-!================================================================================!
-! This file is part of gfn0.
+! ──────────────────────────────────────────────────────────────────────────────
+! This file is part of gfnff.
 !
-! Copyright (C) 2023 Philipp Pracht
+! Copyright (C) 2023-2026 Philipp Pracht
 !
-! gfn0 is free software: you can redistribute it and/or modify it under
+! gfnff is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
 ! the Free Software Foundation, either version 3 of the License, or
 ! (at your option) any later version.
 !
-! gfn0 is distributed in the hope that it will be useful,
+! gfnff is distributed in the hope that it will be useful,
 ! but WITHOUT ANY WARRANTY; without even the implied warranty of
 ! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU Lesser General Public License for more details.
 !
 ! You should have received a copy of the GNU Lesser General Public License
-! along with gfn0.  If not, see <https://www.gnu.org/licenses/>.
-!--------------------------------------------------------------------------------!
+! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
+! ──────────────────────────────────────────────────────────────────────────────
 !> The original (unmodified) source code can be found under the GNU LGPL 3.0 license
-!> Copyright (C) 2017-2020 Stefan Grimme,Sebastian Ehlert,Eike Caldeweyher
+!> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
 !> at https://github.com/grimme-lab/xtb
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
 module dftd4param
    use iso_fortran_env, only : wp=>real64
    implicit none

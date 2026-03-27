@@ -1,19 +1,25 @@
-! This file is part of xtb.
+! ──────────────────────────────────────────────────────────────────────────────
+! This file is part of gfnff.
 !
-! Copyright (C) 2019-2020 Stefan Grimme
+! Copyright (C) 2023-2026 Philipp Pracht
 !
-! xtb is free software: you can redistribute it and/or modify it under
+! gfnff is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
 ! the Free Software Foundation, either version 3 of the License, or
 ! (at your option) any later version.
 !
-! xtb is distributed in the hope that it will be useful,
+! gfnff is distributed in the hope that it will be useful,
 ! but WITHOUT ANY WARRANTY; without even the implied warranty of
 ! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! GNU Lesser General Public License for more details.
 !
 ! You should have received a copy of the GNU Lesser General Public License
-! along with xtb.  If not, see <https://www.gnu.org/licenses/>.
+! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
+! ──────────────────────────────────────────────────────────────────────────────
+!> The original (unmodified) source code can be found under the GNU LGPL 3.0 license
+!> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
+!> at https://github.com/grimme-lab/xtb
+! ──────────────────────────────────────────────────────────────────────────────
 module gfnff_ini_mod
   use iso_fortran_env,only:wp => real64,stdout => output_unit
 

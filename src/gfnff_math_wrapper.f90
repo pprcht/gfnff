@@ -1,7 +1,7 @@
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
 ! This file is part of gfnff.
 !
-! Copyright (C) 2023 Philipp Pracht
+! Copyright (C) 2023-2026 Philipp Pracht
 !
 ! gfnff is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
@@ -14,8 +14,8 @@
 ! GNU Lesser General Public License for more details.
 !
 ! You should have received a copy of the GNU Lesser General Public License
-! along with gfnff.  If not, see <https://www.gnu.org/licenses/>.
-!================================================================================!
+! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
+! ──────────────────────────────────────────────────────────────────────────────
 module gfnff_math_wrapper
 !> module gfnff_math_wrapper
 !> contains some interfaces to LAPACK and BLAS routines

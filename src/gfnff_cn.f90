@@ -1,7 +1,7 @@
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
 ! This file is part of gfnff.
 !
-! Copyright (C) 2023 Philipp Pracht
+! Copyright (C) 2023-2026 Philipp Pracht
 !
 ! gfnff is free software: you can redistribute it and/or modify it under
 ! the terms of the GNU Lesser General Public License as published by
@@ -15,11 +15,11 @@
 !
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with gfnff. If not, see <https://www.gnu.org/licenses/>.
-!--------------------------------------------------------------------------------!
+! ──────────────────────────────────────────────────────────────────────────────
 !> The original (unmodified) source code can be found under the GNU LGPL 3.0 license
 !> Copyright (C) 2019-2020 Sebastian Ehlert, Sebastian Spicher, Stefan Grimme
 !> at https://github.com/grimme-lab/xtb
-!================================================================================!
+! ──────────────────────────────────────────────────────────────────────────────
 module gfnff_cn
   use iso_fortran_env,only:wp => real64
   use gfnff_data_types,only:TGFFData
