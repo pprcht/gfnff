@@ -398,7 +398,7 @@ contains  !> MODULE PROCEDURES START HERE
       if (pr) call timer%measure(4)
     else
       if (pr) call timer%measure(4,'EEQ energy and q')
-      call goed_pbc_gfnff(accuracy .gt. 1,n,at,dist,cell, &
+      call goed_pbc_gfnff(accuracy .gt. 1,n,at,xyz,dist,cell, &
       & dfloat(ichrg),eeqtmp,cn,nlist%q,ees,solvation,param,topo,gTrans, &
       & rTrans,xtmp,convF)  ! without dq/dr
       ees = ees*mcf_ees
@@ -862,7 +862,7 @@ contains  !> MODULE PROCEDURES START HERE
       else
         if (allocated(gTrans)) deallocate (gTrans)
         if (allocated(rTrans)) deallocate (rTrans)
-        call goed_pbc_gfnff(.true.,n,at,rinf,cell, &
+        call goed_pbc_gfnff(.true.,n,at,xyz,rinf,cell, &
         & dfloat(ichrg),eeqtmp,cn,qtmp,eesinf,solvation,param,topo,gTrans, &
         & rTrans,xtmp,convF)  ! without dq/dr
       end if
@@ -1851,7 +1851,7 @@ contains  !> MODULE PROCEDURES START HERE
 
   end subroutine goed_gfnff
 
-  subroutine goed_pbc_gfnff(single,n,at,r,cell,chrg,eeqtmp,cn,q,es,&
+  subroutine goed_pbc_gfnff(single,n,at,xyz,r,cell,chrg,eeqtmp,cn,q,es,&
                         & gbsa,param,topo,gTrans,rTrans,x,cf)
     implicit none
     character(len=*),parameter :: source = 'gfnff_eg_goed'
@@ -1861,6 +1861,7 @@ contains  !> MODULE PROCEDURES START HERE
     logical,intent(in)  :: single     ! real*4 flag for solver
     integer,intent(in)  :: n          ! number of atoms
     integer,intent(in)     :: at(n)   ! ordinal numbers
+    real(wp),intent(in)    :: xyz(3,n)
     real(wp),intent(in)    :: r(n,n)  ! dist
     type(TCell),intent(in) :: cell
     real(wp),intent(in)  :: chrg       ! total charge on system
@@ -1945,7 +1946,7 @@ contains  !> MODULE PROCEDURES START HERE
     cf = get_cf(rTrans,gTrans,cell%volume,avgAlpeeq)
 
     ! build Ewald matrix
-    call get_amat_3d(n,at,xyz,topo,cf,rTrans,gTrans,Amat)
+    call get_amat_3d(n,at,xyz,cell,topo,cf,rTrans,gTrans,Amat)
 
     !  setup RHS
     do i = 1,n

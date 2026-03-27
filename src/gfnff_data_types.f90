@@ -66,13 +66,13 @@ module gfnff_data_types
     integer  :: alp = 16
 
     !> Weighting factor for Gaussian interpolation
-    real(wp) :: wf
+    real(wp) :: wf = 0.0_wp
 
     !> Charge steepness
-    real(wp) :: g_a
+    real(wp) :: g_a = 0.0_wp
 
     !> Charge height
-    real(wp) :: g_c
+    real(wp) :: g_c = 0.0_wp
 
     !> Reference data for the dispersion
     integer,allocatable :: atoms(:)
