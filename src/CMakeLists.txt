@@ -1,7 +1,5 @@
 
-IF(WITH_GBSA)
 add_subdirectory("gbsa")
-ENDIF()
 
 set(dir "${CMAKE_CURRENT_SOURCE_DIR}")
 

@@ -25,13 +25,15 @@ contains  !> Unit tests for PV calculations
 !&<
     testsuite = [ &
     new_unittest("GFN-FF singlepoint calculation ",test_gfnff_sp), &
-#ifdef WITH_GBSA
     new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb), &
-#else
-    new_unittest("GFN-FF singlepoint with ALPB   ",test_gfnff_alpb,should_fail=.true.), &
-#endif
 !    new_unittest("GFN-FF OpenMP parallel SP      ",test_gfnff_openmp), &
-    new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad) &
+    new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad), &
+    new_unittest("GFN-FF net force vanishes      ",test_gfnff_netforce), &
+    new_unittest("GFN-FF translation invariance  ",test_gfnff_translation), &
+    new_unittest("GFN-FF energy decomposition    ",test_gfnff_edecomp), &
+    new_unittest("GFN-FF energy components       ",test_gfnff_components), &
+    new_unittest("GFN-FF energy components ALPB  ",test_gfnff_components_alpb), &
+    new_unittest("GFN-FF supermol singlepoint    ",test_gfnff_supermol) &
     ]
 !&>
   end subroutine collect_gfnff
@@ -253,6 +255,289 @@ contains  !> Unit tests for PV calculations
 
     deallocate (grad)
   end subroutine test_gfnff_alpb
+
+!========================================================================================!
+
+  subroutine test_gfnff_netforce(error)
+    !***********************************************
+    !* Net force (sum of gradients) must vanish.   *
+    !* No reference data needed; purely physical.  *
+    !***********************************************
+    use coffeine
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: energy
+    real(wp),allocatable :: xyz(:,:),grad(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io,k
+    real(wp) :: fnet(3)
+    type(gfnff_data) :: calculator
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),grad(3,nat))
+    at = testat
+    xyz = testxyz
+    energy = 0.0_wp
+    grad = 0.0_wp
+
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    fnet = 0.0_wp
+    do k = 1,nat
+      fnet(:) = fnet(:) + grad(:,k)
+    end do
+
+    if (any(abs(fnet) > 1.0e-10_wp)) then
+      call test_failed(error,"Net force is not zero")
+      write(*,'(a,3es12.4)') "  F_net =",fnet
+    end if
+  end subroutine test_gfnff_netforce
+
+!========================================================================================!
+
+  subroutine test_gfnff_translation(error)
+    !***********************************************
+    !* Translating the molecule must leave energy  *
+    !* and gradient magnitudes unchanged.          *
+    !***********************************************
+    use coffeine
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: e0,e1
+    real(wp),allocatable :: xyz(:,:),xyz_shifted(:,:),grad0(:,:),grad1(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io,i
+    type(gfnff_data) :: calc0,calc1
+    real(wp),parameter :: shift(3) = [10.0_wp, -7.3_wp, 4.1_wp]
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),xyz_shifted(3,nat),grad0(3,nat),grad1(3,nat))
+    at = testat
+    xyz = testxyz
+    xyz_shifted = xyz
+    do i = 1,nat
+      xyz_shifted(:,i) = xyz_shifted(:,i) + shift(:)
+    end do
+
+    e0 = 0.0_wp; grad0 = 0.0_wp
+    call gfnff_initialize(nat,at,xyz,calc0,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calc0,e0,grad0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    e1 = 0.0_wp; grad1 = 0.0_wp
+    call gfnff_initialize(nat,at,xyz_shifted,calc1,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz_shifted,calc1,e1,grad1,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    call check(error,e1,e0,thr=1.0e-10_wp)
+    if (allocated(error)) then
+      call test_failed(error,"Energy changed after translation")
+      return
+    end if
+
+    if (any(abs(grad1 - grad0) > 1.0e-10_wp)) then
+      call test_failed(error,"Gradient changed after translation")
+    end if
+  end subroutine test_gfnff_translation
+
+!========================================================================================!
+
+  subroutine test_gfnff_edecomp(error)
+    !***********************************************
+    !* The sum of all energy components must equal *
+    !* the total energy stored in res%e_total.     *
+    !***********************************************
+    use coffeine
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: energy,esum
+    real(wp),allocatable :: xyz(:,:),grad(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io
+    type(gfnff_data) :: calculator
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),grad(3,nat))
+    at = testat
+    xyz = testxyz
+
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    associate(r => calculator%res)
+      esum = r%e_bond + r%e_angl + r%e_tors + r%e_batm &
+           + r%e_rep  + r%e_es   + r%e_disp + r%e_hb   &
+           + r%e_xb   + r%e_ext
+
+      call check(error,esum,r%e_total,thr=1.0e-12_wp)
+      if (allocated(error)) then
+        call test_failed(error,"Energy component sum does not match e_total")
+        write(*,'(a,es20.12)') "  component sum =",esum
+        write(*,'(a,es20.12)') "  e_total       =",r%e_total
+      end if
+    end associate
+  end subroutine test_gfnff_edecomp
+
+!========================================================================================!
+
+  subroutine test_gfnff_components(error)
+    !*****************************************************
+    !* Regression test for all individual energy terms  *
+    !* of caffeine (gas phase, no solvation).            *
+    !*****************************************************
+    use coffeine
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: energy
+    real(wp),allocatable :: xyz(:,:),grad(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io
+    type(gfnff_data) :: calculator
+!&<
+    real(wp),parameter :: e_bond_ref = -4.798457754311154_wp
+    real(wp),parameter :: e_angl_ref =  0.018023083376745_wp
+    real(wp),parameter :: e_tors_ref =  0.000891368462549_wp
+    real(wp),parameter :: e_batm_ref = -0.000967109393591_wp
+    real(wp),parameter :: e_rep_ref  =  0.300182688960152_wp
+    real(wp),parameter :: e_es_ref   = -0.174351370463650_wp
+    real(wp),parameter :: e_disp_ref = -0.018113406607768_wp
+    real(wp),parameter :: e_hb_ref   = -0.000000033949287_wp
+    real(wp),parameter :: e_xb_ref   =  0.000000000000000_wp
+!&>
+    real(wp),parameter :: cthr = 1.0e-7_wp
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),grad(3,nat))
+    at = testat; xyz = testxyz
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    associate(r => calculator%res)
+      call check(error,r%e_bond,e_bond_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%e_angl,e_angl_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%e_tors,e_tors_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%e_batm,e_batm_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%e_rep, e_rep_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_es,  e_es_ref,  thr=cthr); if (allocated(error)) return
+      call check(error,r%e_disp,e_disp_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%e_hb,  e_hb_ref,  thr=cthr); if (allocated(error)) return
+      call check(error,r%e_xb,  e_xb_ref,  thr=cthr)
+    end associate
+  end subroutine test_gfnff_components
+
+!========================================================================================!
+
+  subroutine test_gfnff_components_alpb(error)
+    !*****************************************************
+    !* Regression test for all individual energy terms  *
+    !* of caffeine with ALPB implicit solvation (water). *
+    !*****************************************************
+    use coffeine
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: energy
+    real(wp),allocatable :: xyz(:,:),grad(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io
+    type(gfnff_data) :: calculator
+!&<
+    real(wp),parameter :: e_bond_ref  = -4.798457754311155_wp
+    real(wp),parameter :: e_angl_ref  =  0.018023083376745_wp
+    real(wp),parameter :: e_tors_ref  =  0.000891368462549_wp
+    real(wp),parameter :: e_batm_ref  = -0.000967109393591_wp
+    real(wp),parameter :: e_rep_ref   =  0.300182688960152_wp
+    real(wp),parameter :: e_es_ref    = -0.171030958335199_wp
+    real(wp),parameter :: e_disp_ref  = -0.018113406607768_wp
+    real(wp),parameter :: e_hb_ref    = -0.000000033949287_wp
+    real(wp),parameter :: e_xb_ref    =  0.000000000000000_wp
+    real(wp),parameter :: g_born_ref  = -0.015702779304596_wp
+    real(wp),parameter :: g_sasa_ref  =  0.000932775805422_wp
+    real(wp),parameter :: g_hb_ref    = -0.006029170883118_wp
+    real(wp),parameter :: g_shift_ref =  0.000364939254922_wp
+    real(wp),parameter :: g_solv_ref  = -0.020434235127370_wp
+!&>
+    real(wp),parameter :: cthr = 1.0e-7_wp
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),grad(3,nat))
+    at = testat; xyz = testxyz
+    call calculator%init(nat,at,xyz,ichrg=0,iostat=io,solvent='h2o')
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    associate(r => calculator%res)
+      call check(error,r%e_bond, e_bond_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_angl, e_angl_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_tors, e_tors_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_batm, e_batm_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_rep,  e_rep_ref,  thr=cthr); if (allocated(error)) return
+      call check(error,r%e_es,   e_es_ref,   thr=cthr); if (allocated(error)) return
+      call check(error,r%e_disp, e_disp_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%e_hb,   e_hb_ref,   thr=cthr); if (allocated(error)) return
+      call check(error,r%e_xb,   e_xb_ref,   thr=cthr); if (allocated(error)) return
+      call check(error,r%g_born, g_born_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%g_sasa, g_sasa_ref, thr=cthr); if (allocated(error)) return
+      call check(error,r%g_hb,   g_hb_ref,   thr=cthr); if (allocated(error)) return
+      call check(error,r%g_shift,g_shift_ref,thr=cthr); if (allocated(error)) return
+      call check(error,r%g_solv, g_solv_ref, thr=cthr)
+    end associate
+  end subroutine test_gfnff_components_alpb
+
+!========================================================================================!
+
+  subroutine test_gfnff_supermol(error)
+    !***********************************************
+    !* Regression test for the 226-atom supermol  *
+    !* geometry. Tests scalability of the neighbor *
+    !* list and topology routines.                 *
+    !* Input: supermol.f90 (226 atoms, diverse     *
+    !*        elements incl. halogens, P, B, Li)   *
+    !***********************************************
+    use supermol
+    type(error_type),allocatable,intent(out) :: error
+    real(wp) :: energy
+    real(wp),allocatable :: xyz(:,:),grad(:,:)
+    integer,allocatable :: at(:)
+    integer :: nat,io,k
+    real(wp) :: fnet(3)
+    type(gfnff_data) :: calculator
+!&<
+    real(wp),parameter :: e_ref = -29.644066967343573_wp
+!&>
+
+    nat = testnat
+    allocate(at(nat),xyz(3,nat),grad(3,nat))
+    at = testat
+    xyz = testxyz
+    energy = 0.0_wp; grad = 0.0_wp
+
+    call gfnff_initialize(nat,at,xyz,calculator,ichrg=0,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+    call gfnff_singlepoint(nat,at,xyz,calculator,energy,grad,iostat=io)
+    call check(error,io,0); if (allocated(error)) return
+
+    ! net force check
+    fnet = 0.0_wp
+    do k = 1,nat
+      fnet(:) = fnet(:) + grad(:,k)
+    end do
+    if (any(abs(fnet) > 1.0e-10_wp)) then
+      call test_failed(error,"Net force is not zero for supermol")
+      write(*,'(a,3es12.4)') "  F_net =",fnet
+      return
+    end if
+
+    call check(error,energy,e_ref,thr=1.0e-3_wp)
+    if (allocated(error)) then
+      call test_failed(error,"Supermol energy does not match reference")
+      write(*,'(a,f25.15)') "  energy =",energy
+    end if
+  end subroutine test_gfnff_supermol
 
 !========================================================================================!
 !========================================================================================!

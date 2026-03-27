@@ -60,11 +60,6 @@ set(
   "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
 )
 
-# Custom compile arguments
-IF(WITH_GBSA)
-add_definitions(-DWITH_GBSA)
-ENDIF()
-
 # gfnff-lib sources
 set(srcs)
 add_subdirectory("src")

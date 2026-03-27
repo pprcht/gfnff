@@ -1,9 +1,7 @@
 # This file is part of gfnff.
 # SPDX-Identifier: LGPL-3.0-or-later
 
-if with_gbsa
-  subdir('gbsa')
-endif
+subdir('gbsa')
 
 srcs += files(
   'gfnff_math_wrapper.f90',

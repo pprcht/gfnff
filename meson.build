@@ -170,14 +170,6 @@ if with_openblas
 endif
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  Optional features
-# ═══════════════════════════════════════════════════════════════════════════════
-with_gbsa = get_option('gbsa').allowed()
-if with_gbsa
-  add_project_arguments('-DWITH_GBSA', language : 'fortran')
-endif
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  Source collection
 # ═══════════════════════════════════════════════════════════════════════════════
 srcs = []
@@ -250,7 +242,6 @@ summary({
   'OpenMP'           : omp_dep.found(),
   'MKL'              : with_mkl,
   'OpenBLAS'         : with_openblas,
-  'GBSA/ALPB'        : with_gbsa,
   'Standalone app'   : get_option('build_exe'),
   'Unit tests'       : get_option('tests'),
 }, section : 'gfnff build configuration')

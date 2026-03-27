@@ -39,12 +39,6 @@ option('static',
 )
 
 # ── Optional features ──────────────────────────────────────────────────────────
-option('gbsa',
-  type    : 'feature',
-  value   : 'enabled',
-  description : 'Build with GBSA/ALPB implicit solvation support',
-)
-
 option('build_exe',
   type    : 'boolean',
   value   : false,

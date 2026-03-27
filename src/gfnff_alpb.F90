@@ -24,22 +24,13 @@
 !>       We are using the improved ALPB model instead.
 module gfnff_gbsa
   use iso_fortran_env,only:wp => real64,stdout => output_unit
-#ifdef WITH_GBSA
   use solvation_solv_input,only:TSolvInput
   use solvation_solv_state,only:solutionState
   use solvation_solv_kernel,only:gbKernel
   use solvation_solv_model,only:TSolvModel,init,newBornModel,info
   use solvation_solv_gbsa,only:TBorn
-#endif
   implicit none
   private
-
-#ifndef WITH_GBSA
-  !> TBorn placeholder if compiled without GBSA support
-  type :: TBorn
-    integer :: dummy
-  end type TBorn
-#endif
 
   public :: TBorn,gfnff_gbsa_init,gfnff_solvation,gfnff_gbsa_print
 
@@ -59,7 +50,6 @@ contains  !> MODULE PROCEDURES START HERE
     !> OUTPUT
     type(TBorn),intent(out)     :: gbsa     !> gbsa type returned
     !> LOCAL
-#ifdef WITH_GBSA
     type(TSolvInput) :: input
     type(TSolvModel) :: model
 
@@ -67,9 +57,6 @@ contains  !> MODULE PROCEDURES START HERE
     call init(model,input,0)
     !call info(model,stdout)
     call newBornModel(model,gbsa,at)
-#else
-    gbsa%dummy = 0
-#endif
 
     return
   end subroutine gfnff_gbsa_init
@@ -78,9 +65,7 @@ contains  !> MODULE PROCEDURES START HERE
     implicit none
     integer :: iunit
     type(TBorn),intent(in)     :: gbsa     !> gbsa type
-#ifdef WITH_GBSA
     call gbsa%info(iunit)
-#endif
   end subroutine gfnff_gbsa_print
 
 !========================================================================================!
@@ -99,15 +84,11 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(inout)      :: gradient(3,nat) !> atomic gradient (added to)
     !> LOCAL
     real(wp) :: gborn,ghb,gsasa,gshift
-#ifdef WITH_GBSA
     call gbsa%update(at,xyz)
     call gbsa%addGradient(at,xyz,qat,qat,gradient)
     call gbsa%getEnergyParts(qat,qat,gborn,ghb,gsasa, &
     & gshift)
     gsolv = gsasa+gborn+ghb+gshift
-#else
-    gsolv = 0.0_wp
-#endif
   end subroutine gfnff_solvation
 !========================================================================================!
 end module gfnff_gbsa
