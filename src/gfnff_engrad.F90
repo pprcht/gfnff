@@ -1192,7 +1192,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) dt,ea,dedb(3),dedc(3),rmul2,rmul1,deddt
     real(wp) term1(3),term2(3),rab2,vab(3),vcb(3),rp
     real(wp) rcb2,damp,dampij,damp2ij,dampjk,damp2jk
-    real(wp) theta,deda(3),vlen,vp(3),et,dij,c1
+    real(wp) theta,deda(3),vp(3),et,dij,c1
     real(wp) term3(3),x1sin,x1cos,e1,dphi1,vdc(3)
     real(wp) ddd(3),ddc(3),ddb(3),dda(3),rjl,phi
     real(wp) omega,rij,rijk,phi0,rkl,rjk,dampkl,damp2kl

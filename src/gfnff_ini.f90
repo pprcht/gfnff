@@ -27,6 +27,7 @@ module gfnff_ini_mod
   use gfnff_qm_setup,only:gfnffqmsolve
   use gfnff_fraghess
   use gfnff_rab
+  use gfnff_helpers, only: lin
   private
 
   public :: gfnff_ini
@@ -59,7 +60,7 @@ contains   !> MODULE PROCEDURES START HERE
     integer,intent(in),optional :: iunit
 !--------------------------------------------------------------------------------------------------
 
-    integer :: ati,atj,atk,i,j,k,l,lin,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no,nbi
+    integer :: ati,atj,atk,i,j,k,l,nn,ii,jj,kk,ll,m,rings,ia,ja,ij,ix,nnn,idum,ip,ji,no,nbi
     integer :: nni,nnj
     integer :: ineig,jneig,nrot,bbtyp,ringtyp,nn1,nn2,hybi,hybj,pis,ka,nh,jdum,hcalc,nc
     integer :: ringsi,ringsj,ringsk,ringl,npi,nelpi,picount,npiall,maxtors,rings4,nheav
@@ -71,11 +72,6 @@ contains   !> MODULE PROCEDURES START HERE
     integer :: bond_hbn
     integer :: iTr,iTr2,iTri,iTrj,iTrk,iTrDum,iTrlDum,iTrl,iTrtmp
     real(wp) :: vTrl(3),vTrj(3),vTrk(3),vec(3),MaxCutOff
-    interface
-      integer function itabrow6(i)
-        integer i
-      end function
-    end interface
 
     real(wp) :: r0,ff,omega,omegaPBC,f1,f2,phi,valijklff,ringf,fcn
     real(wp) :: shift,dum,dum1,dum2,dum4,qafac,fqq,feta

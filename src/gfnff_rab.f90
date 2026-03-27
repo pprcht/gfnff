@@ -25,7 +25,7 @@ module gfnff_rab
   use gfnff_helpers,only:lin
   implicit none
   private
-  public :: gfnffrab,gfnffdrab
+  public :: gfnffrab,gfnffdrab,iTabRow6
 !========================================================================================!
 !========================================================================================!
 contains  !> MODULE PROCEDURES START HERE
