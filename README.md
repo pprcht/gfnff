@@ -90,3 +90,7 @@ call calculator%deallocate()
 The calculator initialization is often more expensive than the actual energy evaluation due to the topology setup. However, once the calculator has been initialized, singlepoint energies can be called repeatedly.
 
 
+### Literature
+- https://doi.org/10.1002/anie.202004239
+- https://doi.org/10.1515/znb-2023-0088
+- https://doi.org/10.1021/acs.inorgchem.4c03215
