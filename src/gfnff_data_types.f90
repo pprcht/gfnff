@@ -43,7 +43,7 @@ module gfnff_data_types
     integer :: npbc = 0                !> Number of periodic dimensions (0=molecule, 1/2/3=periodic)
     logical :: pbc(3) = .false.        !> Which Cartesian dimensions are periodic
     real(wp) :: lattice(3,3) = 0.0_wp  !> Direct lattice vectors (columns), in Bohr
-    real(wp) :: rec_lat(3,3) = 0.0_wp  !> Reciprocal lattice vectors (columns), in 1/Bohr (without 2pi factor)
+    real(wp) :: rec_lat(3,3) = 0.0_wp  !> Reciprocal lattice vectors (columns), in 1/Bohr (with 2pi factor, G = 2π * A^{-T} * n)
     real(wp) :: volume = 0.0_wp        !> Unit-cell volume, in Bohr^3
 
     type(gfnff_wsc) :: wsc
@@ -637,17 +637,21 @@ contains  !> MODULE PROCEDURES START HERE
     self%volume = abs(lattice(1,1)*(lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3)) &
                          & -lattice(1,2)*(lattice(2,1)*lattice(3,3)-lattice(3,1)*lattice(2,3)) &
                          & +lattice(1,3)*(lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2)))
-    !> reciprocal lattice = inverse transpose of lattice (without 2pi factor)
-    !> rec_lat(:,i) = (a_j x a_k) / V, computed via cofactor matrix / V
-    self%rec_lat(1,1) = (lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3))/self%volume
-    self%rec_lat(2,1) = (lattice(3,2)*lattice(1,3)-lattice(1,2)*lattice(3,3))/self%volume
-    self%rec_lat(3,1) = (lattice(1,2)*lattice(2,3)-lattice(2,2)*lattice(1,3))/self%volume
-    self%rec_lat(1,2) = (lattice(2,3)*lattice(3,1)-lattice(3,3)*lattice(2,1))/self%volume
-    self%rec_lat(2,2) = (lattice(3,3)*lattice(1,1)-lattice(1,3)*lattice(3,1))/self%volume
-    self%rec_lat(3,2) = (lattice(1,3)*lattice(2,1)-lattice(2,3)*lattice(1,1))/self%volume
-    self%rec_lat(1,3) = (lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2))/self%volume
-    self%rec_lat(2,3) = (lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/self%volume
-    self%rec_lat(3,3) = (lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/self%volume
+    !> reciprocal lattice = 2π * inverse transpose of lattice
+    !> rec_lat(:,i) = 2π * (a_j x a_k) / V, computed via cofactor matrix / V
+    !> matches xtb convention: G = 2π * A^{-T} * n, required by the Ewald summation routines
+    block
+      real(wp),parameter :: tpi = 2.0_wp*acos(-1.0_wp)
+      self%rec_lat(1,1) = tpi*(lattice(2,2)*lattice(3,3)-lattice(3,2)*lattice(2,3))/self%volume
+      self%rec_lat(2,1) = tpi*(lattice(3,2)*lattice(1,3)-lattice(1,2)*lattice(3,3))/self%volume
+      self%rec_lat(3,1) = tpi*(lattice(1,2)*lattice(2,3)-lattice(2,2)*lattice(1,3))/self%volume
+      self%rec_lat(1,2) = tpi*(lattice(2,3)*lattice(3,1)-lattice(3,3)*lattice(2,1))/self%volume
+      self%rec_lat(2,2) = tpi*(lattice(3,3)*lattice(1,1)-lattice(1,3)*lattice(3,1))/self%volume
+      self%rec_lat(3,2) = tpi*(lattice(1,3)*lattice(2,1)-lattice(2,3)*lattice(1,1))/self%volume
+      self%rec_lat(1,3) = tpi*(lattice(2,1)*lattice(3,2)-lattice(3,1)*lattice(2,2))/self%volume
+      self%rec_lat(2,3) = tpi*(lattice(3,1)*lattice(1,2)-lattice(1,1)*lattice(3,2))/self%volume
+      self%rec_lat(3,3) = tpi*(lattice(1,1)*lattice(2,2)-lattice(2,1)*lattice(1,2))/self%volume
+    end block
   end subroutine init_cell
 
   subroutine init_wsc(self,nat,at,xyz)

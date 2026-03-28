@@ -37,32 +37,32 @@ contains
     real(wp) :: energy
     real(wp), allocatable :: grad(:,:)
     integer :: io
-    real(wp), parameter :: e_ref   = -1.457828799728746_wp
+    real(wp), parameter :: e_ref   = -1.429601370942344_wp
     real(wp), parameter :: thr_e   = 5.0e-4_wp
     real(wp), parameter :: thr_g   = 1.0e-6_wp
     real(wp), parameter :: g_ref(3,sio2nat) = reshape([ &
-      & -0.033206725329150_wp,  0.029375024022352_wp,  0.032656696230473_wp, &
-      &  0.041826968098463_wp,  0.001290069729135_wp,  0.001030072820178_wp, &
-      &  0.007869272495832_wp,  0.037389211554370_wp, -0.004267315561024_wp, &
-      & -0.011535386748665_wp, -0.033419621287930_wp, -0.001037559146122_wp, &
-      & -0.037316483923135_wp,  0.009543402978026_wp,  0.005385295118687_wp, &
-      & -0.010989440750150_wp,  0.042771819264084_wp, -0.034396977147170_wp, &
-      &  0.035301802378919_wp, -0.035648432763542_wp,  0.051608926166113_wp, &
-      & -0.013948798232784_wp,  0.001534493760553_wp,  0.001706129125887_wp, &
-      &  0.021998792010669_wp, -0.052835967257049_wp, -0.052685267607023_wp  &
+      & -0.020124023725345_wp,  0.034805181856585_wp,  0.044053404097327_wp, &
+      &  0.034842303598706_wp, -0.016298860703557_wp, -0.006525861781396_wp, &
+      &  0.005292624932896_wp,  0.023050948861036_wp,  0.002844588646397_wp, &
+      & -0.003300742075965_wp, -0.038334744760994_wp,  0.006515122959067_wp, &
+      & -0.022620929955122_wp,  0.006952573658589_wp, -0.002822197156296_wp, &
+      & -0.020078721125386_wp,  0.034827045716319_wp, -0.044050926778701_wp, &
+      &  0.008961279550369_wp, -0.043885191312389_wp,  0.027043358993217_wp, &
+      & -0.016503745440319_wp,  0.028573301106312_wp, -0.000001074806692_wp, &
+      &  0.033531954240166_wp, -0.029690254421901_wp, -0.027056414172924_wp  &
       & ], shape(g_ref))
 
     allocate(grad(3, sio2nat), source=0.0_wp)
 
     call gfnff_initialize(sio2nat, sio2at, sio2xyz, calc, &
-      &                   lattice=sio2lattice, npbc=3, iostat=io, printlevel=3)
+      &                   lattice=sio2lattice, npbc=3, iostat=io, printlevel=0)
     call check(error, io, 0)
     if (allocated(error)) return
 
     call gfnff_singlepoint(sio2nat, sio2at, sio2xyz, calc, energy, grad, &
-      &                    lattice=sio2lattice, iostat=io, printlevel=3)
+      &                    lattice=sio2lattice, iostat=io, printlevel=0)
 
-    call calc%resultprint()
+    !call calc%resultprint()
 
     call check(error, io, 0)
     if (allocated(error)) return
