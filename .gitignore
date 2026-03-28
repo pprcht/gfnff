@@ -21,3 +21,6 @@ ff/
 gfnff_topo
 gfnff_adjacency
 __pycache__
+python/gfnff/libgfnff*
+*.egg-info/
+dist/

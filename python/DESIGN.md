@@ -57,15 +57,51 @@ drives CMake from inside the PEP 517 build process.  The relevant flow is:
 
 1. `pip install gfnff` (or `python -m build`) invokes scikit-build-core.
 2. scikit-build-core calls `cmake -DPYTHON_BINDINGS=ON …` and `cmake --build`.
-3. The CMake `install(TARGETS gfnff-shared LIBRARY DESTINATION gfnff)` step
-   places `libgfnff.so` inside the `python/gfnff/` source tree.
-4. scikit-build-core packages that directory as the wheel content.
-5. At import time `_lib.py` finds `libgfnff.so` next to `__init__.py` and loads
-   it with `ctypes.CDLL`.
+3. The CMake `POST_BUILD` command copies `libgfnff.so` into `python/gfnff/`
+   (see next section).
+4. scikit-build-core packages `python/gfnff/` via `wheel.packages`, bundling
+   the library alongside the Python sources.
+5. At import time `_lib.py` finds `libgfnff.so*` next to `__init__.py` and
+   loads it with `ctypes.CDLL`.
 
 Plain `setuptools` was not used because it has no native support for CMake
 builds; it would require a custom `build_ext` subclass or a subprocess call,
 which is more fragile.
+
+---
+
+## POST_BUILD copy instead of CMake install() for the shared library
+
+**Problem**: ctypes needs the shared library to live next to the Python package
+files so `_lib.py` can find it with a simple `glob("libgfnff.so*")`.  The
+natural CMake solution is an `install(TARGETS … DESTINATION gfnff)` rule, which
+places the library in the right spot during `cmake --install`.  This works for
+wheel builds but breaks the development workflow: editable installs (`pip
+install -e .`) never run `cmake --install`, so the `.so` stays in the build
+directory and every Python invocation requires `LD_LIBRARY_PATH=_build_py/`.
+
+**Solution**: replace the `install()` rule with a `POST_BUILD` custom command:
+
+```cmake
+add_custom_command(
+  TARGET "${PROJECT_NAME}-shared" POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:${PROJECT_NAME}-shared>
+    "${CMAKE_CURRENT_SOURCE_DIR}/python/gfnff/$<TARGET_FILE_NAME:${PROJECT_NAME}-shared>"
+)
+```
+
+`POST_BUILD` runs after every successful `cmake --build`, regardless of whether
+an install step follows.  The library lands in `python/gfnff/` immediately,
+where `_lib.py` finds it without any environment variable.
+
+**Why not `install()` as well?**  scikit-build-core assembles the wheel from
+both the CMake install tree *and* the `wheel.packages` source directories.
+If the `.so` appears in both, it is included in the wheel twice.  Using only
+`POST_BUILD` + `wheel.packages` avoids the duplication.
+
+**`python/gfnff/libgfnff*` is gitignored** because it is a build artefact
+generated from sources already tracked in the repository.
 
 ---
 

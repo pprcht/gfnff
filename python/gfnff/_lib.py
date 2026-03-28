@@ -23,8 +23,8 @@ def _load_library() -> ctypes.CDLL:
     # 1. Wheel / editable install: .so lives next to this file
     pkg_dir = pathlib.Path(__file__).parent
     candidates = (
-        list(pkg_dir.glob("libgfnff.so*"))
-        + list(pkg_dir.glob("libgfnff.dylib"))
+        list(pkg_dir.glob("libgfnff.so*"))   # Linux: libgfnff.so.0.0.1
+        + list(pkg_dir.glob("libgfnff*.dylib"))  # macOS: libgfnff.0.0.1.dylib
         + list(pkg_dir.glob("gfnff.dll"))
     )
     if candidates:
