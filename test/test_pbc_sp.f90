@@ -1,10 +1,12 @@
 module test_pbc_sp
   !> Singlepoint energy and gradient tests for periodic GFN-FF calculations.
-  !> Uses the SiO2 (alpha-quartz-like) unit cell as reference geometry.
+  !> Uses the SiO2 (alpha-quartz-like) unit cell as reference geometry,
+  !> caffeine in a periodic box, and SiO2 treated as a molecular system.
   use testdrive, only: new_unittest, unittest_type, error_type, check, test_failed
   use iso_fortran_env, only: wp => real64
   use gfnff_interface
   use sio2
+  use coffeine, only: testnat, testat, testxyz
   implicit none
   private
 
@@ -17,8 +19,11 @@ contains
   subroutine collect_pbc_sp(testsuite)
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [ &
-      new_unittest("PBC SiO2 singlepoint              ", test_pbc_sio2_sp),      &
-      new_unittest("PBC SiO2 net force vanishes       ", test_pbc_sio2_netforce)  &
+      new_unittest("PBC SiO2 singlepoint              ", test_pbc_sio2_sp),         &
+      new_unittest("PBC SiO2 net force vanishes       ", test_pbc_sio2_netforce),    &
+      new_unittest("PBC caffeine-in-box singlepoint   ", test_pbc_caffeine_sp),      &
+      new_unittest("PBC caffeine-in-box net force     ", test_pbc_caffeine_netforce), &
+      new_unittest("SiO2 molecular singlepoint        ", test_sio2_molecular_sp)     &
     ]
   end subroutine collect_pbc_sp
 
@@ -61,9 +66,6 @@ contains
 
     call gfnff_singlepoint(sio2nat, sio2at, sio2xyz, calc, energy, grad, &
       &                    lattice=sio2lattice, iostat=io, printlevel=0)
-
-    !call calc%resultprint()
-
     call check(error, io, 0)
     if (allocated(error)) return
 
@@ -82,36 +84,175 @@ contains
     !***********************************************************
     !* For a fully periodic system the net force (sum over all
     !* atomic gradients) must vanish: Newton's 3rd law.
-    !* No reference data needed; purely a physical constraint.
     !***********************************************************
     type(error_type), allocatable, intent(out) :: error
     type(gfnff_data) :: calc
     real(wp) :: energy
     real(wp), allocatable :: grad(:,:)
-    real(wp) :: fnet(3)
-    integer :: io, k
+    real(wp) :: netforce(3)
+    integer :: io
+    real(wp), parameter :: thr = 1.0e-10_wp
 
     allocate(grad(3, sio2nat), source=0.0_wp)
 
     call gfnff_initialize(sio2nat, sio2at, sio2xyz, calc, &
-      &                   lattice=sio2lattice, npbc=3, iostat=io)
+      &                   lattice=sio2lattice, npbc=3, iostat=io, printlevel=0)
     call check(error, io, 0)
     if (allocated(error)) return
 
     call gfnff_singlepoint(sio2nat, sio2at, sio2xyz, calc, energy, grad, &
-      &                    lattice=sio2lattice, iostat=io)
+      &                    lattice=sio2lattice, iostat=io, printlevel=0)
     call check(error, io, 0)
     if (allocated(error)) return
 
-    fnet = 0.0_wp
-    do k = 1, sio2nat
-      fnet(:) = fnet(:) + grad(:,k)
-    end do
-    if (any(abs(fnet) > 1.0e-10_wp)) then
-      call test_failed(error, "PBC net force is not zero")
-      write(*,'(a,3es12.4)') "  F_net =", fnet
+    netforce = sum(grad, dim=2)
+    if (any(abs(netforce) > thr)) then
+      call test_failed(error, "PBC SiO2 net force does not vanish")
     end if
 
   end subroutine test_pbc_sio2_netforce
 
+!========================================================================================!
+
+  subroutine test_pbc_caffeine_sp(error)
+    !***********************************************************
+    !* GFN-FF singlepoint on caffeine placed in a cubic periodic
+    !* box of 30 Bohr side length. Tests the PBC path for a
+    !* molecular system with isolated periodic images.
+    !*
+    !* INPUT: testnat, testat, testxyz (from coffeine.f90)
+    !***********************************************************
+    type(error_type), allocatable, intent(out) :: error
+    type(gfnff_data) :: calc
+    real(wp) :: energy
+    real(wp), allocatable :: grad(:,:)
+    integer :: io
+    real(wp), parameter :: e_ref   = -4.672824496568267_wp
+    real(wp), parameter :: thr_e   = 5.0e-4_wp
+    real(wp), parameter :: thr_g   = 1.0e-6_wp
+    real(wp), parameter :: lattice(3,3) = reshape([ &
+      & 30.0_wp,  0.0_wp,  0.0_wp, &
+      &  0.0_wp, 30.0_wp,  0.0_wp, &
+      &  0.0_wp,  0.0_wp, 30.0_wp  &
+      & ], shape(lattice))
+    real(wp), parameter :: g_ref(3,testnat) = reshape([ &
+      &  0.005305429354695_wp,  0.000273396637589_wp,  0.000002229729880_wp, &
+      &  0.008155749606608_wp, -0.008218382343138_wp, -0.000025504273643_wp, &
+      & -0.003078364060582_wp, -0.009433691578996_wp,  0.000033226239279_wp, &
+      &  0.009929561601486_wp,  0.008103015554918_wp, -0.000021941572236_wp, &
+      & -0.015628983296790_wp, -0.026669657396164_wp,  0.000004731127436_wp, &
+      &  0.014522455162064_wp, -0.001982312220583_wp,  0.000067144858589_wp, &
+      &  0.006148113730321_wp,  0.009559864942358_wp, -0.000017842723784_wp, &
+      & -0.008827636054556_wp, -0.001056969241862_wp, -0.000077441164087_wp, &
+      & -0.000983382358722_wp,  0.014874458482399_wp,  0.000033263280336_wp, &
+      & -0.006685192929466_wp,  0.007423923387226_wp, -0.000019596383842_wp, &
+      &  0.012840742698299_wp, -0.012721757230174_wp, -0.000039191096717_wp, &
+      & -0.023424096559047_wp,  0.021005920324322_wp, -0.000002294976987_wp, &
+      & -0.001886034094539_wp, -0.003907249015970_wp, -0.000013743584535_wp, &
+      & -0.003755992688866_wp,  0.003724559684310_wp, -0.000073722344180_wp, &
+      &  0.000741267612391_wp,  0.003617501633303_wp,  0.000003797334570_wp, &
+      &  0.001068019094283_wp, -0.000349341255361_wp,  0.003701790540580_wp, &
+      &  0.001069684892227_wp, -0.000348622841591_wp, -0.003708072808293_wp, &
+      & -0.002985789172337_wp,  0.000409758991531_wp,  0.000013809377123_wp, &
+      &  0.004501205911768_wp,  0.000661479205529_wp,  0.000002293380532_wp, &
+      &  0.000375807136583_wp,  0.001497353387914_wp,  0.003775034724670_wp, &
+      &  0.000385692252196_wp,  0.001505946007675_wp, -0.003765490708356_wp, &
+      & -0.001022525576931_wp, -0.004614285144321_wp,  0.000056935694156_wp, &
+      &  0.001624072743271_wp, -0.001646407629381_wp,  0.003223374554169_wp, &
+      &  0.001610194995644_wp, -0.001708502341534_wp, -0.003152789204660_wp  &
+      & ], shape(g_ref))
+
+    allocate(grad(3, testnat), source=0.0_wp)
+
+    call gfnff_initialize(testnat, testat, testxyz, calc, &
+      &                   lattice=lattice, npbc=3, iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call gfnff_singlepoint(testnat, testat, testxyz, calc, energy, grad, &
+      &                    lattice=lattice, iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call check(error, energy, e_ref, thr=thr_e)
+    if (allocated(error)) return
+
+    if (any(abs(grad - g_ref) > thr_g)) then
+      call test_failed(error, "PBC caffeine-in-box gradient does not match reference")
+    end if
+
+  end subroutine test_pbc_caffeine_sp
+
+!========================================================================================!
+
+  subroutine test_pbc_caffeine_netforce(error)
+    !***********************************************************
+    !* Net force on caffeine in a periodic box must vanish.
+    !***********************************************************
+    type(error_type), allocatable, intent(out) :: error
+    type(gfnff_data) :: calc
+    real(wp) :: energy
+    real(wp), allocatable :: grad(:,:)
+    real(wp) :: netforce(3)
+    integer :: io
+    real(wp), parameter :: thr = 1.0e-10_wp
+    real(wp), parameter :: lattice(3,3) = reshape([ &
+      & 30.0_wp,  0.0_wp,  0.0_wp, &
+      &  0.0_wp, 30.0_wp,  0.0_wp, &
+      &  0.0_wp,  0.0_wp, 30.0_wp  &
+      & ], shape(lattice))
+
+    allocate(grad(3, testnat), source=0.0_wp)
+
+    call gfnff_initialize(testnat, testat, testxyz, calc, &
+      &                   lattice=lattice, npbc=3, iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call gfnff_singlepoint(testnat, testat, testxyz, calc, energy, grad, &
+      &                    lattice=lattice, iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    netforce = sum(grad, dim=2)
+    if (any(abs(netforce) > thr)) then
+      call test_failed(error, "PBC caffeine net force does not vanish")
+    end if
+
+  end subroutine test_pbc_caffeine_netforce
+
+!========================================================================================!
+
+  subroutine test_sio2_molecular_sp(error)
+    !***********************************************************
+    !* GFN-FF singlepoint on the SiO2 unit-cell geometry
+    !* treated as a molecular (non-periodic) system.
+    !* Same atomic positions as the PBC test; no lattice.
+    !* Reference energy ~-0.80221337847 Eh.
+    !***********************************************************
+    type(error_type), allocatable, intent(out) :: error
+    type(gfnff_data) :: calc
+    real(wp) :: energy
+    real(wp), allocatable :: grad(:,:)
+    integer :: io
+    real(wp), parameter :: e_ref = -0.80221337847_wp
+    real(wp), parameter :: thr_e = 5.0e-4_wp
+
+    allocate(grad(3, sio2nat), source=0.0_wp)
+
+    call gfnff_initialize(sio2nat, sio2at, sio2xyz, calc, &
+      &                   iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call gfnff_singlepoint(sio2nat, sio2at, sio2xyz, calc, energy, grad, &
+      &                    iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call check(error, energy, e_ref, thr=thr_e)
+
+  end subroutine test_sio2_molecular_sp
+
+!========================================================================================!
 end module test_pbc_sp
