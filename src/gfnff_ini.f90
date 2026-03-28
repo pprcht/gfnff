@@ -567,42 +567,55 @@ contains   !> MODULE PROCEDURES START HERE
 !     first check for fragments
         call mrecgffPBC(nat,neigh%numctr,neigh%numnb,neigh%nbf,topo%nfrag,topo%fraglist)
         if (printlevel >= 2) write (myunit,'(10x,"#fragments for EEQ constrain: ",i0)') topo%nfrag
-!     read QM info if it exists
-       ! open (newunit=ich,file='charges')
-       ! if (ich /= -1) then
-       !   qtmp = 0
-       !   err = 0
-       !   i = 0
-       !   do while (err == 0)
-       !     read (ich,*,iostat=err) dum
-       !     if (err /= 0) exit
-       !     if (i < nat) then
-       !       i = i+1
-       !       qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+dum
-       !     else
-       !       write (myunit,'("**WARNING** ",a,1x,a)') "More charges than atoms present, assuming missmatch",source
-       !       err = 1
-       !     end if
-       !   end do
-       !   if (is_iostat_end(err).and.i == nat) err = 0
-       !   close (ich)
-       !   if (err == 0) then
-       !     if (i < nat.or.abs(sum(qtmp)-ichrg) > 1.0e-3_wp) then
-       !       write (myunit,'("**WARNING** ",a,1x,a)') "Rejecting external charges input due to missmatch",source
-       !     else
-       !       topo%qfrag = dnint(qtmp)
-       !       write (myunit,'(10x,"fragment charges from <charges> :",10F7.3)') topo%qfrag(1:topo%nfrag)
-       !     end if
-       !   else
-       !     write (myunit,'("**ERROR** ",a,1x,a)') "Could not initialize fragment charges from file",source
-       !     exitRun = .true.
-       !   end if
-
-       !   if (exitRun) then
-       !     io = -1
-       !     return
-       !   end if
-       ! end if
+!     read reference charges if provided via topo%refcharges
+        if (allocated(topo%refcharges)) then
+          inquire(file=trim(topo%refcharges),exist=ex)
+          if (.not.ex) then
+            if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') &
+              & 'reference charge file '//trim(topo%refcharges)//' not found',source
+            io = -1
+            return
+          end if
+        else
+          ex = .false.
+        end if
+        if (ex) then
+          if (printlevel >= 2) write (myunit,'(10x,a)') &
+            & trim(topo%refcharges)//" file detected, attempting to read ..."
+          open (newunit=ich,file=trim(topo%refcharges),action='read')
+          qtmp = 0
+          err = 0
+          i = 0
+          do while (err == 0)
+            read (ich,*,iostat=err) dum
+            if (err /= 0) exit
+            if (i < nat) then
+              i = i+1
+              qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+dum
+            else
+              if (printlevel >= 1) write (myunit,'("**WARNING** ",a,1x,a)') &
+                & "More charges than atoms present, assuming missmatch",source
+              err = 1
+            end if
+          end do
+          if (is_iostat_end(err).and.i == nat) err = 0
+          close (ich)
+          if (err == 0) then
+            if (i < nat.or.abs(sum(qtmp)-ichrg) > 1.0e-3_wp) then
+              if (printlevel >= 1) write (myunit,'("**WARNING** ",a,1x,a)') &
+                & "Rejecting external charges input due to missmatch",source
+            else
+              topo%qfrag = dnint(qtmp)
+              if (printlevel >= 2) write (myunit,'(10x,"fragment charges from <",a,"> :",10(1x,F7.3))') &
+                & trim(topo%refcharges),topo%qfrag(1:topo%nfrag)
+            end if
+          else
+            if (printlevel >= 1) write (myunit,'("**ERROR** ",a,1x,a)') &
+              & "Could not initialize fragment charges from file",source
+            io = -1
+            return
+          end if
+        end if
         if (nat .lt. 100.and.topo%nfrag .gt. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
           itmp = 0
           do i = 1,nat
