@@ -21,6 +21,7 @@ contains
     testsuite = [ &
       new_unittest("PBC SiO2 singlepoint              ", test_pbc_sio2_sp),         &
       new_unittest("PBC SiO2 net force vanishes       ", test_pbc_sio2_netforce),    &
+      new_unittest("PBC SiO2 numerical stress         ", test_pbc_sio2_stress),      &
       new_unittest("PBC caffeine-in-box singlepoint   ", test_pbc_caffeine_sp),      &
       new_unittest("PBC caffeine-in-box net force     ", test_pbc_caffeine_netforce), &
       new_unittest("SiO2 molecular singlepoint        ", test_sio2_molecular_sp)     &
@@ -111,6 +112,89 @@ contains
     end if
 
   end subroutine test_pbc_sio2_netforce
+
+!========================================================================================!
+
+  subroutine test_pbc_sio2_stress(error)
+    !***********************************************************
+    !* Validate the GFN-FF analytical stress tensor for the
+    !* SiO2 unit cell against a central-difference numerical
+    !* stress.
+    !*
+    !* Deformation: F = I + h*e_ij, applied as
+    !*   L'   = F · L  (lattice)
+    !*   xyz' = F · xyz (positions, keeps fractional coords)
+    !* Numerical stress: sigma_num(i,j) = (E(+h) - E(-h)) / (2h)
+    !* should equal the analytical sigma(i,j) returned by
+    !* gfnff_singlepoint (which equals dE/d_epsilon).
+    !***********************************************************
+    type(error_type), allocatable, intent(out) :: error
+    type(gfnff_data) :: calc, calc_p, calc_m
+    real(wp) :: energy, energy_p, energy_m
+    real(wp), allocatable :: grad(:,:)
+    real(wp) :: sigma(3,3), sigma_num(3,3)
+    real(wp) :: lattice_p(3,3), lattice_m(3,3)
+    real(wp) :: xyz_p(3,sio2nat), xyz_m(3,sio2nat)
+    integer :: io, ii, jj
+    real(wp), parameter :: h   = 1.0e-4_wp
+    real(wp), parameter :: thr = 5.0e-5_wp
+
+    allocate(grad(3, sio2nat), source=0.0_wp)
+
+    !> Reference init and analytical stress
+    call gfnff_initialize(sio2nat, sio2at, sio2xyz, calc, &
+      &                   lattice=sio2lattice, npbc=3, iostat=io, printlevel=0)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    call gfnff_singlepoint(sio2nat, sio2at, sio2xyz, calc, energy, grad, &
+      &                    lattice=sio2lattice, iostat=io, printlevel=0, sigma=sigma)
+    call check(error, io, 0)
+    if (allocated(error)) return
+
+    !> Numerical stress: central differences over all 9 strain components
+    sigma_num = 0.0_wp
+    do ii = 1, 3
+      do jj = 1, 3
+        !> Forward: L' = (I + h*e_ij)·L, xyz' = (I + h*e_ij)·xyz
+        lattice_p = sio2lattice
+        lattice_p(ii,:) = sio2lattice(ii,:) + h * sio2lattice(jj,:)
+        xyz_p = sio2xyz
+        xyz_p(ii,:) = sio2xyz(ii,:) + h * sio2xyz(jj,:)
+
+        call gfnff_initialize(sio2nat, sio2at, xyz_p, calc_p, &
+          &                   lattice=lattice_p, npbc=3, iostat=io, printlevel=0)
+        call check(error, io, 0)
+        if (allocated(error)) return
+        call gfnff_singlepoint(sio2nat, sio2at, xyz_p, calc_p, energy_p, grad, &
+          &                    lattice=lattice_p, iostat=io, printlevel=0)
+        call check(error, io, 0)
+        if (allocated(error)) return
+
+        !> Backward: L' = (I - h*e_ij)·L, xyz' = (I - h*e_ij)·xyz
+        lattice_m = sio2lattice
+        lattice_m(ii,:) = sio2lattice(ii,:) - h * sio2lattice(jj,:)
+        xyz_m = sio2xyz
+        xyz_m(ii,:) = sio2xyz(ii,:) - h * sio2xyz(jj,:)
+
+        call gfnff_initialize(sio2nat, sio2at, xyz_m, calc_m, &
+          &                   lattice=lattice_m, npbc=3, iostat=io, printlevel=0)
+        call check(error, io, 0)
+        if (allocated(error)) return
+        call gfnff_singlepoint(sio2nat, sio2at, xyz_m, calc_m, energy_m, grad, &
+          &                    lattice=lattice_m, iostat=io, printlevel=0)
+        call check(error, io, 0)
+        if (allocated(error)) return
+
+        sigma_num(ii,jj) = (energy_p - energy_m) / (2.0_wp * h)
+      end do
+    end do
+
+    if (any(abs(sigma - sigma_num) > thr)) then
+      call test_failed(error, "PBC SiO2 analytical stress does not match numerical")
+    end if
+
+  end subroutine test_pbc_sio2_stress
 
 !========================================================================================!
 
