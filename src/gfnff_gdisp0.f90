@@ -443,13 +443,8 @@ contains  !> MODULE PROCEDURES START HERE
 
     call get_atomic_c6_d4(dispm,nat,at,gw,dgwdcn,c6,dc6dcn)
 
-    if (calc_inter) then
-      call disp_gradient_latp_inter(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,sqrtZr4r2,c6,dc6dcn, &
-         &  energies,gradient,sigma,dEdcn)
-    else
-      call disp_gradient_latp_intra(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,sqrtZr4r2,c6,dc6dcn, &
-         &  energies,gradient,sigma,dEdcn)
-    end if
+    call disp_gradient_latp(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,sqrtZr4r2,c6,dc6dcn, &
+       &  energies,gradient,sigma,dEdcn,calc_inter)
 
     call contract(dcndr,dEdcn,gradient,beta=1.0_wp)
     call contract(dcndL,dEdcn,sigma,beta=1.0_wp)  ! = dcndL*dEdcn + sigma
@@ -460,13 +455,13 @@ contains  !> MODULE PROCEDURES START HERE
 
 !========================================================================================!
 
-  subroutine disp_gradient_latp_inter(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,r4r2,c6,dc6dcn, &
-      &  energies,gradient,sigma,dEdcn)
+  subroutine disp_gradient_latp(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,r4r2,c6,dc6dcn, &
+      &  energies,gradient,sigma,dEdcn,calc_inter)
     !*******************************************************************************
-    !* Pairwise dispersion gradient with lattice point summation, same-fragment pairs.
-    !* Computes the D3/D4-BJ dispersion energy, gradient, and stress tensor
-    !* contribution for atom pairs belonging to the SAME fragment over all
-    !* periodic images.
+    !* Pairwise dispersion gradient with lattice point summation.
+    !* Computes D3/D4-BJ dispersion energy, gradient, and stress tensor over all
+    !* periodic images. Selects either same-fragment pairs (calc_inter=.true.) or
+    !* cross-fragment pairs (calc_inter=.false.) via the fraglist.
     !*
     !* Input:  nat, at, xyz   - number of atoms, atomic numbers, coordinates
     !*         fraglist       - fragment index per atom (1..nat)
@@ -477,6 +472,7 @@ contains  !> MODULE PROCEDURES START HERE
     !*         par            - dispersion damping parameters (s6, s8, s10)
     !*         r4r2           - sqrt(Z*<r^4>/<r^2>) per element
     !*         c6, dc6dcn     - C6 coefficients and their CN derivatives
+    !*         calc_inter     - .true.: same-fragment pairs; .false.: cross-fragment pairs
     !* Output: energies - atomic energy contributions (updated in-place)
     !*         gradient - Cartesian gradient (updated in-place)
     !*         sigma    - stress tensor (updated in-place)
@@ -503,6 +499,8 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),intent(inout) :: sigma(:,:)
     real(wp),intent(inout) :: dEdcn(:)
 
+    logical,intent(in) :: calc_inter
+
     integer :: iat,jat,ati,atj,itr,ij
 
     real(wp) :: cutoff2
@@ -513,13 +511,13 @@ contains  !> MODULE PROCEDURES START HERE
 
     !$omp parallel do default(none) &
     !$omp reduction(+:energies, gradient, sigma, dEdcn) &
-    !$omp shared(nat, at, xyz, fraglist, ntrans, trans, cutoff2, par, r4r2, radii, c6, dc6dcn, zeta_scale) &
+    !$omp shared(nat, at, xyz, fraglist, ntrans, trans, cutoff2, par, r4r2, radii, c6, dc6dcn, zeta_scale, calc_inter) &
     !$omp private(iat, jat, ij, itr, ati, atj, r2, rij, r4r2ij, r0, t6, t8, t10, &
     !$omp&        d6, d8, d10, disp, ddisp, dE, dG, dS)
     do iat = 1,nat
       ati = at(iat)
       do jat = 1,iat
-        if (fraglist(iat).ne.fraglist(jat)) cycle ! cycle if NOT intermolecular
+        if ((fraglist(iat).eq.fraglist(jat)) .neqv. calc_inter) cycle
         ij = lin(jat,iat)
         atj = at(jat)
         r4r2ij = 3*r4r2(ati)*r4r2(atj)
@@ -562,113 +560,7 @@ contains  !> MODULE PROCEDURES START HERE
     end do
     !$omp end parallel do
 
-  end subroutine disp_gradient_latp_inter
-
-!========================================================================================!
-
-  subroutine disp_gradient_latp_intra(nat,at,xyz,fraglist,ntrans,trans,zeta_scale,radii,cutoff,par,r4r2,c6,dc6dcn, &
-      &  energies,gradient,sigma,dEdcn)
-    !*******************************************************************************
-    !* Pairwise dispersion gradient with lattice point summation, cross-fragment pairs.
-    !* Computes the D3/D4-BJ dispersion energy, gradient, and stress tensor
-    !* contribution for atom pairs belonging to DIFFERENT fragments over all
-    !* periodic images.
-    !*
-    !* Input:  nat, at, xyz   - number of atoms, atomic numbers, coordinates
-    !*         fraglist       - fragment index per atom (1..nat)
-    !*         ntrans, trans  - number of lattice translations and translation vectors
-    !*         zeta_scale     - pairwise damping scale factors (lin-indexed)
-    !*         radii          - pairwise BJ radii (lin-indexed)
-    !*         cutoff         - real-space cutoff distance
-    !*         par            - dispersion damping parameters (s6, s8, s10)
-    !*         r4r2           - sqrt(Z*<r^4>/<r^2>) per element
-    !*         c6, dc6dcn     - C6 coefficients and their CN derivatives
-    !* Output: energies - atomic energy contributions (updated in-place)
-    !*         gradient - Cartesian gradient (updated in-place)
-    !*         sigma    - stress tensor (updated in-place)
-    !*         dEdcn    - dE/dCN contributions (updated in-place)
-    !*******************************************************************************
-    integer,intent(in) :: nat
-    integer,intent(in) :: at(nat)
-    real(wp),intent(in) :: xyz(3,nat)
-    integer,intent(in) :: fraglist(nat)
-
-    type(TDispersionData),intent(in) :: par
-
-    integer,intent(in) :: ntrans
-    real(wp),intent(in) :: trans(:,:)
-    real(wp),intent(in) :: cutoff
-    real(wp),intent(in) :: zeta_scale(:)
-    real(wp),intent(in) :: radii(:)
-    real(wp),intent(in) :: r4r2(:)
-    real(wp),intent(in) :: c6(:,:)
-    real(wp),intent(in) :: dc6dcn(:,:)
-
-    real(wp),intent(inout) :: energies(:)
-    real(wp),intent(inout) :: gradient(:,:)
-    real(wp),intent(inout) :: sigma(:,:)
-    real(wp),intent(inout) :: dEdcn(:)
-
-    integer :: iat,jat,ati,atj,itr,ij
-
-    real(wp) :: cutoff2
-    real(wp) :: r4r2ij,r0,rij(3),r2,t6,t8,t10,d6,d8,d10
-    real(wp) :: dE,dG(3),dS(3,3),disp,ddisp
-
-    cutoff2 = cutoff**2
-
-    !$omp parallel do default(none) &
-    !$omp reduction(+:energies, gradient, sigma, dEdcn) &
-    !$omp shared(nat, at, xyz, fraglist, ntrans, trans, cutoff2, par, r4r2, radii, c6, dc6dcn, zeta_scale) &
-    !$omp private(iat, jat, ij, itr, ati, atj, r2, rij, r4r2ij, r0, t6, t8, t10, &
-    !$omp&        d6, d8, d10, disp, ddisp, dE, dG, dS)
-    do iat = 1,nat
-      ati = at(iat)
-      do jat = 1,iat
-        if (fraglist(iat).eq.fraglist(jat)) cycle ! cycle if NOT intermolecular
-        ij = lin(jat,iat)
-        atj = at(jat)
-        r4r2ij = 3*r4r2(ati)*r4r2(atj)
-        r0 = sqrt(radii(lin(ati,atj)))
-        do itr = 1,ntrans
-          rij = xyz(:,iat)-xyz(:,jat)-trans(:,itr)
-          r2 = sum(rij**2)
-          if (r2 > cutoff2 .or. r2 < 1.0e-12_wp) cycle
-          t6 = 1._wp/(r2**3+r0**6)
-          t8 = 1._wp/(r2**4+r0**8)
-          t10 = 1._wp/(r2**5+r0**10)
-
-          d6 = -6*r2**2*t6**2
-          d8 = -8*r2**3*t8**2
-          d10 = -10*r2**4*t10**2
-
-          disp = (par%s6*t6+par%s8*r4r2ij*t8 &
-             &  +par%s10*49.0_wp/40.0_wp*r4r2ij**2*t10)*zeta_scale(ij)  ! par%s10=0.0
-          ddisp= (par%s6*d6+par%s8*r4r2ij*d8 &
-             &  +par%s10*49.0_wp/40.0_wp*r4r2ij**2*d10)*zeta_scale(ij)
-
-          dE = -c6(iat,jat)*disp*0.5_wp
-          dG = -c6(iat,jat)*ddisp*rij
-          dS(:,1) = 0.5_wp*dG(1)*rij
-          dS(:,2) = 0.5_wp*dG(2)*rij
-          dS(:,3) = 0.5_wp*dG(3)*rij
-
-          energies(iat) = energies(iat)+dE
-          dEdcn(iat) = dEdcn(iat)-dc6dcn(iat,jat)*disp
-          sigma = sigma+dS
-          if (iat.ne.jat.or.itr.ne.1) then
-            energies(jat) = energies(jat)+dE
-            dEdcn(jat) = dEdcn(jat)-dc6dcn(jat,iat)*disp
-            gradient(:,iat) = gradient(:,iat)+dG
-            gradient(:,jat) = gradient(:,jat)-dG
-            sigma = sigma+dS
-          end if
-        end do
-      end do
-    end do
-    !$omp end parallel do
-
-  end subroutine disp_gradient_latp_intra
+  end subroutine disp_gradient_latp
 
 ! ══════════════════════════════════════════════════════════════════════════════
 
