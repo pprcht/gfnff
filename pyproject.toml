@@ -1,0 +1,47 @@
+# This file is part of gfnff.
+# SPDX-Identifier: LGPL-3.0-or-later
+
+[build-system]
+# scikit-build-core drives the CMake build and packages the resulting
+# shared library into the wheel together with the Python sources.
+requires = ["scikit-build-core>=0.9", "cmake>=3.21"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "gfnff"
+version = "0.0.1"
+description = "Python bindings for the GFN-FF force-field library"
+readme = "README.md"
+license = {text = "LGPL-3.0-or-later"}
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+keywords = ["force field", "GFN-FF", "molecular dynamics", "computational chemistry"]
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Fortran",
+  "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+[project.optional-dependencies]
+ase = ["ase>=3.22"]
+test = ["pytest>=7", "ase>=3.22"]
+
+[project.scripts]
+gfnff = "gfnff.cli:main"
+
+[tool.scikit-build]
+# Pass -DPYTHON_BINDINGS=ON so the shared library target is built and installed
+# into the python/gfnff/ directory, where ctypes will find it at import time.
+cmake.build-type = "Release"
+cmake.args = ["-DPYTHON_BINDINGS=ON", "-DWITH_TESTS=OFF"]
+# python/gfnff/ is the importable package; scikit-build-core includes it in
+# the wheel alongside any files placed there by the CMake install step.
+wheel.packages = ["python/gfnff"]
+
+[tool.scikit-build.cmake.define]
+WITH_OpenMP = "ON"
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]

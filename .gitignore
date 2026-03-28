@@ -20,4 +20,4 @@ ff/
 !.github/
 gfnff_topo
 gfnff_adjacency
-
+__pycache__

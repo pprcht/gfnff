@@ -1,0 +1,104 @@
+# This file is part of gfnff.
+# SPDX-Identifier: LGPL-3.0-or-later
+#
+# Build binary wheels for PyPI using cibuildwheel.
+# Triggered on version tags (v*) or manually via workflow_dispatch.
+#
+# Platform coverage:
+#   Linux  x86_64 : manylinux_2_28 (glibc 2.28+, gfortran from yum/dnf)
+#   macOS  x86_64 : macos-13 runner (Intel, Homebrew gfortran)
+#   macOS  arm64  : macos-14 runner (Apple Silicon, Homebrew gfortran)
+#   Windows       : not yet supported (requires mingw-w64 gfortran in CI)
+#
+# Static linking notes:
+#   The Fortran runtime (libgfortran, libgomp) and LAPACK (OpenBLAS) are
+#   linked statically into libgfnff.so so that auditwheel does not embed
+#   extra .so files or reject the wheel for non-standard library dependencies.
+
+name: Build wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-13, macos-14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gfortran (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install gcc
+          # Make sure gfortran is on PATH (Homebrew installs as gfortran-N)
+          FC=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | tail -1 || \
+               ls /usr/local/bin/gfortran-* 2>/dev/null | tail -1)
+          if [ -n "$FC" ]; then
+            ln -sf "$FC" "$(dirname $FC)/gfortran" || true
+          fi
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.19
+        env:
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux*"
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
+
+          # Install gfortran and OpenBLAS inside the manylinux container
+          CIBW_BEFORE_BUILD_LINUX: |
+            yum install -y gcc-gfortran openblas-devel openblas-static || \
+            dnf install -y gcc-gfortran openblas-devel openblas-static || \
+            apt-get install -y gfortran libopenblas-dev
+
+          # Static-link Fortran runtime and OpenBLAS so the wheel has no
+          # unexpected dynamic dependencies that auditwheel would flag.
+          CIBW_ENVIRONMENT: >
+            CMAKE_ARGS="-DCMAKE_Fortran_FLAGS=-static-libgfortran
+                        -DBLA_STATIC=ON"
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+
+          # auditwheel repair runs automatically on Linux; delocate on macOS.
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            delocate-wheel --require-archs {delocate_archs}
+            -w {dest_dir} -v {wheel}
+
+      - name: Upload wheel artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Collect all wheels and upload to PyPI on tagged releases
+  # ---------------------------------------------------------------------------
+  upload_pypi:
+    name: Upload to PyPI
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/gfnff
+    permissions:
+      id-token: write  # OIDC trusted publishing
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

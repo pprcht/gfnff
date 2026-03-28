@@ -198,6 +198,153 @@ for worked examples.
 
 ---
 
+## Python bindings
+
+Python bindings are provided through a `ctypes`-based interface.
+The shared library is bundled into a binary wheel, so no Fortran or C compiler
+is needed at install time.
+
+### Installation
+
+Binary wheels for Linux (x86\_64) and macOS (x86\_64 / arm64) are published on PyPI:
+
+```bash
+pip install gfnff          # library only
+pip install "gfnff[ase]"   # + ASE (enables the CLI and the ASE calculator)
+```
+
+### Building from source
+
+The source build compiles the Fortran library on your machine.
+The following **system packages** must be present before running pip:
+
+| Dependency | Example (Debian/Ubuntu) | Example (Fedora/RHEL) | Example (macOS) |
+|---|---|---|---|
+| Fortran compiler | `apt install gfortran` | `dnf install gcc-gfortran` | `brew install gcc` |
+| LAPACK + BLAS | `apt install libopenblas-dev` | `dnf install openblas-devel` | `brew install openblas` |
+| CMake ≥ 3.21 | installed by pip automatically | ← | ← |
+
+Once those are in place:
+
+```bash
+pip install ".[ase]"           # from a checkout
+pip install "gfnff[ase]" --no-binary gfnff   # force source build from PyPI
+```
+
+### Command-line interface
+
+Installing `gfnff[ase]` places a `gfnff` executable on your PATH.
+
+```
+gfnff <input> [options]
+```
+
+The input file is read by ASE, so any format it supports works (xyz, extxyz, POSCAR, cif, …).
+
+**Singlepoint** (default):
+
+```bash
+gfnff molecule.xyz
+gfnff molecule.xyz --chrg -1
+gfnff molecule.xyz --alpb h2o        # implicit solvation (--solv is an alias)
+```
+
+**Geometry optimisation** (L-BFGS via ASE, writes `gfnff.log.extxyz`):
+
+```bash
+gfnff molecule.xyz --opt
+gfnff molecule.xyz --opt --fmax 0.05          # looser convergence, eV/Å
+gfnff molecule.xyz --opt --outfile path.xyz   # custom trajectory file
+gfnff molecule.xyz --opt --alpb acetone       # optimise in solvent
+```
+
+Full option list: `gfnff --help`
+
+The trajectory file (`gfnff.log.extxyz`) stores energy and forces in each
+frame header, compatible with tools like [OVITO](https://www.ovito.org/) and
+ASE's `ase gui`.
+
+---
+
+### Low-level API (`GFNFFCalculator`)
+
+`GFNFFCalculator` mirrors the C API one-to-one.
+All quantities use the same units as the library itself: **Bohr** for coordinates and lattice, **Hartree** for energy, **Eh/Bohr** for gradients.
+
+```python
+import numpy as np
+from gfnff import GFNFFCalculator
+
+# Atomic numbers and coordinates in Bohr
+numbers = np.array([6, 8, 1, 1], dtype=np.int32)   # CO + 2 H
+positions = np.array([[0, 0, 0], [2.1, 0, 0],
+                      [-1.0, 0, 0], [3.1, 0, 0]], dtype=np.float64)
+
+with GFNFFCalculator(numbers, positions, charge=0, printlevel=0) as calc:
+    energy, gradient = calc.singlepoint(numbers, positions)
+    print(f"Energy: {energy:.6f} Eh")
+    print(f"Gradient shape: {gradient.shape}")  # (nat, 3)
+```
+
+Periodic systems use a separate initialiser:
+
+```python
+calc = GFNFFCalculator(
+    numbers, positions,
+    lattice=lattice_bohr,   # shape (3, 3), rows are lattice vectors
+    npbc=3,
+)
+```
+
+### ASE Calculator (`GFNFF`)
+
+`GFNFF` is a fully compatible [ASE `Calculator`](https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html).
+It handles unit conversion automatically (Å ↔ Bohr, eV ↔ Hartree).
+
+```python
+from ase.build import molecule
+from gfnff import GFNFF
+
+atoms = molecule("caffeine")
+atoms.calc = GFNFF()
+
+energy = atoms.get_potential_energy()   # eV
+forces = atoms.get_forces()             # eV / Å, shape (nat, 3)
+```
+
+Periodic systems work the same way — provide an `atoms` object with `cell` and `pbc` set:
+
+```python
+from ase.io import read
+from gfnff import GFNFF
+
+atoms = read("quartz.cif")
+atoms.calc = GFNFF()
+print(atoms.get_potential_energy())  # eV / unit cell
+```
+
+Additional options:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `charge` | `0` | Total charge. Also reads `atoms.info["charge"]` (takes precedence). |
+| `solvent` | `""` | Implicit solvent name: `"h2o"`, `"acetone"`, `"chcl3"`, … |
+| `printlevel` | `0` | Fortran output verbosity (0 = silent, 3 = verbose). |
+
+> **Stress tensor** — GFN-FF computes the stress internally but it is not yet
+> exposed through the C API.  Requesting `atoms.get_stress()` raises
+> `PropertyNotImplementedError` until a future release adds the output argument
+> to `c_gfnff_calculator_singlepoint`.
+
+### Running the tests
+
+```bash
+pip install "gfnff[test]"
+pytest python/tests/
+```
+
+---
+
 ## License
 
 This project is licensed (as the original `xtb` code) under the **GNU Lesser General Public License v3** or later.

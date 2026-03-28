@@ -147,26 +147,43 @@ endif()
 ###############################################################################
 ################################ python bindings ##############################
 ###############################################################################
-# if (PYTHON_BINDINGS)
-# find_package(Python REQUIRED COMPONENTS Interpreter Development.Module)
-# find_package(pybind11 REQUIRED)
-# 
-# # Add the pybind11 module
-# #pybind11_add_module(_gfnff src/pygfnff.cpp)
-# python_add_library(_gfnff src/pygfnff.cpp WITH_SOABI)
-# 
-# # Link against any existing libraries if necessary
-# target_link_libraries(_gfnff 
-#                       PRIVATE 
-#                       "${PROJECT_NAME}-lib"
-#                       pybind11::headers)
-# 
-# # This is passing in the version as a define
-# target_compile_definitions(_gfnff PRIVATE VERSION_INFO=${PROJECT_VERSION})
-# 
-# # The install directory is the output (wheel) directory
-# install(TARGETS _gfnff DESTINATION pygfnff)
-# endif()
+# Shared library for Python ctypes bindings.
+# Enable with -DPYTHON_BINDINGS=ON (scikit-build-core passes this automatically).
+# The static gfnff-lib target is kept for downstream Fortran/CMake consumers.
+if(PYTHON_BINDINGS)
+  add_library(
+    "${PROJECT_NAME}-shared" SHARED
+    "${srcs}"
+  )
+  set_target_properties(
+    "${PROJECT_NAME}-shared"
+    PROPERTIES
+    OUTPUT_NAME "${PROJECT_NAME}"
+    VERSION "${PROJECT_VERSION}"
+    SOVERSION "${PROJECT_VERSION_MAJOR}"
+    WINDOWS_EXPORT_ALL_SYMBOLS TRUE
+    Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include-shared"
+  )
+  target_link_libraries(
+    "${PROJECT_NAME}-shared"
+    PUBLIC
+    "${lib-deps}"
+  )
+  target_include_directories(
+    "${PROJECT_NAME}-shared"
+    PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include-shared>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  )
+  # Install the shared library into the Python package directory so
+  # scikit-build-core bundles it into the wheel.
+  install(
+    TARGETS "${PROJECT_NAME}-shared"
+    LIBRARY DESTINATION "gfnff"
+    RUNTIME DESTINATION "gfnff"
+  )
+endif()
 
 ###############################################################################
 ################################## Testing ####################################
