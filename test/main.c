@@ -86,5 +86,46 @@ int main() {
     printf("Error deallocating gfnff calculator.\n");
   }
 
+  // ── PBC test: caffeine in a 30 Bohr cubic box ────────────────────────────────
+  printf("\n--- PBC test: caffeine in a 30 Bohr cubic box ---\n");
+
+  double lattice[3][3] = {
+      {30.0, 0.0, 0.0},
+      {0.0, 30.0, 0.0},
+      {0.0, 0.0, 30.0}};
+  int npbc = 3;
+
+  c_gfnff_calculator calc_pbc =
+      c_gfnff_calculator_init_pbc(nat, at, xyz, ichrg, printlevel, lattice, npbc);
+
+  if (calc_pbc.ptr == NULL) {
+    printf("Error initializing PBC gfnff calculator.\n");
+    return 1;
+  }
+  printf("PBC gfnff calculator initialized successfully.\n");
+
+  double energy_pbc;
+  double gradient_pbc[nat][3];
+  int iostat_pbc;
+
+  c_gfnff_calculator_singlepoint(&calc_pbc, nat, at, xyz, &energy_pbc,
+                                 gradient_pbc, &iostat_pbc);
+
+  if (iostat_pbc == 0) {
+    printf("PBC singlepoint calculation successful.\n");
+    printf("PBC Energy: %f\n", energy_pbc);
+    for (int i = 0; i < 3; i++) {
+      int j = 0;
+      printf("PBC Gradient[%d][%d] = %e\n", j, i, gradient_pbc[j][i]);
+    }
+  } else {
+    printf("PBC singlepoint calculation failed with iostat = %d\n", iostat_pbc);
+  }
+
+  c_gfnff_calculator_deallocate(&calc_pbc);
+  if (calc_pbc.ptr == NULL) {
+    printf("PBC gfnff calculator deallocated successfully.\n");
+  }
+
   return 0;
 }

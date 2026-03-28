@@ -29,6 +29,7 @@ module gfnff_interface_c
   !> Public C-compatible interface
   public :: c_gfnff_calculator
   public :: c_gfnff_calculator_init
+  public :: c_gfnff_calculator_init_pbc
   public :: c_gfnff_calculator_deallocate
   public :: c_gfnff_calculator_singlepoint
   public :: c_gfnff_calculator_results
@@ -103,6 +104,62 @@ contains  !> MODULE PROCEDURES START HERE
 
 !========================================================================================!
 
+!>--- C-compatible initialization function with PBC support
+  function c_gfnff_calculator_init_pbc(c_nat,c_at,c_xyz,c_ichrg,c_printlevel, &
+    &                                  c_lattice,c_npbc) &
+    &                                  result(calculator) &
+    &                                  bind(C,name="c_gfnff_calculator_init_pbc")
+    !***********************************************************
+    !* PBC-aware version of c_gfnff_calculator_init.
+    !*
+    !* INPUT:
+    !*   c_nat         - number of atoms
+    !*   c_at(c_nat)   - atomic numbers
+    !*   c_xyz[nat][3] - Cartesian coordinates (Bohr), C row-major
+    !*   c_ichrg       - total molecular charge
+    !*   c_printlevel  - verbosity (0=silent)
+    !*   c_lattice[3][3] - lattice vectors (Bohr), C row-major
+    !*   c_npbc        - number of periodic dimensions (0-3)
+    !***********************************************************
+    implicit none
+    type(c_gfnff_calculator) :: calculator
+    integer(c_int),value,intent(in) :: c_nat
+    integer(c_int),target,intent(in) :: c_at(*)
+    real(c_double),target,intent(in) :: c_xyz(3,*)
+    integer(c_int),value,intent(in) :: c_ichrg
+    integer(c_int),value,intent(in) :: c_printlevel
+    !> lattice passed as double[3][3] in C (row-major), maps to Fortran (3,3)
+    real(c_double),intent(in) :: c_lattice(3,3)
+    integer(c_int),value,intent(in) :: c_npbc
+    type(gfnff_data),pointer :: calc
+
+    integer :: nat,npbc
+    integer,pointer :: at(:)
+    real(wp),pointer :: xyz(:,:)
+    integer :: printlevel,iostatus,ichrg
+
+    nat = c_nat
+    call c_f_pointer(c_loc(c_at),at,[nat])
+    call c_f_pointer(c_loc(c_xyz),xyz,[3,nat])
+    ichrg = c_ichrg
+    printlevel = c_printlevel
+    npbc = c_npbc
+
+    allocate(calc)
+    call calc%init(nat,at,xyz,ichrg=ichrg, &
+    &              printlevel=printlevel,iostat=iostatus, &
+    &              lattice=c_lattice,npbc=npbc)
+    if (iostatus == 0) then
+      calculator%ptr = c_loc(calc)
+    else
+      write(stderr,'(a,i0)') 'Error initializing GFN-FF PBC calculator. code ',iostatus
+      calculator%ptr = c_null_ptr
+      deallocate(calc)
+    end if
+  end function c_gfnff_calculator_init_pbc
+
+!========================================================================================!
+
   subroutine c_gfnff_calculator_deallocate(calculator) &
     &     bind(C,name="c_gfnff_calculator_deallocate")
     type(c_gfnff_calculator),intent(inout) :: calculator
@@ -156,8 +213,11 @@ contains  !> MODULE PROCEDURES START HERE
     !> Set the integer variable
     nat = c_nat
 
-    !> Call the Fortran subroutine
-    call calc_ptr%singlepoint(nat,at,xyz,energy,grad,iostat=iostat)
+    !> Call the Fortran subroutine, passing the stored lattice so that
+    !> the singlepoint does not reinitialize the cell with a zero lattice
+    !> (which would corrupt PBC calculations).
+    call calc_ptr%singlepoint(nat,at,xyz,energy,grad,iostat=iostat, &
+    &                         lattice=calc_ptr%cell%lattice)
 
     !> Pass back the results to C variables
     c_energy = energy

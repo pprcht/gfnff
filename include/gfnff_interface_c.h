@@ -17,8 +17,16 @@ typedef struct {
 
 // Declate the initializer
 extern c_gfnff_calculator
-c_gfnff_calculator_init(int nat, int *at, double (*xyz)[3], 
+c_gfnff_calculator_init(int nat, int *at, double (*xyz)[3],
                         int ichrg, int printlevel, const char *solvent);
+
+// Declare the PBC-aware initializer
+// lattice[3][3]: three lattice vectors in Bohr (row-major in C)
+// npbc: number of periodic dimensions (0-3)
+extern c_gfnff_calculator
+c_gfnff_calculator_init_pbc(int nat, int *at, double (*xyz)[3],
+                             int ichrg, int printlevel,
+                             double lattice[3][3], int npbc);
 
 // Declare the deallocator
 extern void c_gfnff_calculator_deallocate(c_gfnff_calculator *calculator);
