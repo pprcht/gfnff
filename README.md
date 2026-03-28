@@ -1,96 +1,204 @@
-
-# GFN-FF - A general force-field for elements *Z*=1-86
-
 <div align="center">
+
+<h1>GFN-FF</h1>
+<h3>A general force field for elements <i>Z</i> = 1–103</h3>
 
 ![build status](https://github.com/pprcht/gfnff/actions/workflows/build-and-test.yml/badge.svg)
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPL_v3-coral.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 </div>
 
-
-This repository contains a standalone implementation of
-the **GFN-FF** method by **S.Spicher** and **S.Grimme** (<https://doi.org/10.1002/anie.202004239>), and was adapted from the [`xtb` code](https://github.com/grimme-lab/xtb).
-
-The default CMake build compiles a statically linked library (`libgfnff.a`) that can be linked in other Fortran, C and C++ projects.
-
-
-
+This repository provides a standalone library implementation of the **GFN-FF** method,
+adapted from the [`xtb`](https://github.com/grimme-lab/xtb) code (most recently at commit `6d44803`
+and validated against that version's results).
+The primary purpose is to serve as a linkable dependency for other Fortran, C, and C++ projects.
+From this point forward, development may diverge from the upstream `xtb` implementation.
 
 ---
 
-### Instructions (building from source)
+## Method
 
-Make sure you have the following dependencies installed:
+GFN-FF (*Geometries, Frequencies, Non-covalent interactions Force-Field*) is a
+completely automated, topology-based force field for fast structure optimisations
+and non-covalent interaction energies across the periodic table (Z = 1–103).
+The topology and parametrisation are derived entirely from the input geometry,
+without user-defined atom types or connectivity.
 
-- CMake and `make`
-- Fortran and C compilers (e.g., `gfortran`/`gcc`), including LAPACK and OpenMP libraries (e.g. openblas)
+The following features are available and documented in the associated publications:
 
-Follow these steps to build the project assuming you are currently within the cloned repository:
+- **Molecular GFN-FF** — a generic, partially polarisable force field covering organic,
+  organometallic, and biochemical systems
+  (S. Spicher, S. Grimme, *Angew. Chem. Int. Ed.* **2020**, 59, 15665.
+  [doi:10.1002/anie.202004239](https://doi.org/10.1002/anie.202004239))
 
-1. Create a build directory and navigate to it
-   ```bash
-   mkdir _build
-   cd _build
-   ```
+- **Periodic boundary conditions / molecular crystals** — adjusted non-covalent
+  interactions for lattice energy predictions and unit-cell optimisations of molecular crystals
+  (S. Grimme, T. Rose, *Z. Naturforsch. B* **2024**, 79, 191.
+  [doi:10.1515/znb-2023-0088](https://doi.org/10.1515/znb-2023-0088))
 
-2. Run CMake to set up the build:
-   - either directly:
-     ```bash
-     cmake ..
-     ```
-   - or if you wish to build the minimal example app:
-     ```bash
-     cmake .. -Dbuild_exe=true
-     ```
-
-3. Build the project and run the testsuite:
-   ```
-   make
-   make test
-   ``` 
-
-`libgfnff.a` (and a `gfnff` app, when `-Dbuild_exe=true` was used in the CMake setup) can now be found in this (`_build`) directory.
-
+- **Lanthanide and actinide extension** — reparametrised f-element treatment enabling
+  MD simulations and geometry optimisations for large lanthanide- and actinide-containing
+  systems
+  (T. Rose, M. Bursch, J.-M. Mewes, S. Grimme, *Inorg. Chem.* **2024**.
+  [doi:10.1021/acs.inorgchem.4c03215](https://doi.org/10.1021/acs.inorgchem.4c03215))
 
 ---
 
-### In-code instructions
+## Building from source
 
-[`main.f90`](app/main.f90) in [`app/`](app/) demonstrates the (Fortran) in-code usage.
-[`main.c`](test/main.c) and [`main.cpp`](test/main.cpp) in [`test/`](test/) demonstrate the C and C++ in-code usage.
+The library requires a Fortran and C compiler (e.g. `gfortran`/`gcc`),
+LAPACK/BLAS (e.g. OpenBLAS), and optionally OpenMP.
+Both CMake (≥ 3.21) and Meson (≥ 0.59) build systems are supported.
 
-Two steps are required for using the GFN-FF library: 1. Initializing the calculator class (which stores topology and parametrization) and 2. calling the energy+gradient routine from it. A minimal Fortran example would look something like this:
+<table>
+<tr>
+<th>CMake</th>
+<th>Meson</th>
+</tr>
+<tr>
+<td>
 
-```Fortran
-use gfnff_interface
-type(gfnff_data) :: calculator   !> model storage
-integer :: nat                   !> number of atoms in the system 
-integer :: at(nat)               !> atomic number for each atom
-real(kind=real64) :: xyz(3,nat)  !> atomic coordinates in BOHR 
-integer :: ichrg                 !> molecular charge
-real(kind=real64) :: energy      !> energy in Hartree
-real(kind=real64) :: grad(3,nat) !> gradient in Hartree/Bohr
-integer :: io                    !> output status   
-
-!> Read-in/define the system 
-[...]
-
-!> Initialize the calculator
-call calculator%init(nat,at,xyz,ichrg=ichrg)
-
-!> Calculate the energy and gradient routine
-call calculator%singlepoint(nat,at,xyz,energy,gradient,iostatus=io)
-
-!> Destroy calculator (once you are done)
-call calculator%deallocate()
-
+```bash
+cmake -B _build
+cmake --build _build
 ```
 
-The calculator initialization is often more expensive than the actual energy evaluation due to the topology setup. However, once the calculator has been initialized, singlepoint energies can be called repeatedly.
+To also build the standalone app:
 
+```bash
+cmake -B _build -Dbuild_exe=true
+cmake --build _build
+```
 
-### Literature
-- https://doi.org/10.1002/anie.202004239
-- https://doi.org/10.1515/znb-2023-0088
-- https://doi.org/10.1021/acs.inorgchem.4c03215
+To run the test suite:
+
+```bash
+cmake -B _build -DWITH_TESTS=ON
+cmake --build _build
+ctest --test-dir _build
+```
+
+</td>
+<td>
+
+```bash
+meson setup _build
+ninja -C _build
+```
+
+To also build the standalone app:
+
+```bash
+meson setup _build -Dbuild_exe=true
+ninja -C _build
+```
+
+To run the test suite:
+
+```bash
+meson setup _build -Dtests=true
+ninja -C _build test
+```
+
+</td>
+</tr>
+</table>
+
+The compiled library (`libgfnff.a` by default) is placed in the build directory
+and can be linked into any downstream project.
+
+---
+
+## Library usage
+
+The interface is exposed through the `gfnff_interface` Fortran module and the
+`gfnff_interface_c.h` C header (located in `include/`).
+Two steps are required: initialise the calculator (topology setup) and call the
+singlepoint routine. The initialisation is typically the more expensive step;
+once complete, singlepoint evaluations can be called repeatedly on the same
+calculator object.
+
+### Fortran
+
+```fortran
+use iso_fortran_env, only: real64
+use gfnff_interface
+
+type(gfnff_data) :: calc
+integer  :: nat, ichrg, io
+integer,  allocatable :: at(:)
+real(real64), allocatable :: xyz(:,:), gradient(:,:)
+real(real64) :: energy
+
+! ... populate nat, at, xyz, ichrg ...
+
+call calc%init(nat, at, xyz, ichrg=ichrg, iostat=io)
+
+call calc%singlepoint(nat, at, xyz, energy, gradient, iostat=io)
+
+call calc%deallocate()
+```
+
+All coordinates are in Bohr; the energy is in Hartree and the gradient in Eh/Bohr.
+
+### C
+
+```c
+#include "gfnff_interface_c.h"
+
+c_gfnff_calculator calc =
+    c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel, solvent);
+
+c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient, &iostat);
+
+c_gfnff_calculator_deallocate(&calc);
+```
+
+### C++
+
+```cpp
+#include "gfnff_interface_c.h"
+
+c_gfnff_calculator calc =
+    c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel, solvent);
+
+c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient, &iostat);
+
+c_gfnff_calculator_deallocate(&calc);
+```
+
+Full working examples are available in [`app/main.F90`](app/main.F90) (Fortran),
+[`test/main.c`](test/main.c) (C), and [`test/main.cpp`](test/main.cpp) (C++).
+
+### Integrating as a CMake subproject
+
+Add the repository as a subdirectory and link against the exported target:
+
+```cmake
+add_subdirectory(gfnff)
+target_link_libraries(my_target PRIVATE gfnff)
+```
+
+### Integrating as a Meson subproject
+
+Place the repository under `subprojects/gfnff/` and wrap it:
+
+```meson
+gfnff_dep = dependency('gfnff', fallback: ['gfnff', 'gfnff_dep'])
+```
+
+---
+
+## Periodic boundary conditions
+
+PBC support is available via `c_gfnff_calculator_init_pbc` on the C/C++ side
+and via an optional `lattice` argument to `calc%init` in Fortran.
+See the PBC sections in [`test/main.c`](test/main.c) and [`test/main.cpp`](test/main.cpp)
+for worked examples.
+
+---
+
+## License
+
+This project is licensed (as the original `xtb` code) under the **GNU Lesser General Public License v3** or later.
+See [`LICENSE`](LICENSE) for details.
