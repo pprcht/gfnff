@@ -69,28 +69,10 @@ contains
 !========================================================================================!
 
   subroutine test_pbc_numctr(error)
-    !> After gfnff_initialize with npbc=3 and a cubic box the neighbour type
-    !> must contain exactly 27 central cells (3^3).
-    type(error_type),allocatable,intent(out) :: error
-    type(gfnff_data) :: calc
-    integer :: nat,io
-    integer,allocatable :: at(:)
-    real(wp),allocatable :: xyz(:,:)
-    real(wp) :: lattice(3,3)
-
-    call make_h2_box(nat,at,xyz,lattice) 
-
-    !TODO
-
-    !> 3D PBC always includes at least the central 3x3x3 shell of cells
-    if (.false.) then
-      call test_failed(error,"TODO")
-    end if
-  end subroutine test_pbc_numctr
-
-!========================================================================================!
-
-  subroutine test_pbc_alloc(error)
+    !***********************************************************
+    !* After gfnff_initialize with npbc=3 and a cubic box the
+    !* neighbour type must contain exactly 27 central cells (3^3).
+    !***********************************************************
     type(error_type),allocatable,intent(out) :: error
     type(gfnff_data) :: calc
     integer :: nat,io
@@ -100,18 +82,57 @@ contains
 
     call make_h2_box(nat,at,xyz,lattice)
 
-    !> TODO
+    call gfnff_initialize(nat,at,xyz,calc,lattice=lattice,npbc=3,iostat=io)
+    call check(error,io,0)
+    if (allocated(error)) return
 
-    if (.false.) then
-      call test_failed(error,"TODO")
+    !> 3D PBC always includes at least the central 3x3x3 shell of cells
+    call check(error,calc%neigh%numctr,27)
+  end subroutine test_pbc_numctr
+
+!========================================================================================!
+
+  subroutine test_pbc_alloc(error)
+    !***********************************************************
+    !* After gfnff_initialize with npbc=3, the key data
+    !* structures (topo, neigh, cell) must be allocated and
+    !* cell%npbc must equal 3.
+    !***********************************************************
+    type(error_type),allocatable,intent(out) :: error
+    type(gfnff_data) :: calc
+    integer :: nat,io
+    integer,allocatable :: at(:)
+    real(wp),allocatable :: xyz(:,:)
+    real(wp) :: lattice(3,3)
+
+    call make_h2_box(nat,at,xyz,lattice)
+
+    call gfnff_initialize(nat,at,xyz,calc,lattice=lattice,npbc=3,iostat=io)
+    call check(error,io,0)
+    if (allocated(error)) return
+
+    if (.not.allocated(calc%topo)) then
+      call test_failed(error,"topo is not allocated after PBC init")
       return
     end if
+    if (.not.allocated(calc%neigh)) then
+      call test_failed(error,"neigh is not allocated after PBC init")
+      return
+    end if
+    if (.not.allocated(calc%cell)) then
+      call test_failed(error,"cell is not allocated after PBC init")
+      return
+    end if
+    call check(error,calc%cell%npbc,3)
   end subroutine test_pbc_alloc
 
 !========================================================================================!
 
   subroutine test_pbc_charges(error)
-    !> EEQ charges from goedeckera_PBC must be charge-conserved
+    !***********************************************************
+    !* EEQ charges from goedeckera_PBC must be charge-conserved:
+    !* sum(topo%qa) must equal the total molecular charge (0).
+    !***********************************************************
     type(error_type),allocatable,intent(out) :: error
     type(gfnff_data) :: calc
     integer :: nat,io
@@ -122,10 +143,17 @@ contains
 
     call make_h2o_box(nat,at,xyz,lattice)
 
-    ! TODO
+    call gfnff_initialize(nat,at,xyz,calc,lattice=lattice,npbc=3,iostat=io)
+    call check(error,io,0)
+    if (allocated(error)) return
 
-    if (.false.) then
-      call test_failed(error,"TODO")
+    if (.not.allocated(calc%topo%qa)) then
+      call test_failed(error,"topo%qa is not allocated after PBC init")
+      return
+    end if
+    qtot = sum(calc%topo%qa)
+    if (abs(qtot) > thr) then
+      call test_failed(error,"EEQ charges not conserved: sum(q) = "//to_str(qtot))
     end if
   end subroutine test_pbc_charges
 
