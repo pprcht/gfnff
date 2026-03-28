@@ -22,9 +22,9 @@
 !================================================================================!
 
 !> Generalized Born interaction kernels
-module solvation_solv_kernel
+module gfnff_solvation_solv_kernel
   use iso_fortran_env,only:wp => real64
-  use solvation_math_wrapper,only:dot,gemv,symv
+  use gfnff_solvation_math_wrapper,only:dot,gemv,symv
   implicit none
   private
 
@@ -751,4 +751,4 @@ contains
 
   end subroutine addBornMatP16
 
-end module solvation_solv_kernel
+end module gfnff_solvation_solv_kernel

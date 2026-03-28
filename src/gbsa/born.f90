@@ -22,7 +22,7 @@
 !================================================================================!
 
 !> Implementation of the Born radii integrator
-module solvation_solv_born
+module gfnff_solvation_solv_born
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -382,4 +382,4 @@ contains
 
   end subroutine compute_psi
 
-end module solvation_solv_born
+end module gfnff_solvation_solv_born

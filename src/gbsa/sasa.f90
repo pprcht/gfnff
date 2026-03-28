@@ -22,7 +22,7 @@
 !================================================================================!
 
 !> Non-polar solvent accessible surface area model
-module solvation_solv_sasa
+module gfnff_solvation_solv_sasa
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -196,4 +196,4 @@ contains
 
   end subroutine compute_w_sp
 
-end module solvation_solv_sasa
+end module gfnff_solvation_solv_sasa

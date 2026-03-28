@@ -24,7 +24,7 @@
 !! ------------------------------------------------------------------------
 !  reimplementation of the CM5 charges
 !! ------------------------------------------------------------------------
-module solvation_solv_cm5
+module gfnff_solvation_solv_cm5
   use iso_fortran_env,only:wp => real64
 
   real(wp),parameter,private :: autoaa = 0.52917726_wp
@@ -138,4 +138,4 @@ contains
 
   end subroutine calc_cm5
 
-end module solvation_solv_cm5
+end module gfnff_solvation_solv_cm5

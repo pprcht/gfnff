@@ -22,10 +22,10 @@
 !================================================================================!
 
 !> Gathers the input data needed to create solvation models
-module solvation_solv_input
+module gfnff_solvation_solv_input
   use iso_fortran_env,only:wp => real64
-  use solvation_solv_kernel,only:gbKernel
-  use solvation_solv_state,only:solutionState
+  use gfnff_solvation_solv_kernel,only:gbKernel
+  use gfnff_solvation_solv_state,only:solutionState
   implicit none
   private
 
@@ -132,4 +132,4 @@ contains
 !
 !  end function pgiWrapper
 
-end module solvation_solv_input
+end module gfnff_solvation_solv_input

@@ -22,7 +22,7 @@
 !================================================================================!
 
 !> D3 van-der-Waals radii
-module solvation_param_vdwradd3
+module gfnff_solvation_param_vdwradd3
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -84,7 +84,7 @@ contains
 
   end function getVanDerWaalsRadD3Number
 
-end module solvation_param_vdwradd3
+end module gfnff_solvation_param_vdwradd3
 
 ! This file is part of xtb.
 !
@@ -105,7 +105,7 @@ end module solvation_param_vdwradd3
 
 !> Cosmo van-der-Waals radii
 
-module solvation_param_vdwradcosmo
+module gfnff_solvation_param_vdwradcosmo
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -170,4 +170,4 @@ contains
 
   end function getVanDerWaalsRadCosmoNumber
 
-end module solvation_param_vdwradcosmo
+end module gfnff_solvation_param_vdwradcosmo

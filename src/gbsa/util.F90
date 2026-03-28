@@ -21,7 +21,7 @@
 !> at https://github.com/grimme-lab/xtb
 !================================================================================!
 
-module solvation_solv_util
+module gfnff_solvation_solv_util
 
   implicit none
 
@@ -94,4 +94,4 @@ contains
 
 !========================================================================================!
 
-end module solvation_solv_util
+end module gfnff_solvation_solv_util

@@ -24,11 +24,11 @@
 !>       We are using the improved ALPB model instead.
 module gfnff_gbsa
   use iso_fortran_env,only:wp => real64,stdout => output_unit
-  use solvation_solv_input,only:TSolvInput
-  use solvation_solv_state,only:solutionState
-  use solvation_solv_kernel,only:gbKernel
-  use solvation_solv_model,only:TSolvModel,init,newBornModel,info
-  use solvation_solv_gbsa,only:TBorn
+  use gfnff_solvation_solv_input,only:TSolvInput
+  use gfnff_solvation_solv_state,only:solutionState
+  use gfnff_solvation_solv_kernel,only:gbKernel
+  use gfnff_solvation_solv_model,only:TSolvModel,init,newBornModel,info
+  use gfnff_solvation_solv_gbsa,only:TBorn
   implicit none
   private
 

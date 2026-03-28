@@ -22,7 +22,7 @@
 !================================================================================!
 
 !> Abstract solvation model
-module solvation_type_solvation
+module gfnff_solvation_type_solvation
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -127,4 +127,4 @@ module solvation_type_solvation
 
   end interface
 
-end module solvation_type_solvation
+end module gfnff_solvation_type_solvation

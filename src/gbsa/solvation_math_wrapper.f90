@@ -16,8 +16,8 @@
 ! You should have received a copy of the GNU Lesser General Public License
 ! along with gfnff.  If not, see <https://www.gnu.org/licenses/>.
 !================================================================================!
-module solvation_math_wrapper
-!> module solvation_math_wrapper
+module gfnff_solvation_math_wrapper
+!> module gfnff_solvation_math_wrapper
 !> contains some interfaces to LAPACK and BLAS routines
 !> which must be included via a suitable library.
   use iso_fortran_env,only:wp => real64,sp => real32,stderr => error_unit
@@ -262,4 +262,4 @@ contains
     call dgemv_wrap(aptr,xvec,yptr,alpha,beta,tra)
   end subroutine dgemv312_wrap
 !=======================================================================================!
-end module solvation_math_wrapper
+end module gfnff_solvation_math_wrapper

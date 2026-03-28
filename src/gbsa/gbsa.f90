@@ -22,20 +22,20 @@
 !================================================================================!
 
 !> Implementation for generalized Born and related solvation models
-module solvation_solv_gbsa
+module gfnff_solvation_solv_gbsa
   use iso_fortran_env,only:wp => real64
-  use solvation_math_wrapper,only:matDet3x3,dot,gemv,symv
+  use gfnff_solvation_math_wrapper,only:matDet3x3,dot,gemv,symv
 
   use gfnff_helpers,only:bisectSearch
-  use solvation_solv_born,only:compute_bornr
-  use solvation_solv_kernel,only:gbKernel,addBornMatSaltStill,addBornMatStill, &
+  use gfnff_solvation_solv_born,only:compute_bornr
+  use gfnff_solvation_solv_kernel,only:gbKernel,addBornMatSaltStill,addBornMatStill, &
      & addBornMatP16,addGradientSaltStill,addGradientStill,addGradientP16, &
      & addBornDerivSaltStill,addBornDerivStill
-  use solvation_solv_lebedev,only:gridSize,getAngGrid
-  use solvation_solv_sasa,only:compute_numsa
-  use solvation_solv_state,only:solutionState
+  use gfnff_solvation_solv_lebedev,only:gridSize,getAngGrid
+  use gfnff_solvation_solv_sasa,only:compute_numsa
+  use gfnff_solvation_solv_state,only:solutionState
 
-  use solvation_type_solvation,only:TSolvation
+  use gfnff_solvation_type_solvation,only:TSolvation
   implicit none
   private
 
@@ -1231,4 +1231,4 @@ contains
     write (unit,*)
   end subroutine info
 
-end module solvation_solv_gbsa
+end module gfnff_solvation_solv_gbsa

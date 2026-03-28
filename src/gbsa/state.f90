@@ -16,7 +16,7 @@
 ! along with xtb.  If not, see <https://www.gnu.org/licenses/>.
 
 !> Define reference states of solution
-module solvation_solv_state
+module gfnff_solvation_solv_state
   use iso_fortran_env,only:wp => real64
   implicit none
   private
@@ -80,4 +80,4 @@ contains
 
   end function getStateShift
 
-end module solvation_solv_state
+end module gfnff_solvation_solv_state

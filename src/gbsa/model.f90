@@ -22,21 +22,21 @@
 !================================================================================!
 
 !> Generic solvation model used to create actual solvation calculators
-module solvation_solv_model
+module gfnff_solvation_solv_model
   use iso_fortran_env,only:wp => real64,stderr => error_unit
 
-  use solvation_solv_util,only:lowercase,rdpath
+  use gfnff_solvation_solv_util,only:lowercase,rdpath
 
-  use solvation_param_vdwradd3,only:vanDerWaalsRadD3
-  use solvation_param_vdwradcosmo,only:vanDerWaalsRadCosmo
+  use gfnff_solvation_param_vdwradd3,only:vanDerWaalsRadD3
+  use gfnff_solvation_param_vdwradcosmo,only:vanDerWaalsRadCosmo
 
-  use solvation_solv_gbsa,only:TBorn,init_ => init
-!   use solvation_solv_cosmo, only : TCosmo, init_ => init
-  use solvation_solv_input,only:TSolvInput
-  use solvation_solv_kernel,only:gbKernel
-  use solvation_solv_state,only:solutionState,getStateShift
+  use gfnff_solvation_solv_gbsa,only:TBorn,init_ => init
+!   use gfnff_solvation_solv_cosmo, only : TCosmo, init_ => init
+  use gfnff_solvation_solv_input,only:TSolvInput
+  use gfnff_solvation_solv_kernel,only:gbKernel
+  use gfnff_solvation_solv_state,only:solutionState,getStateShift
 
-  use solvation_type_solvation,only:TSolvation
+  use gfnff_solvation_type_solvation,only:TSolvation
   use ieee_arithmetic,only:ieee_value,ieee_positive_inf
   implicit none
   private
@@ -728,4 +728,4 @@ contains
 
   end subroutine newBornModel
 
-end module solvation_solv_model
+end module gfnff_solvation_solv_model
