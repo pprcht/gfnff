@@ -18,9 +18,11 @@ contains
   subroutine collect_pbc_ini(testsuite)
     type(unittest_type),allocatable,intent(out) :: testsuite(:)
     testsuite = [ &
-      new_unittest("PBC numctr=27 for 3D box          ",test_pbc_numctr), &
-      new_unittest("PBC allocated                     ",test_pbc_alloc),  &
-      new_unittest("PBC EEQ charges charge-conserved  ",test_pbc_charges) &
+      new_unittest("PBC numctr=27 for 3D box          ",test_pbc_numctr),   &
+      new_unittest("PBC allocated                     ",test_pbc_alloc),    &
+      new_unittest("PBC EEQ charges charge-conserved  ",test_pbc_charges),  &
+      new_unittest("PBC cell volume correct            ",test_pbc_cell_vol), &
+      new_unittest("PBC H2 bond detected              ",test_pbc_h2_bond)   &
     ]
   end subroutine collect_pbc_ini
 
@@ -159,7 +161,56 @@ contains
 
 !========================================================================================!
 
-!> MORE TESTS TODO
+!========================================================================================!
+
+  subroutine test_pbc_cell_vol(error)
+    !***********************************************************
+    !* The volume of a cubic 10 Bohr box must be 1000 Bohr^3.
+    !* This is a pure math check on cell%init.
+    !***********************************************************
+    type(error_type),allocatable,intent(out) :: error
+    type(gfnff_data) :: calc
+    integer :: nat,io
+    integer,allocatable :: at(:)
+    real(wp),allocatable :: xyz(:,:)
+    real(wp) :: lattice(3,3)
+    real(wp),parameter :: vol_ref = 1000.0_wp
+    real(wp),parameter :: thr = 1.0e-10_wp
+
+    call make_h2_box(nat,at,xyz,lattice)
+
+    call gfnff_initialize(nat,at,xyz,calc,lattice=lattice,npbc=3,iostat=io)
+    call check(error,io,0)
+    if (allocated(error)) return
+
+    if (abs(calc%cell%volume - vol_ref) > thr) then
+      call test_failed(error,"Cell volume wrong: got "//to_str(calc%cell%volume)// &
+        &             ", expected "//to_str(vol_ref))
+    end if
+  end subroutine test_pbc_cell_vol
+
+!========================================================================================!
+
+  subroutine test_pbc_h2_bond(error)
+    !***********************************************************
+    !* GFN-FF topology of H2 in a 10 Bohr box must contain
+    !* exactly one covalent bond.
+    !***********************************************************
+    type(error_type),allocatable,intent(out) :: error
+    type(gfnff_data) :: calc
+    integer :: nat,io
+    integer,allocatable :: at(:)
+    real(wp),allocatable :: xyz(:,:)
+    real(wp) :: lattice(3,3)
+
+    call make_h2_box(nat,at,xyz,lattice)
+
+    call gfnff_initialize(nat,at,xyz,calc,lattice=lattice,npbc=3,iostat=io)
+    call check(error,io,0)
+    if (allocated(error)) return
+
+    call check(error,calc%neigh%nbond,1)
+  end subroutine test_pbc_h2_bond
 
 !========================================================================================!
 ! Internal helper: real -> character

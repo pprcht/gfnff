@@ -7,16 +7,19 @@ gfnff_tester = executable(
   sources : files(
     'coffeine.f90',
     'supermol.f90',
+    'sio2.f90',
     'timer.f90',
     'main.f90',
     'test_gfnff.F90',
     'test_pbc_ini.f90',
+    'test_pbc_sp.f90',
   ),
   dependencies : [gfnff_dep, testdrive_dep],
 )
 
 test('gfnff/gfnff',   gfnff_tester, args : ['gfnff'],   timeout : 120)
 test('gfnff/pbc-ini', gfnff_tester, args : ['pbc-ini'], timeout : 120)
+test('gfnff/pbc-sp',  gfnff_tester, args : ['pbc-sp'],  timeout : 120)
 
 # ── C API test ────────────────────────────────────────────────────────────────
 gfnff_c_tester = executable(
