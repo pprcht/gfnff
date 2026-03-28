@@ -76,15 +76,19 @@ endif()
 #########################################################################################
 #########################################################################################
 
-# Compiler settings for GNU and Intel Fortran compilers
+# Compiler settings for GNU, Intel classic, and Intel LLVM Fortran compilers
 if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
-  set(dialect "-g -O0 -fbacktrace -ffree-line-length-none -fbacktrace")
+  set(dialect "-fbacktrace -ffree-line-length-none")
   set(bounds "-fbounds-check -ffpe-trap=invalid,zero,overflow")
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
-  set(dialect "-g -O2 -r8 -align array64byte -traceback")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "IntelLLVM")
+  set(dialect "-r8 -align array64byte -traceback")
   set(bounds "-check all -fpe0")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
+  set(dialect "-r8 -align array64byte -traceback -Wl,--allow-multiple-definition")
+  set(bounds "-check all -fpe0")
+  add_compile_definitions(LINUX)
 else()
-  message(FATAL_ERROR "Please use an Intel or GNU compiler!")
+  message(WARNING "Unsupported Fortran compiler: ${CMAKE_Fortran_COMPILER_ID}. Proceeding, but results may be wrong.")
 endif()
 
 # Apply the compiler flags

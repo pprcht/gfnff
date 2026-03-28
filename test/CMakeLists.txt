@@ -2,22 +2,17 @@
 # Fortran
 ###########################################################################
 
-# Unit testing
-set(
-  tests
-  "gfnff"
-)
 set(
   test-srcs
   "coffeine.f90"
   "supermol.f90"
+  "sio2.f90"
   "timer.f90"
   "main.f90"
+  "test_gfnff.F90"
+  "test_pbc_ini.f90"
+  "test_pbc_sp.f90"
 )
-foreach(t IN LISTS tests)
-  string(MAKE_C_IDENTIFIER ${t} t)
-  list(APPEND test-srcs "test_${t}.F90")
-endforeach()
 
 add_executable(
   "${PROJECT_NAME}-tester"
@@ -38,12 +33,9 @@ target_link_libraries(
 # Ensure tester is built after the library
 add_dependencies("${PROJECT_NAME}-tester" "${PROJECT_NAME}-lib")
 
-foreach(t IN LISTS tests)
-  add_test("${PROJECT_NAME}/${t}" "${PROJECT_NAME}-tester" "${t}")
-endforeach()
-
-# Specify the minimum version of CMake
-cmake_minimum_required(VERSION 3.14)
+add_test("${PROJECT_NAME}/gfnff"   "${PROJECT_NAME}-tester" "gfnff")
+add_test("${PROJECT_NAME}/pbc-ini" "${PROJECT_NAME}-tester" "pbc-ini")
+add_test("${PROJECT_NAME}/pbc-sp"  "${PROJECT_NAME}-tester" "pbc-sp")
 
 
 ###########################################################################

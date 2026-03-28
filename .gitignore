@@ -6,7 +6,8 @@
 github_bin/
 build_majestix
 build_commands
-_build*
+_build*/
+build*/
 src/gfn0
 bin/
 testprog/gfn0
@@ -19,3 +20,4 @@ ff/
 !.github/
 gfnff_topo
 gfnff_adjacency
+
