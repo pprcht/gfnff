@@ -12,10 +12,11 @@ name = "gfnff"
 version = "0.0.1"
 description = "Python bindings for the GFN-FF force-field library"
 readme = "README.md"
-license = {text = "LGPL-3.0-or-later"}
+authors = [{ name = "Philipp Pracht", email="research@philipp-pracht.de" }]
+license = {file = "LICENSE"}
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.21"]
-keywords = ["force field", "GFN-FF", "molecular dynamics", "computational chemistry"]
+keywords = ["force field", "GFN-FF", "computational chemistry"]
 classifiers = [
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",

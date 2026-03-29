@@ -95,10 +95,11 @@ add_custom_command(
 an install step follows.  The library lands in `python/gfnff/` immediately,
 where `_lib.py` finds it without any environment variable.
 
-**Why not `install()` as well?**  scikit-build-core assembles the wheel from
-both the CMake install tree *and* the `wheel.packages` source directories.
-If the `.so` appears in both, it is included in the wheel twice.  Using only
-`POST_BUILD` + `wheel.packages` avoids the duplication.
+**Why keep `install()` as well?**  scikit-build-core's `wheel.packages` collects
+Python source files; it does not reliably include compiled binaries like `.so`.
+The CMake `install(TARGETS gfnff-shared LIBRARY DESTINATION gfnff)` step is
+what actually gets the shared library into the wheel.  The `POST_BUILD` copy is
+only for local editable installs where `cmake --install` is never run.
 
 **`python/gfnff/libgfnff*` is gitignored** because it is a build artefact
 generated from sources already tracked in the repository.

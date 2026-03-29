@@ -5,9 +5,10 @@
 # Triggered on version tags (v*) or manually via workflow_dispatch.
 #
 # Platform coverage:
-#   Linux  x86_64 : manylinux2014 (glibc 2.17+, gfortran from yum)
-#   macOS  arm64  : macos-latest runner (Apple Silicon, Homebrew gfortran)
-#   Windows       : not yet supported (requires mingw-w64 gfortran in CI)
+#   Linux  x86_64   : ubuntu-latest runner, manylinux2014
+#   Linux  aarch64  : ubuntu-24.04-arm runner (native, no QEMU)
+#   macOS  arm64    : macos-14 runner (Apple Silicon, Homebrew gfortran)
+#   Windows         : not yet supported (requires mingw-w64 gfortran in CI)
 #
 # OpenMP note:
 #   find_package(OpenMP) in CMakeLists.txt is intentionally non-fatal.
@@ -18,6 +19,15 @@
 #   Linux  : auditwheel repair (run automatically by cibuildwheel) bundles
 #            libgfortran.so and libgomp.so into the wheel.
 #   macOS  : delocate bundles Homebrew gfortran runtime dylibs.
+#
+# macOS runner pinned to macos-14:
+#   Homebrew compiles gcc dylibs against the host OS.  On macOS 15 (macos-latest)
+#   the dylibs carry minOS=15.0, which delocate-wheel rejects for a 14.0 wheel.
+#   macos-14 produces dylibs with minOS=14.0, matching MACOSX_DEPLOYMENT_TARGET.
+#
+# Linux aarch64 runner:
+#   QEMU emulation on x86_64 is 10-20x slower than native.  ubuntu-24.04-arm
+#   provides a native arm64 runner (free for public repos).
 
 name: Build wheels
 
@@ -34,10 +44,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            archs: x86_64
+          - os: ubuntu-24.04-arm
+            archs: aarch64
+          - os: macos-14
+            archs: arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install gfortran (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -58,10 +74,18 @@ jobs:
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux*"
+          CIBW_ARCHS: ${{ matrix.archs }}
 
-          # Install gfortran and OpenBLAS inside the manylinux container.
+          # Install gfortran and BLAS/LAPACK inside the manylinux container.
+          # openblas-devel is only in EPEL for x86_64; use the reference
+          # lapack-devel + blas-devel (CentOS 7 base, all archs) for aarch64.
           CIBW_BEFORE_ALL_LINUX: |
-            yum install -y gcc-gfortran openblas-devel
+            yum install -y gcc-gfortran
+            if [ "$(uname -m)" = "x86_64" ]; then
+              yum install -y openblas-devel
+            else
+              yum install -y lapack-devel blas-devel
+            fi
 
           CIBW_ENVIRONMENT_LINUX: >
             FC=gfortran
@@ -69,7 +93,7 @@ jobs:
 
           CIBW_ENVIRONMENT_MACOS: >
             FC=gfortran
-            MACOSX_DEPLOYMENT_TARGET=$(/usr/bin/sw_vers -productVersion | cut -d. -f1).0
+            MACOSX_DEPLOYMENT_TARGET=14.0
             CMAKE_BUILD_PARALLEL_LEVEL=4
 
           # auditwheel repair runs automatically on Linux; delocate on macOS.
@@ -78,7 +102,7 @@ jobs:
             -w {dest_dir} -v {wheel}
 
       - name: Upload wheel artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -99,7 +123,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: wheels-*
           path: dist
@@ -124,7 +148,7 @@ jobs:
       id-token: write  # OIDC trusted publishing
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: wheels-*
           path: dist

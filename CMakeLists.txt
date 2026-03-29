@@ -185,10 +185,14 @@ if(PYTHON_BINDINGS)
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include-shared>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
-  # After every build, copy the shared library into the Python source tree
-  # (python/gfnff/) so that editable installs work without LD_LIBRARY_PATH.
-  # scikit-build-core picks the file up from there via wheel.packages when
-  # building a wheel, so no separate install() step is needed.
+  # Install the shared library so scikit-build-core bundles it into the wheel.
+  install(
+    TARGETS "${PROJECT_NAME}-shared"
+    LIBRARY DESTINATION "gfnff"
+    RUNTIME DESTINATION "gfnff"
+  )
+  # After every build, also copy the shared library into the Python source tree
+  # so that editable installs work without LD_LIBRARY_PATH.
   add_custom_command(
     TARGET "${PROJECT_NAME}-shared" POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
