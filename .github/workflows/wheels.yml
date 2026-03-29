@@ -5,19 +5,19 @@
 # Triggered on version tags (v*) or manually via workflow_dispatch.
 #
 # Platform coverage:
-#   Linux  x86_64 : manylinux_2_28 (glibc 2.28+, gfortran from yum/dnf)
-#   macOS  x86_64 : macos-13 runner (Intel, Homebrew gfortran)
-#   macOS  arm64  : macos-14 runner (Apple Silicon, Homebrew gfortran)
+#   Linux  x86_64 : manylinux2014 (glibc 2.17+, gfortran from yum)
+#   macOS  arm64  : macos-latest runner (Apple Silicon, Homebrew gfortran)
 #   Windows       : not yet supported (requires mingw-w64 gfortran in CI)
+#
+# OpenMP note:
+#   find_package(OpenMP) in CMakeLists.txt is intentionally non-fatal.
+#   On macOS, Apple Clang (C/CXX) has no native OpenMP; Homebrew gfortran
+#   does.  CMake detects OpenMP_Fortran_FOUND and enables it for Fortran only.
 #
 # Dependency bundling:
 #   Linux  : auditwheel repair (run automatically by cibuildwheel) bundles
-#            libgfortran.so and libgomp.so into the wheel.  OpenBLAS is
-#            linked statically (-DBLA_STATIC=ON) to avoid a runtime dependency.
+#            libgfortran.so and libgomp.so into the wheel.
 #   macOS  : delocate bundles Homebrew gfortran runtime dylibs.
-#            OpenMP is disabled (-DWITH_OpenMP=OFF) because Apple Clang (the
-#            default C compiler on macOS) does not support OpenMP, and
-#            find_package(OpenMP REQUIRED) would fail for the C language.
 
 name: Build wheels
 
@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-13, macos-14]
+        os: [ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -43,39 +43,33 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: |
           brew install gcc
-          # Make sure gfortran is on PATH (Homebrew installs as gfortran-N)
-          FC=$(ls /opt/homebrew/bin/gfortran-* 2>/dev/null | tail -1 || \
-               ls /usr/local/bin/gfortran-* 2>/dev/null | tail -1)
-          if [ -n "$FC" ]; then
-            ln -sf "$FC" "$(dirname $FC)/gfortran" || true
+          # Homebrew installs gfortran as gfortran-NN; find the highest version
+          # and symlink it to a plain 'gfortran' name for CMake to discover.
+          GFORTRANS=$(ls "$(brew --prefix)"/bin/gfortran-[0-9]* 2>/dev/null || true)
+          if [ -z "$GFORTRANS" ]; then
+            echo "No gfortran-* binary found after brew install gcc" >&2; exit 1
           fi
+          GFORTRAN_BIN=$(printf '%s\n' $GFORTRANS | sort -t- -k2,2n | tail -n1)
+          echo "Using Fortran compiler: $GFORTRAN_BIN"
+          ln -sf "$GFORTRAN_BIN" "$(brew --prefix)/bin/gfortran"
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.19
         env:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux*"
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux_2_28"
 
-          # Install gfortran and OpenBLAS inside the manylinux container
-          CIBW_BEFORE_BUILD_LINUX: |
-            yum install -y gcc-gfortran openblas-devel openblas-static || \
-            dnf install -y gcc-gfortran openblas-devel openblas-static || \
-            apt-get install -y gfortran libopenblas-dev
+          # Install gfortran and OpenBLAS inside the manylinux container.
+          CIBW_BEFORE_ALL_LINUX: |
+            yum install -y gcc-gfortran openblas-devel
 
-          # Linux: statically link OpenBLAS; auditwheel bundles libgfortran.so.
-          # Do NOT put -static-libgfortran in CMAKE_Fortran_FLAGS — CMake
-          # applies those flags during its own compiler detection test, which
-          # fails when libgfortran.a is absent from the manylinux container.
           CIBW_ENVIRONMENT_LINUX: >
-            CMAKE_ARGS="-DBLA_STATIC=ON"
+            FC=gfortran
             CMAKE_BUILD_PARALLEL_LEVEL=4
 
-          # macOS: disable OpenMP (Apple Clang has no OpenMP; mixing it with
-          # Homebrew gfortran causes find_package(OpenMP REQUIRED) to fail for
-          # the C language). delocate bundles the gfortran runtime dylibs.
           CIBW_ENVIRONMENT_MACOS: >
-            CMAKE_ARGS="-DWITH_OpenMP=OFF"
+            FC=gfortran
+            MACOSX_DEPLOYMENT_TARGET=$(/usr/bin/sw_vers -productVersion | cut -d. -f1).0
             CMAKE_BUILD_PARALLEL_LEVEL=4
 
           # auditwheel repair runs automatically on Linux; delocate on macOS.
