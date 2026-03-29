@@ -10,10 +10,14 @@
 #   macOS  arm64  : macos-14 runner (Apple Silicon, Homebrew gfortran)
 #   Windows       : not yet supported (requires mingw-w64 gfortran in CI)
 #
-# Static linking notes:
-#   The Fortran runtime (libgfortran, libgomp) and LAPACK (OpenBLAS) are
-#   linked statically into libgfnff.so so that auditwheel does not embed
-#   extra .so files or reject the wheel for non-standard library dependencies.
+# Dependency bundling:
+#   Linux  : auditwheel repair (run automatically by cibuildwheel) bundles
+#            libgfortran.so and libgomp.so into the wheel.  OpenBLAS is
+#            linked statically (-DBLA_STATIC=ON) to avoid a runtime dependency.
+#   macOS  : delocate bundles Homebrew gfortran runtime dylibs.
+#            OpenMP is disabled (-DWITH_OpenMP=OFF) because Apple Clang (the
+#            default C compiler on macOS) does not support OpenMP, and
+#            find_package(OpenMP REQUIRED) would fail for the C language.
 
 name: Build wheels
 
@@ -59,11 +63,19 @@ jobs:
             dnf install -y gcc-gfortran openblas-devel openblas-static || \
             apt-get install -y gfortran libopenblas-dev
 
-          # Static-link Fortran runtime and OpenBLAS so the wheel has no
-          # unexpected dynamic dependencies that auditwheel would flag.
-          CIBW_ENVIRONMENT: >
-            CMAKE_ARGS="-DCMAKE_Fortran_FLAGS=-static-libgfortran
-                        -DBLA_STATIC=ON"
+          # Linux: statically link OpenBLAS; auditwheel bundles libgfortran.so.
+          # Do NOT put -static-libgfortran in CMAKE_Fortran_FLAGS — CMake
+          # applies those flags during its own compiler detection test, which
+          # fails when libgfortran.a is absent from the manylinux container.
+          CIBW_ENVIRONMENT_LINUX: >
+            CMAKE_ARGS="-DBLA_STATIC=ON"
+            CMAKE_BUILD_PARALLEL_LEVEL=4
+
+          # macOS: disable OpenMP (Apple Clang has no OpenMP; mixing it with
+          # Homebrew gfortran causes find_package(OpenMP REQUIRED) to fail for
+          # the C language). delocate bundles the gfortran runtime dylibs.
+          CIBW_ENVIRONMENT_MACOS: >
+            CMAKE_ARGS="-DWITH_OpenMP=OFF"
             CMAKE_BUILD_PARALLEL_LEVEL=4
 
           # auditwheel repair runs automatically on Linux; delocate on macOS.
