@@ -35,8 +35,17 @@ add_subdirectory("config")
 # OpenMP parallelization
 if(NOT TARGET "OpenMP::OpenMP_Fortran")
   if (WITH_OpenMP)
-    find_package("OpenMP" REQUIRED)
-    add_compile_definitions(WITH_OpenMP) 
+    # Do not use REQUIRED: on macOS the C/CXX compiler (Apple Clang) has no
+    # native OpenMP support, so find_package(OpenMP REQUIRED) would fail for
+    # those languages even though gfortran supports it fine.  We only need
+    # Fortran-level OpenMP; check OpenMP_Fortran_FOUND after the search.
+    find_package("OpenMP")
+    if(OpenMP_Fortran_FOUND)
+      add_compile_definitions(WITH_OpenMP)
+    else()
+      message(STATUS "OpenMP not found for Fortran; building without OpenMP parallelization")
+      add_library("OpenMP::OpenMP_Fortran" INTERFACE IMPORTED)
+    endif()
   else()
     # Create dummy library
     add_library("OpenMP::OpenMP_Fortran" INTERFACE IMPORTED)
