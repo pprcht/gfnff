@@ -8,8 +8,8 @@
 
 </div>
 
-This repository provides a standalone library implementation of the **GFN-FF** method,
-adapted from the [`xtb`](https://github.com/grimme-lab/xtb) code (most recently at commit `6d44803`
+This repository provides a standalone library implementation of the **GFN-FF** method by **S.Spicher** and **S.Grimme**,
+adapted from the [`xtb`](https://github.com/grimme-lab/xtb) code (most recently at commit [`6d44803`](https://github.com/grimme-lab/xtb/commit/6d44803)
 and validated against that version's results).
 The primary purpose is to serve as a linkable dependency for other Fortran, C, and C++ projects.
 From this point forward, development may diverge from the upstream `xtb` implementation.
@@ -63,13 +63,6 @@ cmake -B _build
 cmake --build _build
 ```
 
-To also build the standalone app:
-
-```bash
-cmake -B _build -Dbuild_exe=true
-cmake --build _build
-```
-
 To run the test suite:
 
 ```bash
@@ -83,13 +76,6 @@ ctest --test-dir _build
 
 ```bash
 meson setup _build
-ninja -C _build
-```
-
-To also build the standalone app:
-
-```bash
-meson setup _build -Dbuild_exe=true
 ninja -C _build
 ```
 
@@ -118,7 +104,10 @@ singlepoint routine. The initialisation is typically the more expensive step;
 once complete, singlepoint evaluations can be called repeatedly on the same
 calculator object.
 
-### Fortran
+<table>
+<tr><td>
+<details>
+<summary><b>Fortran</b></summary>
 
 ```fortran
 use iso_fortran_env, only: real64
@@ -128,49 +117,70 @@ type(gfnff_data) :: calc
 integer  :: nat, ichrg, io
 integer,  allocatable :: at(:)
 real(real64), allocatable :: xyz(:,:), gradient(:,:)
-real(real64) :: energy
+real(real64) :: energy, sigma(3,3)
 
 ! ... populate nat, at, xyz, ichrg ...
 
 call calc%init(nat, at, xyz, ichrg=ichrg, iostat=io)
 
-call calc%singlepoint(nat, at, xyz, energy, gradient, iostat=io)
+call calc%singlepoint(nat, at, xyz, energy, gradient, iostat=io, sigma=sigma)
 
 call calc%deallocate()
 ```
 
-All coordinates are in Bohr; the energy is in Hartree and the gradient in Eh/Bohr.
+All coordinates are in Bohr; the energy is in Hartree, the gradient in Eh/Bohr,
+and `sigma` (3×3) is the stress tensor in Hartree (zero for non-periodic systems).
+Full working example: [`app/main.F90`](app/main.F90).
 
-### C
+</details>
+</td></tr>
+<tr><td>
+<details>
+<summary><b>C</b></summary>
 
 ```c
 #include "gfnff_interface_c.h"
 
+double sigma[3][3];   /* stress tensor (Hartree); zero for non-PBC */
+
 c_gfnff_calculator calc =
     c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel, solvent);
 
-c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient, &iostat);
+c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient,
+                               sigma, &iostat);
 
 c_gfnff_calculator_deallocate(&calc);
 ```
 
-### C++
+Full working example: [`test/main.c`](test/main.c).
+
+</details>
+</td></tr>
+<tr><td>
+<details>
+<summary><b>C++</b></summary>
 
 ```cpp
 #include "gfnff_interface_c.h"
 
+double sigma[3][3];   // stress tensor (Hartree); zero for non-PBC
+
 c_gfnff_calculator calc =
     c_gfnff_calculator_init(nat, at, xyz, ichrg, printlevel, solvent);
 
-c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient, &iostat);
+c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient,
+                               sigma, &iostat);
 
 c_gfnff_calculator_deallocate(&calc);
 ```
 
-Full working examples are available in [`app/main.F90`](app/main.F90) (Fortran),
-[`test/main.c`](test/main.c) (C), and [`test/main.cpp`](test/main.cpp) (C++).
+Full working example: [`test/main.cpp`](test/main.cpp).
 
-### Integrating as a CMake subproject
+</details>
+</td></tr>
+<tr><td>
+<details>
+<summary><b>Integrating as a CMake subproject</b></summary>
 
 Add the repository as a subdirectory and link against the exported target:
 
@@ -179,13 +189,21 @@ add_subdirectory(gfnff)
 target_link_libraries(my_target PRIVATE gfnff)
 ```
 
-### Integrating as a Meson subproject
+</details>
+</td></tr>
+<tr><td>
+<details>
+<summary><b>Integrating as a Meson subproject</b></summary>
 
 Place the repository under `subprojects/gfnff/` and wrap it:
 
 ```meson
 gfnff_dep = dependency('gfnff', fallback: ['gfnff', 'gfnff_dep'])
 ```
+
+</details>
+</td></tr>
+</table>
 
 ---
 
@@ -249,7 +267,7 @@ gfnff molecule.xyz --chrg -1
 gfnff molecule.xyz --alpb h2o        # implicit solvation (--solv is an alias)
 ```
 
-**Geometry optimisation** (L-BFGS via ASE, writes `gfnff.log.extxyz`):
+**Geometry optimisation** (L-BFGS via ASE, cell fixed, writes `gfnff.log.extxyz`):
 
 ```bash
 gfnff molecule.xyz --opt
@@ -258,18 +276,24 @@ gfnff molecule.xyz --opt --outfile path.xyz   # custom trajectory file
 gfnff molecule.xyz --opt --alpb acetone       # optimise in solvent
 ```
 
+**Variable-cell optimisation** (L-BFGS + `ExpCellFilter`, periodic systems only):
+
+```bash
+gfnff crystal.cif --optcell
+gfnff crystal.cif --optcell --fmax 0.01
+```
+
 Full option list: `gfnff --help`
 
 The trajectory file (`gfnff.log.extxyz`) stores energy and forces in each
-frame header, compatible with tools like [OVITO](https://www.ovito.org/) and
-ASE's `ase gui`.
+frame header, compatible with ASE's `ase gui`.
 
 ---
 
 ### Low-level API (`GFNFFCalculator`)
 
 `GFNFFCalculator` mirrors the C API one-to-one.
-All quantities use the same units as the library itself: **Bohr** for coordinates and lattice, **Hartree** for energy, **Eh/Bohr** for gradients.
+All quantities use the same units as the library itself: **Bohr** for coordinates and lattice, **Hartree** for energy, **Eh/Bohr** for gradients, and **Hartree** for the stress tensor.
 
 ```python
 import numpy as np
@@ -281,9 +305,10 @@ positions = np.array([[0, 0, 0], [2.1, 0, 0],
                       [-1.0, 0, 0], [3.1, 0, 0]], dtype=np.float64)
 
 with GFNFFCalculator(numbers, positions, charge=0, printlevel=0) as calc:
-    energy, gradient = calc.singlepoint(numbers, positions)
+    energy, gradient, sigma = calc.singlepoint(numbers, positions)
     print(f"Energy: {energy:.6f} Eh")
     print(f"Gradient shape: {gradient.shape}")  # (nat, 3)
+    print(f"Stress tensor:\n{sigma}")            # (3, 3), Hartree; zero for non-PBC
 ```
 
 Periodic systems use a separate initialiser:
@@ -300,6 +325,7 @@ calc = GFNFFCalculator(
 
 `GFNFF` is a fully compatible [ASE `Calculator`](https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html).
 It handles unit conversion automatically (Å ↔ Bohr, eV ↔ Hartree).
+Implemented properties: **energy**, **forces**, **stress**.
 
 ```python
 from ase.build import molecule
@@ -310,6 +336,7 @@ atoms.calc = GFNFF()
 
 energy = atoms.get_potential_energy()   # eV
 forces = atoms.get_forces()             # eV / Å, shape (nat, 3)
+stress = atoms.get_stress()             # eV / Å³, Voigt [xx,yy,zz,yz,xz,xy]; zero for non-PBC
 ```
 
 Periodic systems work the same way — provide an `atoms` object with `cell` and `pbc` set:
@@ -321,6 +348,17 @@ from gfnff import GFNFF
 atoms = read("quartz.cif")
 atoms.calc = GFNFF()
 print(atoms.get_potential_energy())  # eV / unit cell
+print(atoms.get_stress())            # eV / Å³, Voigt
+```
+
+Variable-cell relaxation via ASE's `ExpCellFilter`:
+
+```python
+from ase.filters import ExpCellFilter
+from ase.optimize import LBFGS
+
+opt = LBFGS(ExpCellFilter(atoms))
+opt.run(fmax=0.01)
 ```
 
 Additional options:
@@ -328,13 +366,8 @@ Additional options:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `charge` | `0` | Total charge. Also reads `atoms.info["charge"]` (takes precedence). |
-| `solvent` | `""` | Implicit solvent name: `"h2o"`, `"acetone"`, `"chcl3"`, … |
+| `solvent` | `""` | Implicit solvent name: `"h2o"`, `"acetone"`, `"chcl3"`, … (molecular systems only) |
 | `printlevel` | `0` | Fortran output verbosity (0 = silent, 3 = verbose). |
-
-> **Stress tensor** — GFN-FF computes the stress internally but it is not yet
-> exposed through the C API.  Requesting `atoms.get_stress()` raises
-> `PropertyNotImplementedError` until a future release adds the output argument
-> to `c_gfnff_calculator_singlepoint`.
 
 ### Running the tests
 
