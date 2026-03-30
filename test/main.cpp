@@ -33,6 +33,7 @@ void run_singlepoint_test() {
 
   double energy;
   double gradient[nat][3];
+  double sigma[3][3];  // stress tensor (zero for non-PBC)
   int iostat;
   const char *solvent = "h2o";
 
@@ -55,7 +56,7 @@ void run_singlepoint_test() {
 
   // Run the singlepoint calculation
   c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient,
-                                 &iostat);
+                                 sigma, &iostat);
 
   if (iostat == 0) {
     std::cout << "Singlepoint calculation successful.\n";
@@ -68,6 +69,12 @@ void run_singlepoint_test() {
                   << "\n";
       }
     }
+
+    // Print the stress tensor (molecular — expect zeros from C interface)
+    std::cout << "Sigma (molecular, should be zeroed):\n";
+    for (int i = 0; i < 3; ++i)
+      for (int j = 0; j < 3; ++j)
+        std::cout << "  sigma[" << i << "][" << j << "] = " << sigma[i][j] << "\n";
   } else {
     std::cerr << "Singlepoint calculation failed with iostat = " << iostat
               << "\n";
@@ -106,6 +113,7 @@ void run_pbc_singlepoint_test() {
 
   double energy;
   double gradient[nat][3];
+  double sigma[3][3];  // stress tensor
   int iostat;
 
   c_gfnff_calculator calc = c_gfnff_calculator_init_pbc(
@@ -117,7 +125,7 @@ void run_pbc_singlepoint_test() {
   }
 
   c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient,
-                                 &iostat);
+                                 sigma, &iostat);
 
   if (iostat == 0) {
     std::cout << "PBC singlepoint calculation successful.\n";
@@ -125,6 +133,12 @@ void run_pbc_singlepoint_test() {
     for (int i = 0; i < 3; ++i) {
       std::cout << "PBC Gradient[0][" << i << "] = " << gradient[0][i] << "\n";
     }
+
+    // Print the PBC stress tensor
+    std::cout << "Sigma (PBC):\n";
+    for (int i = 0; i < 3; ++i)
+      for (int j = 0; j < 3; ++j)
+        std::cout << "  sigma[" << i << "][" << j << "] = " << sigma[i][j] << "\n";
   } else {
     std::cerr << "PBC singlepoint calculation failed with iostat = " << iostat
               << "\n";

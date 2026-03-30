@@ -43,12 +43,22 @@ def _parse_args(argv=None):
 
     # Optimisation
     opt_group = parser.add_argument_group("optimisation")
-    opt_group.add_argument(
+    opt_mode = opt_group.add_mutually_exclusive_group()
+    opt_mode.add_argument(
         "--opt",
         action="store_true",
         help=(
-            "Perform geometry optimisation (L-BFGS). "
+            "Perform geometry optimisation (L-BFGS), cell fixed. "
             "Writes the optimisation path to gfnff.log.extxyz."
+        ),
+    )
+    opt_mode.add_argument(
+        "--optcell",
+        action="store_true",
+        help=(
+            "Perform variable-cell optimisation (L-BFGS + ExpCellFilter). "
+            "Relaxes both atomic positions and the unit cell using the stress tensor. "
+            "Only meaningful for periodic systems."
         ),
     )
     opt_group.add_argument(
@@ -111,7 +121,10 @@ def _print_header(atoms, solvent, charge):
     print(f"  Charge      : {charge:+d}")
     print(f"  System type : {pbc_str}")
     if solvent:
-        print(f"  Solvent     : {solvent} (ALPB/GBSA)")
+        if any(atoms.pbc):
+            print(f"  Solvent     : None  (solvation incompatible with PBC)")
+        else:
+            print(f"  Solvent     : {solvent} (ALPB/GBSA)")
     print("=" * 60)
     print()
 
@@ -129,6 +142,26 @@ def _print_singlepoint_results(atoms):
     print(f"  Total energy : {energy_eh:18.10f} Eh")
     print(f"               : {energy_ev:18.10f} eV")
     print(f"  Gradient norm: {gnorm:18.10f} Eh/a0  (mean |∇E|)")
+
+    if any(atoms.pbc):
+        # Stress in Voigt order [xx,yy,zz,yz,xz,xy] in eV/Å³; convert to GPa
+        v = atoms.get_stress() * 160.21766208        # 1 eV/Å³ = 160.218 GPa
+        # Reconstruct symmetric 3×3 from Voigt [xx,yy,zz,yz,xz,xy]
+        s = [[v[0], v[5], v[4]],
+             [v[5], v[1], v[3]],
+             [v[4], v[3], v[2]]]
+        col = 10   # field width per number
+        print()
+        print("  Stress tensor (GPa):")
+        for i in range(3):
+            indent = " " * (col * i)
+            values = "".join(f"{s[i][j]:>{col}.4f}" for j in range(i, 3))
+            # pad the right side so all rows are the same width
+            pad = " " * (col * i)
+            bracket_width = col * 3
+            inner = indent + values + " " * (bracket_width - col * i - len(values))
+            print(f"  ( {inner} )")
+
     print()
 
 
@@ -169,7 +202,9 @@ def main(argv=None):
 
     # --- Singlepoint or optimisation ------------------------------------
     if args.opt:
-        _run_opt(atoms, args)
+        _run_opt(atoms, args, relax_cell=False)
+    elif args.optcell:
+        _run_opt(atoms, args, relax_cell=True)
     else:
         _run_singlepoint(atoms)
 
@@ -185,30 +220,46 @@ def _run_singlepoint(atoms):
         sys.exit(1)
 
 
-def _run_opt(atoms, args):
+def _run_opt(atoms, args, relax_cell=False):
     import ase.io
     from ase.optimize import LBFGS
 
     outfile = args.outfile
-    print(f"  Geometry optimisation  (fmax = {args.fmax} eV/Å)")
+    if relax_cell:
+        if not any(atoms.pbc):
+            print(
+                "Warning: --optcell requested for a non-periodic system; "
+                "falling back to fixed-cell optimisation.",
+                file=sys.stderr,
+            )
+            relax_cell = False
+        else:
+            from ase.filters import ExpCellFilter
+
+    if relax_cell:
+        print(f"  Variable-cell optimisation  (fmax = {args.fmax} eV/Å, uses stress)")
+    else:
+        print(f"  Geometry optimisation  (fmax = {args.fmax} eV/Å, cell fixed)")
     print(f"  Trajectory → {outfile}")
     print("-" * 60)
+
+    # Wrap with ExpCellFilter to relax positions AND cell via the stress tensor.
+    opt_target = ExpCellFilter(atoms) if relax_cell else atoms
 
     # Write each accepted step to extxyz; the first call truncates the file.
     step = [0]
 
     def _write_frame():
-        # Copy energy and forces into atoms.info / atoms.arrays so the
-        # extxyz writer picks them up automatically.
         res = atoms.calc.results
         frame = atoms.copy()
         frame.info["energy"] = res["energy"]
         frame.arrays["forces"] = res["forces"].copy()
-        # Append after the first frame so the file is not truncated mid-run.
+        if relax_cell and "stress" in res:
+            frame.info["stress"] = res["stress"].copy()
         ase.io.write(outfile, frame, format="extxyz", append=(step[0] > 0))
         step[0] += 1
 
-    opt = LBFGS(atoms, logfile="-")
+    opt = LBFGS(opt_target, logfile="-")
     opt.attach(_write_frame, interval=1)
 
     try:

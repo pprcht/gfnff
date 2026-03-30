@@ -94,7 +94,7 @@ class GFNFFCalculator:
     # ------------------------------------------------------------------
 
     def singlepoint(self, numbers, positions_bohr, lattice=None):
-        """Compute energy and gradient for the given geometry.
+        """Compute energy, gradient and stress tensor for the given geometry.
 
         Parameters
         ----------
@@ -112,6 +112,8 @@ class GFNFFCalculator:
             Total energy in Hartree.
         gradient : ndarray, shape ``(nat, 3)``
             Energy gradient in Eh / Bohr.
+        sigma : ndarray, shape ``(3, 3)``
+            Stress tensor in Hartree.  Zero for non-periodic systems.
         """
         self._check_alive()
 
@@ -121,6 +123,7 @@ class GFNFFCalculator:
 
         energy_out = ctypes.c_double(0.0)
         gradient = np.zeros((nat, 3), dtype=np.float64, order="C")
+        sigma = np.zeros((3, 3), dtype=np.float64, order="C")
         iostat = ctypes.c_int(0)
 
         _lib.c_gfnff_calculator_singlepoint(
@@ -130,6 +133,7 @@ class GFNFFCalculator:
             xyz,
             ctypes.byref(energy_out),
             gradient,
+            sigma,
             ctypes.byref(iostat),
         )
 
@@ -138,7 +142,7 @@ class GFNFFCalculator:
                 f"GFN-FF singlepoint failed with iostat = {iostat.value}"
             )
 
-        return float(energy_out.value), gradient
+        return float(energy_out.value), gradient, sigma
 
     # ------------------------------------------------------------------
 

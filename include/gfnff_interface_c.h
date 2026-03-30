@@ -31,11 +31,13 @@ c_gfnff_calculator_init_pbc(int nat, int *at, double (*xyz)[3],
 // Declare the deallocator
 extern void c_gfnff_calculator_deallocate(c_gfnff_calculator *calculator);
 
-// Declate the singlepoint calculator
+// Declare the singlepoint calculator
+// sigma[3][3] receives the stress tensor in Hartree (zero for non-PBC systems)
 extern void c_gfnff_calculator_singlepoint(c_gfnff_calculator *calculator,
                                               int nat, int *at,
                                               double (*xyz)[3], double *energy,
                                               double (*gradient)[3],
+                                              double sigma[3][3],
                                               int *iostat);
 
 // Declate the print routine

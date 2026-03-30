@@ -181,8 +181,23 @@ contains  !> MODULE PROCEDURES START HERE
 !========================================================================================!
 
   subroutine c_gfnff_calculator_singlepoint(c_calculator,c_nat,c_at,c_xyz, &
-    &                                           c_energy,c_gradient,c_iostat) &
+    &                                           c_energy,c_gradient,c_sigma,c_iostat) &
     &                        bind(C,name="c_gfnff_calculator_singlepoint")
+    !***********************************************************
+    !* Compute energy, gradient and stress tensor for the
+    !* current geometry.
+    !*
+    !* INPUT:
+    !*   c_calculator  - opaque handle (from init)
+    !*   c_nat         - number of atoms
+    !*   c_at(c_nat)   - atomic numbers
+    !*   c_xyz[nat][3] - Cartesian coordinates (Bohr)
+    !* OUTPUT:
+    !*   c_energy      - total energy (Hartree)
+    !*   c_gradient[nat][3] - gradient (Eh/Bohr)
+    !*   c_sigma[3][3] - stress tensor (Hartree); zero for non-PBC
+    !*   c_iostat      - error status (0 = success)
+    !***********************************************************
     implicit none
     !> Input arguments from C
     type(c_gfnff_calculator),intent(inout) :: c_calculator
@@ -193,6 +208,7 @@ contains  !> MODULE PROCEDURES START HERE
     !> Output arguments to C
     real(c_double),intent(out) :: c_energy
     real(c_double),target,intent(out) :: c_gradient(3,*) !> NOTE Fortran/C matrix orders
+    real(c_double),intent(out) :: c_sigma(3,3)            !> stress tensor (Eh); 0 for non-PBC
     integer(c_int),intent(out) :: c_iostat
 
     !> Local Fortran variables
@@ -202,6 +218,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),pointer :: xyz(:,:)
     real(wp),pointer :: grad(:,:)
     real(wp) :: energy
+    real(wp) :: sigma_loc(3,3)
     integer :: iostat
 
     !> Convert C pointers to Fortran pointers
@@ -217,11 +234,18 @@ contains  !> MODULE PROCEDURES START HERE
     !> the singlepoint does not reinitialize the cell with a zero lattice
     !> (which would corrupt PBC calculations).
     call calc_ptr%singlepoint(nat,at,xyz,energy,grad,iostat=iostat, &
-    &                         lattice=calc_ptr%cell%lattice)
+    &                         lattice=calc_ptr%cell%lattice,sigma=sigma_loc)
 
     !> Pass back the results to C variables
     c_energy = energy
     c_gradient(1:3,1:nat) = grad(1:3,1:nat)
+    !> Zero sigma for non-periodic systems; Fortran accumulates virial-style
+    !> contributions regardless of PBC, so we suppress them here.
+    if (calc_ptr%cell%npbc > 0) then
+      c_sigma(1:3,1:3) = sigma_loc(1:3,1:3)
+    else
+      c_sigma(1:3,1:3) = 0.0_wp
+    end if
     c_iostat = iostat
 
   end subroutine c_gfnff_calculator_singlepoint

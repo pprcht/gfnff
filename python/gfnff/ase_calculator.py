@@ -7,18 +7,20 @@ Unit conventions
 ----------------
 ASE uses Angstrom and eV throughout.  The conversions applied here are:
 
-  positions   : Angstrom  →  Bohr     (divide by ase.units.Bohr)
-  lattice     : Angstrom  →  Bohr     (divide by ase.units.Bohr)
-  energy      : Hartree   →  eV       (multiply by ase.units.Hartree)
-  forces      : -(Eh/Bohr) → eV/Ang  (multiply by ase.units.Hartree / ase.units.Bohr)
+  positions   : Angstrom  →  Bohr       (divide by ase.units.Bohr)
+  lattice     : Angstrom  →  Bohr       (divide by ase.units.Bohr)
+  energy      : Hartree   →  eV         (multiply by ase.units.Hartree)
+  forces      : -(Eh/Bohr) → eV/Ang    (multiply by ase.units.Hartree / ase.units.Bohr)
+  stress      : Eh/Bohr³  → eV/Ang³    (sigma / volume * Hartree / Bohr**3)
+                returned in Voigt order [xx, yy, zz, yz, xz, xy]
 
-The stress tensor (sigma) is not yet exposed by the C API; it is deferred
-to a future release.  Requesting "stress" raises PropertyNotImplementedError.
+For non-periodic systems sigma is zero, so stress is reported as a zero
+six-vector.  For periodic systems the stress is sigma / cell_volume.
 """
 
 import numpy as np
 
-from ase.calculators.calculator import Calculator, PropertyNotImplementedError, all_changes
+from ase.calculators.calculator import Calculator, all_changes
 from ase.units import Bohr, Hartree
 
 from .calculator import GFNFFCalculator
@@ -39,8 +41,7 @@ class GFNFF(Calculator):
         Fortran output verbosity (0 = silent).
     """
 
-    implemented_properties = ["energy", "forces"]
-    # "stress" is not yet exposed through the C API; see module docstring.
+    implemented_properties = ["energy", "forces", "stress"]
 
     default_parameters = {
         "charge": 0,
@@ -106,13 +107,6 @@ class GFNFF(Calculator):
 
         Calculator.calculate(self, atoms, properties, system_changes)
 
-        if "stress" in properties:
-            raise PropertyNotImplementedError(
-                "Stress tensor is not yet available through the GFN-FF C API. "
-                "It will be added in a future release once the C interface "
-                "exposes the sigma output of gfnff_singlepoint."
-            )
-
         atoms = self.atoms
 
         if self._needs_reinit(atoms, system_changes):
@@ -134,7 +128,7 @@ class GFNFF(Calculator):
         else:
             lattice_bohr = None
 
-        energy_ha, gradient = self._gfnff.singlepoint(
+        energy_ha, gradient, sigma = self._gfnff.singlepoint(
             numbers, pos_bohr, lattice=lattice_bohr
         )
 
@@ -142,3 +136,12 @@ class GFNFF(Calculator):
         self.results["energy"] = energy_ha * Hartree
         # forces = -gradient; convert Eh/Bohr → eV/Ang
         self.results["forces"] = -gradient * (Hartree / Bohr)
+        # stress: sigma (Eh) / volume (Bohr³) → eV/Å³, Voigt order [xx,yy,zz,yz,xz,xy]
+        if npbc > 0:
+            volume_bohr3 = np.linalg.det(lattice_bohr)
+            stress_3x3 = sigma / volume_bohr3 * (Hartree / Bohr**3)
+        else:
+            stress_3x3 = np.zeros((3, 3), dtype=np.float64)
+        self.results["stress"] = stress_3x3[
+            [0, 1, 2, 1, 0, 0], [0, 1, 2, 2, 2, 1]
+        ]

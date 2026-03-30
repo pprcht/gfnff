@@ -72,16 +72,32 @@ class TestForces:
 
 
 # ---------------------------------------------------------------------------
-# Stress (must raise PropertyNotImplementedError)
+# Stress tensor
 # ---------------------------------------------------------------------------
 
 class TestStress:
-    def test_stress_raises(self, caffeine_ase):
-        from ase.calculators.calculator import PropertyNotImplementedError
+    def test_stress_shape(self, caffeine_ase):
+        """Stress is always a 6-element Voigt array [xx,yy,zz,yz,xz,xy]."""
         calc = GFNFF()
         caffeine_ase.calc = calc
-        with pytest.raises(PropertyNotImplementedError):
-            caffeine_ase.get_stress()
+        stress = caffeine_ase.get_stress()
+        assert stress.shape == (6,)
+        assert stress.dtype == np.float64
+
+    def test_stress_zero_for_nonpbc(self, caffeine_ase):
+        """Non-periodic systems have zero stress."""
+        calc = GFNFF()
+        caffeine_ase.calc = calc
+        stress = caffeine_ase.get_stress()
+        assert np.allclose(stress, 0.0)
+
+    def test_stress_nonzero_for_pbc(self, sio2_ase):
+        """Periodic SiO2 must yield a non-zero stress tensor."""
+        calc = GFNFF()
+        sio2_ase.calc = calc
+        stress = sio2_ase.get_stress()
+        assert stress.shape == (6,)
+        assert not np.allclose(stress, 0.0)
 
 
 # ---------------------------------------------------------------------------

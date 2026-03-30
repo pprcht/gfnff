@@ -51,11 +51,12 @@ int main() {
   // Use the calculator...
   double energy;
   double gradient[nat][3]; // Adjust the size to match nat
+  double sigma[3][3];      // stress tensor (zero for non-PBC)
   int iostat;
 
   // Call the singlepoint function
   c_gfnff_calculator_singlepoint(&calc, nat, at, xyz, &energy, gradient,
-                                 &iostat);
+                                 sigma, &iostat);
 
   // Check the result and print it
   if (iostat == 0) {
@@ -67,6 +68,12 @@ int main() {
       int j = 0;
       printf("Gradient[%d][%d] = %e\n", j, i, gradient[j][i]);
     }
+
+    // Print the stress tensor
+    printf("Sigma (molecular, should be zeroed):\n");
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 3; j++)
+        printf("  sigma[%d][%d] = %e\n", i, j, sigma[i][j]);
   } else {
     printf("Singlepoint calculation failed with iostat = %d\n", iostat);
   }
@@ -123,10 +130,12 @@ int main() {
 
   double energy_pbc;
   double gradient_pbc[9][3];
+  double sigma_pbc[3][3];  // stress tensor
   int iostat_pbc;
 
   c_gfnff_calculator_singlepoint(&calc_pbc, nat_pbc, at_pbc, xyz_pbc,
-                                 &energy_pbc, gradient_pbc, &iostat_pbc);
+                                 &energy_pbc, gradient_pbc, sigma_pbc,
+                                 &iostat_pbc);
 
   if (iostat_pbc == 0) {
     printf("PBC singlepoint calculation successful.\n");
@@ -135,6 +144,12 @@ int main() {
       int j = 0;
       printf("PBC Gradient[%d][%d] = %e\n", j, i, gradient_pbc[j][i]);
     }
+
+    // Print the PBC stress tensor
+    printf("Sigma (PBC):\n");
+    for (int i = 0; i < 3; i++)
+      for (int j = 0; j < 3; j++)
+        printf("  sigma_pbc[%d][%d] = %e\n", i, j, sigma_pbc[i][j]);
   } else {
     printf("PBC singlepoint calculation failed with iostat = %d\n", iostat_pbc);
   }
