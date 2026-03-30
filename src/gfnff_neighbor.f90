@@ -64,7 +64,7 @@ module gfnff_neighbor
     integer,allocatable :: Trid(:) ! gives local index for iteration from unique id
     integer,allocatable :: trVecInt(:,:)  ! holds coeff for linear combination that give transVec
     real(wp),allocatable :: transVec(:,:)  ! translation vectors for generating images of unit cell
-    real(wp) :: oldCutOff ! save old cutoff in getTransVec calls to quit calc if same cutoff
+    real(wp) :: oldCutOff = 0.0_wp ! save old cutoff in getTransVec calls to quit calc if same cutoff
   contains
     ! initialize neigh
     procedure :: init_n
@@ -166,8 +166,9 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),allocatable :: vec(:),trVecTmp(:,:)
     real(wp) :: sh
     character(len=*),parameter :: source = 'neighbor'
+    real(wp),parameter :: thr = epsilon(1.0_wp)
     ! check if last calculation was with same cutoff
-    if (self%oldCutOff .eq. cutoff) then
+    if (abs(self%oldCutOff-cutoff).le.thr) then
       return
     else
       self%oldCutoff = cutoff
