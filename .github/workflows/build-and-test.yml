@@ -5,7 +5,9 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  # ── CMake ────────────────────────────────────────────────────────────────────
+  cmake:
+    name: CMake (gcc-${{ matrix.compiler_version }}, ${{ matrix.build_type }})
     runs-on: ubuntu-latest
 
     strategy:
@@ -14,11 +16,9 @@ jobs:
         build_type: [Debug, RelWithDebInfo]
 
     steps:
-      # Checkout the source
       - name: Check out code
         uses: actions/checkout@v3
 
-      # Set up compilers and dependencies
       - name: Install compilers and dependencies
         run: |
           sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
@@ -29,12 +29,10 @@ jobs:
             gfortran-${{ matrix.compiler_version }} \
             libopenblas-dev
 
-          # Set environment variables to use the selected compilers
           echo "CC=gcc-${{ matrix.compiler_version }}" >> $GITHUB_ENV
           echo "CXX=g++-${{ matrix.compiler_version }}" >> $GITHUB_ENV
           echo "FC=gfortran-${{ matrix.compiler_version }}" >> $GITHUB_ENV
 
-      # Configure (generate build files)
       - name: Configure with CMake
         run: |
           cmake -B build -S . \
@@ -43,14 +41,54 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ env.CXX }} \
             -DCMAKE_Fortran_COMPILER=${{ env.FC }}
 
-      # Build
       - name: Build
-        run: |
-          cmake --build build --config ${{ matrix.build_type }}
+        run: cmake --build build --config ${{ matrix.build_type }}
 
-      # Test (using CTest filtered for "gfnff"))
-      - name: Test (filtered for GFN-FF)
+      - name: Test
         run: |
           ctest --test-dir build \
                 --output-on-failure \
                 -R '^gfnff/'
+
+  # ── Meson ────────────────────────────────────────────────────────────────────
+  meson:
+    name: Meson (gcc-${{ matrix.compiler_version }}, ${{ matrix.build_type }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        compiler_version: [12, 13]
+        build_type: [debug, debugoptimized]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Install compilers and dependencies
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-${{ matrix.compiler_version }} \
+            g++-${{ matrix.compiler_version }} \
+            gfortran-${{ matrix.compiler_version }} \
+            libopenblas-dev
+          pip install meson ninja
+
+          # CC/CXX/FC are picked up from the environment by Meson
+          echo "CC=gcc-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+          echo "CXX=g++-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+          echo "FC=gfortran-${{ matrix.compiler_version }}" >> $GITHUB_ENV
+
+      - name: Configure with Meson
+        run: |
+          meson setup build \
+            --buildtype=${{ matrix.build_type }} \
+            --warnlevel=0 \
+            -Dtests=true
+
+      - name: Build
+        run: ninja -C build
+
+      - name: Test
+        run: meson test -C build --print-errorlogs
