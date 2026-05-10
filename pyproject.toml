@@ -25,6 +25,10 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Chemistry",
 ]
 
+[project.urls]
+Homepage = "https://github.com/pprcht/gfnff"
+Repository ="https://github.com/pprcht/gfnff"
+
 [project.optional-dependencies]
 ase = ["ase>=3.22"]
 test = ["pytest>=7", "ase>=3.22"]
