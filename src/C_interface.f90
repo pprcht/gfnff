@@ -30,6 +30,7 @@ module gfnff_interface_c
   public :: c_gfnff_calculator
   public :: c_gfnff_calculator_init
   public :: c_gfnff_calculator_init_pbc
+  public :: c_gfnff_calculator_init_ex
   public :: c_gfnff_calculator_deallocate
   public :: c_gfnff_calculator_singlepoint
   public :: c_gfnff_calculator_results
@@ -157,6 +158,95 @@ contains  !> MODULE PROCEDURES START HERE
       deallocate(calc)
     end if
   end function c_gfnff_calculator_init_pbc
+
+!========================================================================================!
+
+!>--- Extended C-compatible initializer with optional host-supplied inputs
+  function c_gfnff_calculator_init_ex(c_nat,c_at,c_xyz,c_ichrg,c_printlevel, &
+    &                                 c_solvent,c_lattice,c_npbc,c_fraglist,c_refq) &
+    &                                 result(calculator) &
+    &                                 bind(C,name="c_gfnff_calculator_init_ex")
+    !***********************************************************
+    !* Superset of c_gfnff_calculator_init / _init_pbc. Every extra input is
+    !* optional and skipped when a NULL pointer is passed:
+    !*
+    !*   c_solvent      - ALPB solvent name (empty string -> none)
+    !*   c_lattice[3][3]- lattice vectors (Bohr); NULL -> non-periodic
+    !*   c_npbc         - number of periodic dims (used only if c_lattice given)
+    !*   c_fraglist[nat]- user-defined fragment index per atom; NULL -> auto.
+    !*                    No bonds are formed between atoms of differing fragments.
+    !*   c_refq[nat]    - atomic reference charges; NULL -> none. Summed per
+    !*                    fragment to define the per-fragment EEQ charge constraint.
+    !*
+    !* The existing _init / _init_pbc entry points are unchanged; this one adds
+    !* the host-supplied "bundle" hints for standalone use without an automatic
+    !* charge model (the caller simply provides the charge array if desired).
+    !***********************************************************
+    implicit none
+    type(c_gfnff_calculator) :: calculator
+    integer(c_int),value,intent(in) :: c_nat
+    integer(c_int),target,intent(in) :: c_at(*)
+    real(c_double),target,intent(in) :: c_xyz(3,*)
+    integer(c_int),value,intent(in) :: c_ichrg
+    integer(c_int),value,intent(in) :: c_printlevel
+    character(kind=c_char),intent(in) :: c_solvent(*)
+    type(c_ptr),value,intent(in) :: c_lattice   !> double[3][3] or NULL
+    integer(c_int),value,intent(in) :: c_npbc
+    type(c_ptr),value,intent(in) :: c_fraglist  !> int[nat]    or NULL
+    type(c_ptr),value,intent(in) :: c_refq      !> double[nat] or NULL
+    type(gfnff_data),pointer :: calc
+
+    integer :: nat,npbc
+    integer,pointer :: at(:)
+    real(wp),pointer :: xyz(:,:)
+    real(wp),pointer :: lattice(:,:)
+    integer,pointer :: fraglist(:)
+    real(wp),pointer :: refq(:)
+    character(len=:),allocatable :: solvent
+    integer :: printlevel,iostatus,ichrg
+
+    nat = c_nat
+    call c_f_pointer(c_loc(c_at),at,[nat])
+    call c_f_pointer(c_loc(c_xyz),xyz,[3,nat])
+    ichrg = c_ichrg
+    printlevel = c_printlevel
+    npbc = c_npbc
+    solvent = c_string_to_fortran(c_solvent)
+    if (len_trim(solvent) == 0) deallocate (solvent)
+
+    allocate (calc)
+
+    !> Optional host-supplied bundle hints. Must be set on the data object
+    !> BEFORE init runs, since they steer the topology setup. type_init (called
+    !> inside init) does not touch the userinput component, so these survive.
+    if (c_associated(c_fraglist)) then
+      call c_f_pointer(c_fraglist,fraglist,[nat])
+      if (.not.allocated(calc%userinput)) allocate (calc%userinput)
+      calc%userinput%fraglist = fraglist
+    end if
+    if (c_associated(c_refq)) then
+      call c_f_pointer(c_refq,refq,[nat])
+      if (.not.allocated(calc%userinput)) allocate (calc%userinput)
+      calc%userinput%refq = refq
+    end if
+
+    if (c_associated(c_lattice)) then
+      call c_f_pointer(c_lattice,lattice,[3,3])
+      call calc%init(nat,at,xyz,ichrg=ichrg,printlevel=printlevel, &
+      &              iostat=iostatus,solvent=solvent,lattice=lattice,npbc=npbc)
+    else
+      call calc%init(nat,at,xyz,ichrg=ichrg,printlevel=printlevel, &
+      &              iostat=iostatus,solvent=solvent)
+    end if
+
+    if (iostatus == 0) then
+      calculator%ptr = c_loc(calc)
+    else
+      write (stderr,'(a,i0)') 'Error initializing GFN-FF calculator (ex). code ',iostatus
+      calculator%ptr = c_null_ptr
+      deallocate (calc)
+    end if
+  end function c_gfnff_calculator_init_ex
 
 !========================================================================================!
 

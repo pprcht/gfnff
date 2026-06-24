@@ -35,6 +35,30 @@ module gfnff_data_types
   public :: TGFFData,init
   public :: TDispersionData,initgffdispersion
   public :: TGFFGenerator
+  public :: TGFFUserInput
+
+! ══════════════════════════════════════════════════════════════════════════════
+
+  !> Optional user-provided inputs that steer the GFN-FF setup.
+  !> This type is intentionally a generic "bundle": further fields (additional
+  !> hints from the host program) can be added here without having to touch the
+  !> initialization call signatures, since it travels as part of gfnff_data.
+  type :: TGFFUserInput
+    !> User-defined fragment index per atom (size = nat).
+    !> When allocated, GFN-FF will NOT form any bonds (and hence no angles,
+    !> torsions, hydrogen bonds, ...) between atoms that carry different
+    !> fragment indices. This lets the host program enforce a chemically
+    !> correct fragmentation (e.g. host + guest) instead of relying on the
+    !> automatic, distance-based detection. Atoms sharing the same index are
+    !> treated normally; the value 0 simply denotes one further ("rest") group.
+    integer,allocatable :: fraglist(:)
+    !> Host-supplied atomic reference charges (size = nat). When allocated, they
+    !> are summed over each fragment during setup to define the integer
+    !> per-fragment net-charge constraint (topo%qfrag) used by the EEQ model.
+    !> Lets the host feed e.g. CEH charges to assign the correct charge to each
+    !> fragment instead of relying on GFN-FF's limited auto-detection.
+    real(wp),allocatable :: refq(:)
+  end type TGFFUserInput
 
 ! ══════════════════════════════════════════════════════════════════════════════
 
@@ -146,6 +170,7 @@ module gfnff_data_types
     real(wp),allocatable:: alpeeq(:)      ! atomic alpha for EEQ, squared
     real(wp),allocatable:: alphanb(:,:,:)    ! non-bonded exponent for atom pairs
     real(wp),allocatable:: qa(:)          ! estimated atomic charges (fixed and obtained from topology EEQ)
+    real(wp),allocatable:: refq(:)        ! optional host-supplied atomic reference charges; summed per fragment -> qfrag
     real(wp),allocatable:: xyze0(:,:)     ! atom xyz, starting geom. (for Efield energy)
     real(wp),allocatable:: zetac6(:)      ! D4 scaling factor product
     real(wp),allocatable:: qfrag(:)       ! fragment charge (for EEQ)

@@ -65,6 +65,10 @@ module gfnff_neighbor
     integer,allocatable :: trVecInt(:,:)  ! holds coeff for linear combination that give transVec
     real(wp),allocatable :: transVec(:,:)  ! translation vectors for generating images of unit cell
     real(wp) :: oldCutOff = 0.0_wp ! save old cutoff in getTransVec calls to quit calc if same cutoff
+    ! optional user-defined fragment index per atom (size nat). When allocated,
+    ! no neighbor (and hence no bond) is created between atoms of different
+    ! fragments -> enforces a host-supplied fragmentation. See TGFFUserInput.
+    integer,allocatable :: user_fraglist(:)
   contains
     ! initialize neigh
     procedure :: init_n
@@ -452,6 +456,10 @@ contains  !> MODULE PROCEDURES START HERE
 
           k = lin(j,i)
           if (dist(j,i,iTr) .le. 0.0_wp) cycle
+!         user-defined fragmentation: never bond across distinct fragments
+          if (allocated(self%user_fraglist)) then
+            if (self%user_fraglist(i) .ne. self%user_fraglist(j)) cycle
+          end if
           fm = 1.0d0
 !           full case
           if (icase .eq. 1) then

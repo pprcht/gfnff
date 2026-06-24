@@ -57,6 +57,9 @@ module gfnff_interface
     type(TGFFNeighbourList),allocatable :: nlist
     type(TBorn),allocatable             :: solvation
     type(gfnff_results),allocatable     :: res
+    !> optional, host-supplied setup hints (e.g. user-defined fragments).
+    !> Set this before calling gfnff_initialize to steer the topology setup.
+    type(TGFFUserInput),allocatable     :: userinput
   contains
     procedure :: deallocate => gfnff_data_deallocate
     procedure :: type_reset => gfnff_data_reset_types
@@ -293,6 +296,24 @@ contains  !> MODULE PROCEDURES START HERE
       dat%ichrg = ichrg
     end if
 
+!> Hand any user-defined fragmentation to the neighbor list, so that the
+!> topology setup will not create bonds across the supplied fragments.
+    if (allocated(dat%userinput)) then
+      if (allocated(dat%userinput%fraglist)) then
+        if (size(dat%userinput%fraglist) == nat) then
+          dat%neigh%user_fraglist = dat%userinput%fraglist
+          if (mylevel >= 2) then
+            write (myunit,'(10x,a,i0,a)') 'using user-defined fragmentation (', &
+            &  maxval(dat%userinput%fraglist)-minval(dat%userinput%fraglist)+1, &
+            &  ' groups); no bonds will be formed across them'
+          end if
+        else if (mylevel >= 1) then
+          write (myunit,'("**WARNING** ",a,1x,a)') &
+          & 'user fragment list size does not match nat, ignoring it.',source
+        end if
+      end if
+    end if
+
 !> Periodic boundary conditions setup
     if (present(npbc)) dat%cell%npbc = npbc
     if (present(lattice)) then
@@ -321,6 +342,23 @@ contains  !> MODULE PROCEDURES START HERE
 
     call dat%topo%zero
     dat%update = .true.
+
+!> Hand any host-supplied atomic reference charges to the topology (must come
+!> after topo%zero, which deallocates topo components). These are summed per
+!> fragment during setup to define the per-fragment EEQ charge constraint.
+    if (allocated(dat%userinput)) then
+      if (allocated(dat%userinput%refq)) then
+        if (size(dat%userinput%refq) == nat) then
+          dat%topo%refq = dat%userinput%refq
+          if (mylevel >= 2) write (myunit,'(10x,a)') &
+          & 'host-supplied atomic reference charges will set per-fragment charges'
+        else if (mylevel >= 1) then
+          write (myunit,'("**WARNING** ",a,1x,a)') &
+          & 'reference charge array size does not match nat, ignoring it.',source
+        end if
+      end if
+    end if
+
 !> global accuracy factor similar to acc in xtb used in SCF
     dat%accuracy = 0.1_wp
     if (nat > 10000) then

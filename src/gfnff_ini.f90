@@ -616,6 +616,25 @@ contains   !> MODULE PROCEDURES START HERE
             return
           end if
         end if
+!     host-supplied atomic reference charges (e.g. CEH), passed in memory:
+!     sum them per fragment to obtain the integer net-charge constraint (qfrag)
+!     used by the EEQ model. In-memory equivalent of the refcharges-file route.
+        if (allocated(topo%refq)) then
+          if (size(topo%refq) == nat) then
+            qtmp = 0.0d0
+            do i = 1,nat
+              qtmp(topo%fraglist(i)) = qtmp(topo%fraglist(i))+topo%refq(i)
+            end do
+            if (abs(sum(qtmp(1:topo%nfrag))-ichrg) > 1.0e-1_wp) then
+              if (printlevel >= 1) write (myunit,'("**WARNING** ",a,1x,a)') &
+                & "Reference charges do not sum to total charge, ignoring them",source
+            else
+              topo%qfrag(1:topo%nfrag) = dnint(qtmp(1:topo%nfrag))
+              if (printlevel >= 2) write (myunit,'(10x,"fragment charges from reference charges :",10(1x,F7.3))') &
+                & topo%qfrag(1:topo%nfrag)
+            end if
+          end if
+        end if
         if (nat .lt. 100.and.topo%nfrag .gt. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
           itmp = 0
           do i = 1,nat

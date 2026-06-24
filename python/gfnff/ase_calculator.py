@@ -39,6 +39,15 @@ class GFNFF(Calculator):
         Empty string (default) runs in vacuum.
     printlevel : int, optional
         Fortran output verbosity (0 = silent).
+    fragments : array_like of int, optional
+        Per-atom fragment index, shape ``(nat,)``.  When given, GFN-FF forms no
+        bonds between atoms of differing fragments (host-defined fragmentation
+        instead of automatic detection).  May also be provided via
+        ``atoms.info["fragments"]``, which takes precedence.
+    ref_charges : array_like of float, optional
+        Per-atom reference charges, shape ``(nat,)``, summed per fragment to set
+        the per-fragment EEQ charge constraint.  No charge model is invoked.
+        May also be provided via ``atoms.info["ref_charges"]`` (takes precedence).
     """
 
     implemented_properties = ["energy", "forces", "stress"]
@@ -49,13 +58,18 @@ class GFNFF(Calculator):
         "printlevel": 0,
     }
 
-    def __init__(self, charge=0, solvent="", printlevel=0, **kwargs):
+    def __init__(self, charge=0, solvent="", printlevel=0,
+                 fragments=None, ref_charges=None, **kwargs):
         super().__init__(**kwargs)
         self.parameters.update(
             charge=charge,
             solvent=solvent,
             printlevel=printlevel,
         )
+        # per-atom arrays are kept as attributes (not in self.parameters, which
+        # is meant for simple, serializable values used in change detection)
+        self._fragments = fragments
+        self._ref_charges = ref_charges
         self._gfnff: GFNFFCalculator | None = None
         self._last_numbers: np.ndarray | None = None
         self._last_pbc: np.ndarray | None = None
@@ -90,6 +104,10 @@ class GFNFF(Calculator):
         else:
             lattice_bohr = None
 
+        # optional host-supplied hints; atoms.info overrides constructor values
+        fragments = atoms.info.get("fragments", self._fragments)
+        ref_charges = atoms.info.get("ref_charges", self._ref_charges)
+
         return GFNFFCalculator(
             numbers,
             pos_bohr,
@@ -98,6 +116,8 @@ class GFNFF(Calculator):
             solvent=self.parameters.solvent,
             lattice=lattice_bohr,
             npbc=npbc,
+            fragments=fragments,
+            ref_charges=ref_charges,
         )
 
     # ------------------------------------------------------------------

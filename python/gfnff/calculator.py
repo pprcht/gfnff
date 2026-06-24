@@ -52,7 +52,19 @@ class GFNFFCalculator:
         solvent: str = "",
         lattice=None,
         npbc: int = 0,
+        fragments=None,
+        ref_charges=None,
     ):
+        """
+        fragments:
+            Optional per-atom fragment index, shape ``(nat,)`` (int). When given,
+            GFN-FF forms no bonds between atoms of differing fragments, enforcing
+            a host-defined fragmentation instead of the automatic detection.
+        ref_charges:
+            Optional per-atom reference charges, shape ``(nat,)`` (float). Summed
+            over each fragment to set the per-fragment EEQ charge constraint.
+            No charge model is invoked; the caller supplies the array directly.
+        """
         at = np.asarray(numbers, dtype=np.int32)
         xyz = np.ascontiguousarray(positions_bohr, dtype=np.float64)
         if xyz.ndim != 2 or xyz.shape[1] != 3:
@@ -65,7 +77,49 @@ class GFNFFCalculator:
         nat = ctypes.c_int(len(at))
         solvent_bytes = (solvent or "").encode()
 
-        if lattice is not None:
+        # validate and keep references to optional bundle arrays alive
+        frag_arr = None
+        frag_ptr = None
+        if fragments is not None:
+            frag_arr = np.ascontiguousarray(fragments, dtype=np.int32)
+            if frag_arr.shape != (len(at),):
+                raise ValueError(
+                    f"fragments must have shape ({len(at)},), got {frag_arr.shape}"
+                )
+            frag_ptr = frag_arr.ctypes.data_as(ctypes.c_void_p)
+
+        refq_arr = None
+        refq_ptr = None
+        if ref_charges is not None:
+            refq_arr = np.ascontiguousarray(ref_charges, dtype=np.float64)
+            if refq_arr.shape != (len(at),):
+                raise ValueError(
+                    f"ref_charges must have shape ({len(at)},), got {refq_arr.shape}"
+                )
+            refq_ptr = refq_arr.ctypes.data_as(ctypes.c_void_p)
+
+        if fragments is not None or ref_charges is not None:
+            # extended path: carries the optional host-supplied bundle hints
+            if lattice is not None:
+                lat = np.ascontiguousarray(lattice, dtype=np.float64)
+                if lat.shape != (3, 3):
+                    raise ValueError(
+                        f"lattice must have shape (3, 3), got {lat.shape}"
+                    )
+                lattice_ptr = lat.ctypes.data_as(ctypes.c_void_p)
+            else:
+                lattice_ptr = None
+            self._handle = _lib.c_gfnff_calculator_init_ex(
+                nat, at, xyz,
+                ctypes.c_int(charge),
+                ctypes.c_int(printlevel),
+                solvent_bytes,
+                lattice_ptr,
+                ctypes.c_int(npbc),
+                frag_ptr,
+                refq_ptr,
+            )
+        elif lattice is not None:
             lat = np.ascontiguousarray(lattice, dtype=np.float64)
             if lat.shape != (3, 3):
                 raise ValueError(f"lattice must have shape (3, 3), got {lat.shape}")

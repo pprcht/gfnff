@@ -100,6 +100,27 @@ _lib.c_gfnff_calculator_init_pbc.argtypes = [
     ctypes.c_int,    # npbc
 ]
 
+# c_gfnff_calculator c_gfnff_calculator_init_ex(
+#     int nat, int *at, double (*xyz)[3],
+#     int ichrg, int printlevel, const char *solvent,
+#     double (*lattice)[3],  // or NULL -> non-periodic
+#     int npbc,
+#     int *fraglist,         // or NULL -> automatic fragmentation
+#     double *refq);         // or NULL -> no reference charges
+_lib.c_gfnff_calculator_init_ex.restype = _CGFNFFCalculator
+_lib.c_gfnff_calculator_init_ex.argtypes = [
+    ctypes.c_int,    # nat
+    _at_type,        # at[nat]
+    _xyz_type,       # xyz[nat][3]
+    ctypes.c_int,    # ichrg
+    ctypes.c_int,    # printlevel
+    ctypes.c_char_p, # solvent (null-terminated)
+    ctypes.c_void_p, # lattice[3][3] or NULL
+    ctypes.c_int,    # npbc
+    ctypes.c_void_p, # fraglist[nat] or NULL
+    ctypes.c_void_p, # refq[nat] or NULL
+]
+
 # void c_gfnff_calculator_singlepoint(
 #     c_gfnff_calculator *calculator,
 #     int nat, int *at, double (*xyz)[3],
