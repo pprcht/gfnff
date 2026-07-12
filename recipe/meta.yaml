@@ -7,9 +7,7 @@ package:
 
 source:
   url: https://github.com/pprcht/gfnff/archive/refs/tags/v{{ version }}.tar.gz
-  # TODO: fill in after the GitHub release is published:
-  #   curl -sL <url above> | sha256sum
-  sha256: 0000000000000000000000000000000000000000000000000000000000000000
+  sha256: a3a91a066578bf5c8e545df94cb587f62613ca44b9284b1dfe81982145f45f75
 
 build:
   number: 0
