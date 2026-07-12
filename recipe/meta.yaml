@@ -1,0 +1,53 @@
+{% set name = "gfnff" %}
+{% set version = "0.2.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://github.com/pprcht/gfnff/archive/refs/tags/v{{ version }}.tar.gz
+  # TODO: fill in after the GitHub release is published:
+  #   curl -sL <url above> | sha256sum
+  sha256: 0000000000000000000000000000000000000000000000000000000000000000
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  skip: true  # [win]
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('fortran') }}
+    - {{ stdlib('c') }}
+    - cmake
+    - ninja
+  host:
+    - python
+    - pip
+    - scikit-build-core >=0.9
+    - numpy
+    - libblas
+    - liblapack
+  run:
+    - python
+    - numpy
+
+test:
+  imports:
+    - gfnff
+  commands:
+    - gfnff --help
+
+about:
+  home: https://github.com/pprcht/gfnff
+  license: LGPL-3.0-or-later
+  license_file: LICENSE
+  summary: Python bindings for the GFN-FF force-field library
+  dev_url: https://github.com/pprcht/gfnff
+
+extra:
+  recipe-maintainers:
+    - pprcht
