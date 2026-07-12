@@ -9,7 +9,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "gfnff"
-version = "0.1.1"
+version = "0.2.0"
 description = "Python bindings for the GFN-FF force-field library"
 readme = "README.md"
 authors = [{ name = "Philipp Pracht", email="research@philipp-pracht.de" }]

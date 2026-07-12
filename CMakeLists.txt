@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.21)
 project(
   "gfnff"
   LANGUAGES "Fortran" "C" "CXX"
-  VERSION "0.1.1"
+  VERSION "0.2.0"
   DESCRIPTION "Standalone implementation of general the `Geometries, Frequencies, Non-covalent interactions Force-Field` (GFN-FF)"
 )
 

@@ -257,7 +257,7 @@ subroutine print_header()
   implicit none
   write (*,*)
   write (*,"(10x,a)") repeat('+',42)
-  write (*,"(10x,a)") "+"//repeat(' ',12)//"GFN-FF App v0.1.1"//repeat(' ',11)//'+'
+  write (*,"(10x,a)") "+"//repeat(' ',12)//"GFN-FF App v0.2.0"//repeat(' ',11)//'+'
   write (*,"(10x,a)") repeat('+',42)
   write (*,"(10x,a)") "Author: P.Pracht"
   write (*,"(10x,a)") "Based on the method by Spicher and Grimme"
