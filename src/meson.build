@@ -1,30 +1,23 @@
 # This file is part of gfnff.
 # SPDX-Identifier: LGPL-3.0-or-later
+#
+# Source layout:
+#   data/       vendored constant tables (D3/D4 references, Lebedev grids)
+#   core/       derived types, parameters, shared math and utilities
+#   solvation/  ALPB/GBSA implicit solvation
+#   topo/       topology construction: distances, CN, rings, lists, setup
+#   engrad/     energy and gradient, one module per term
+#   hessian/    second derivatives, one module per term
+#   api/        public Fortran and C interfaces
+#
+# Both this file and CMakeLists.txt list every source by hand;
+# test/tools/checkbuild.py asserts that the two agree with each other and
+# with the tree, so the lists cannot drift apart again.
 
-subdir('gbsa')
-
-srcs += files(
-  'gfnff_math_wrapper.f90',
-  'gfnff_data_types.f90',
-  'gfnff_neighbor.f90',
-  'gfnff_param.f90',
-  'dftd3param.f90',
-  'dftd4param.f90',
-  'gfnff_helpers.f90',
-  'gfnff_fraghess.f90',
-  'gfnff_rab.f90',
-  'gfnff_cn.f90',
-  'gfnff_gdisp0.f90',
-  'gfnff_qm.f90',
-  'gfnff_wsc.f90',
-  'gfnff_timer_mod.f90',
-  'gfnff_ini2.f90',
-  'gfnff_ini.f90',
-  'gfnff_latticepoint.f90',
-  'gfnff_alpb.F90',
-  'gfnff_engrad.F90',
-  'gfnff_restart.f90',
-  'gfnff_setup.f90',
-  'gfnff_interface.f90',
-  'C_interface.f90',  # C API — was present in CMakeLists but missing from old meson.build
-)
+subdir('data')
+subdir('core')
+subdir('solvation')
+subdir('topo')
+subdir('engrad')
+subdir('hessian')
+subdir('api')

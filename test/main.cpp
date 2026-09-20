@@ -1,5 +1,8 @@
 #include "gfnff_interface_c.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
+#include <vector>
 
 void run_singlepoint_test() {
   const int nat = 24;
@@ -78,6 +81,29 @@ void run_singlepoint_test() {
   } else {
     std::cerr << "Singlepoint calculation failed with iostat = " << iostat
               << "\n";
+  }
+
+  // Hessian: caller-owned buffer, checked for symmetry (the library
+  // symmetrises, so asymmetry here would mean the row/column handoff is wrong)
+  {
+    const int n3 = 3 * nat;
+    std::vector<double> hess(static_cast<size_t>(n3) * n3, 0.0);
+    double h_energy = 0.0;
+    int h_iostat = 0;
+    c_gfnff_calculator_hessian(&calc, nat, at, xyz, hess.data(), &h_energy,
+                               nullptr, 0.0, &h_iostat);
+    if (h_iostat != 0) {
+      std::cerr << "Hessian failed with iostat = " << h_iostat << "\n";
+    } else {
+      double asym = 0.0;
+      for (int i = 0; i < n3; ++i)
+        for (int j = 0; j < n3; ++j)
+          asym = std::max(asym, std::fabs(hess[static_cast<size_t>(i) * n3 + j] -
+                                          hess[static_cast<size_t>(j) * n3 + i]));
+      std::cout << "Hessian computed, energy: " << h_energy << "\n";
+      std::cout << "Hessian[0][0] = " << hess[0] << "\n";
+      std::cout << "Hessian max asymmetry: " << asym << "\n";
+    }
   }
 
   // Print results to stdout

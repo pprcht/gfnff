@@ -136,3 +136,18 @@ def sio2_ase():
         cell=SIO2_LATTICE_BOHR * Bohr,
         pbc=[True, True, True],
     )
+
+
+@pytest.fixture
+def shipped_param():
+    """Path to param/gfnff-angewChem2020_2.toml, or skip if it is absent.
+
+    It ships in the repository but not in the wheel, so tests that need it
+    skip rather than fail when run against an installed package.
+    """
+    import pathlib
+    path = pathlib.Path(__file__).resolve().parents[2] / "param" / \
+        "gfnff-angewChem2020_2.toml"
+    if not path.is_file():
+        pytest.skip(f"parameter file not available at {path}")
+    return str(path)

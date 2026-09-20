@@ -10,9 +10,11 @@ GFNFFCalculator
 GFNFF
     ASE Calculator subclass (Angstrom / eV units).
     Available when ASE is installed; raises ImportError otherwise.
+Version
+    Parametrisation versions accepted by the ``version`` argument of both.
 """
 
-from .calculator import GFNFFCalculator
+from .calculator import GFNFFCalculator, Version
 
 try:
     from .ase_calculator import GFNFF
@@ -20,4 +22,4 @@ except ImportError:
     pass  # ASE not installed; GFNFF unavailable
 
 __version__ = "0.2.0"
-__all__ = ["GFNFFCalculator", "GFNFF"]
+__all__ = ["GFNFFCalculator", "GFNFF", "Version"]

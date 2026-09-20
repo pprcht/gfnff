@@ -1,0 +1,30 @@
+# This file is part of gfnff.
+# SPDX-Identifier: LGPL-3.0-or-later
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{f90,F90,fh}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+[*.{c,h,cpp,hpp}]
+indent_style = space
+indent_size = 2
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 88
+
+[{meson.build,meson_options.txt,*.cmake,CMakeLists.txt}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

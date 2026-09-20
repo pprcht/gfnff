@@ -24,3 +24,7 @@ __pycache__
 python/gfnff/libgfnff*
 *.egg-info/
 dist/
+
+# meson fetches toml-f on demand via subprojects/toml-f.wrap; unlike
+# test-drive it is not a submodule, because only the meson build uses it
+subprojects/toml-f/

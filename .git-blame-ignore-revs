@@ -1,0 +1,5 @@
+# Revisions to ignore in git blame (formatting-only changes).
+# git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Formatting only: run fprettify with the checked-in config
+00a7ca018d0d1873166429793522d671e7d110fd

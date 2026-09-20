@@ -132,7 +132,7 @@ contains
 
   subroutine test_pbc_charges(error)
     !***********************************************************
-    !* EEQ charges from goedeckera_PBC must be charge-conserved:
+    !* Topology EEQ charges of a periodic system must be charge-conserved:
     !* sum(topo%qa) must equal the total molecular charge (0).
     !***********************************************************
     type(error_type),allocatable,intent(out) :: error

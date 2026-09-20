@@ -204,6 +204,25 @@ if with_openblas
 endif
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  toml-f (optional): TOML parameter files
+# ═══════════════════════════════════════════════════════════════════════════════
+# Optional on purpose. Without it the library builds and runs exactly as before;
+# the TOML reader/writer then reports that support was not compiled in rather
+# than failing to link. Consumers that already carry toml-f (crest does) get it
+# for free through the shared subproject.
+tomlf_dep = dependency('toml-f',
+  version  : '>=0.2.4',
+  fallback : ['toml-f', 'tomlf_dep'],
+  required : get_option('toml-f'),
+  static   : static_build,
+  default_options : ['tests=false'],
+)
+with_tomlf = tomlf_dep.found()
+if with_tomlf
+  add_project_arguments('-DWITH_TOMLF', language : ['c', 'fortran'])
+endif
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  Source collection
 # ═══════════════════════════════════════════════════════════════════════════════
 srcs = []
@@ -214,6 +233,9 @@ subdir('src')
 #  Library target
 # ═══════════════════════════════════════════════════════════════════════════════
 _lib_deps = [lapack_dep, blas_dep] + _omp_link_dep
+if with_tomlf
+  _lib_deps += tomlf_dep
+endif
 
 gfnff_lib = library(
   meson.project_name(),

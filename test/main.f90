@@ -6,6 +6,10 @@ program tester
   use test_gfnff,only:collect_gfnff
   use test_pbc_ini,only:collect_pbc_ini
   use test_pbc_sp,only:collect_pbc_sp
+  use test_hessian,only:collect_hessian
+  use test_solvation,only:collect_solvation
+  use test_param_io,only:collect_param_io
+  use test_pbc_kernels,only:collect_pbc_kernels
   implicit none
   integer :: stat,is
   character(len=:),allocatable :: suite_name,test_name
@@ -19,7 +23,11 @@ program tester
   testsuites = [ &
     new_testsuite("gfnff",    collect_gfnff),  &
     new_testsuite("pbc-ini",  collect_pbc_ini), &
-    new_testsuite("pbc-sp",   collect_pbc_sp)  &
+    new_testsuite("pbc-sp",   collect_pbc_sp), &
+    new_testsuite("hessian",  collect_hessian), &
+    new_testsuite("solvation",collect_solvation), &
+    new_testsuite("param-io",collect_param_io), &
+    new_testsuite("pbc-kernels", collect_pbc_kernels) &
   ]
 !&>
 
@@ -37,7 +45,8 @@ program tester
         end if
       else
         write (error_unit,fmt) "Testing:",testsuites(is)%name
-        call run_testsuite(testsuites(is)%collect,error_unit,stat)
+        call run_testsuite(testsuites(is)%collect,error_unit,stat, &
+           & parallel=run_parallel(testsuites(is)%name))
       end if
     else
       write (error_unit,fmt) "Available testsuites"
@@ -49,7 +58,8 @@ program tester
   else
     do is = 1,size(testsuites)
       write (error_unit,fmt) "Testing:",testsuites(is)%name
-      call run_testsuite(testsuites(is)%collect,error_unit,stat)
+      call run_testsuite(testsuites(is)%collect,error_unit,stat, &
+         & parallel=run_parallel(testsuites(is)%name))
     end do
   end if
 
@@ -57,5 +67,20 @@ program tester
     write (error_unit,'(i0, 1x, a)') stat,"test(s) failed!"
     error stop 1
   end if
+
+contains
+
+  !> testdrive runs the tests of a suite concurrently. The parameter I/O
+  !> suite must not: toml-f cannot be called from inside an OpenMP parallel
+  !> region without occasionally emitting a malformed number (see the note in
+  !> gfnff_param_io). That is a constraint of the dependency, not of the
+  !> library -- gfnff reads parameter files during serial setup -- so the one
+  !> suite that exercises it runs serially and the rest keep their
+  !> parallelism, which is worth having as a thread-safety check in itself.
+  pure function run_parallel(name) result(yes)
+    character(len=*),intent(in) :: name
+    logical :: yes
+    yes = name /= "param-io"
+  end function run_parallel
 
 end program tester
