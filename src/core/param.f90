@@ -249,6 +249,12 @@ contains  !> MODULE PROCEDURES START HERE
     !***********************************************************************
     type(TGFFGenerator),intent(out) :: gen
 
+    !>-- only some entries of these are fitted; zero the rest so that the
+    !>   parameter writer never serialises uninitialised memory
+    gen%torsf = 0.0_wp
+    gen%hdiag = 0.0_wp
+    gen%hoffdiag = 0.0_wp
+
     gen%cnmax = 4.4         ! max. CN considered ie all larger values smoothly set to this val
     gen%linthr = 160.       ! angle considered linear above this; closer to 170 better for metals but unclear for Sc, kept at 160
     gen%fcthr = 1.d-3       ! skip torsion and bending if potential is small
