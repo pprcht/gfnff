@@ -65,7 +65,7 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp) :: rmsd,rab,rih,rjh,xi(3),xj(3)
     real(wp),allocatable :: rihl(:)
     logical,allocatable :: ibnd(:)
-    logical :: ijnonbond
+    logical :: ijnonbond,hfilled
     integer :: nhb1,nhb2,nxb
 !$  integer,parameter :: N_MAX_LIST = 800 !< keep approx. 32 kb of integer(int64)
 !$  integer,allocatable :: hblist1(:,:),hblist2(:,:),hblist3(:,:)
@@ -81,7 +81,7 @@ contains  !> MODULE PROCEDURES START HERE
     !$omp parallel default(none) &
     !$omp shared(topo, neigh, nlist, xyz, hbthr1, hbthr2) &
     !$omp private(iTri, iTrj, iTrDum, ix, i, j, k, nh, rab, rih, rjh) &
-    !$omp private(xi, xj, rihl, ibnd) &
+    !$omp private(xi, xj, rihl, ibnd, hfilled) &
     !$omp private(ijnonbond, hblist1, hblist2, hblist3, nhb1, nhb2, nxb)
 
 !$  allocate (hblist1(5,N_MAX_LIST),source=0)
@@ -103,14 +103,7 @@ contains  !> MODULE PROCEDURES START HERE
         j = topo%hbatABl(2,ix)
         do iTri = 1,neigh%nTrans ! go through i shifts
           xi(:) = xyz(1:3,i)+neigh%transVec(1:3,iTri)
-          !>-- A...H distance and A-H bond flag are independent of the j
-          !>   shift, so build them once per i shift instead of nTrans times
-          do k = 1,topo%nathbH
-            nh = topo%hbatHl(1,k)
-            rihl(k) = sum((xyz(1:3,nh)-xi(:))**2)
-            ibnd(k) = .false.
-            if (iTri <= neigh%numctr) ibnd(k) = neigh%bpair(i,nh,iTri) == 1
-          end do
+          hfilled = .false.
           do iTrj = 1,neigh%nTrans ! go through j shifts
             xj(:) = xyz(1:3,j)+neigh%transVec(1:3,iTrj)
             rab = sum((xi(:)-xj(:))**2)
@@ -118,6 +111,18 @@ contains  !> MODULE PROCEDURES START HERE
             ! combined shift for neigh% distances/bpair of the two shifted atoms
             iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
             if (iTrDum > neigh%nTrans.or.iTrDum < -1.or.iTrDum == 0) cycle ! invalid shift
+            !>-- A...H distance and A-H bond flag are independent of the j
+            !>   shift, so build them once per i shift instead of nTrans times,
+            !>   but only once a j shift is in range: most A-B pairs never are
+            if (.not.hfilled) then
+              do k = 1,topo%nathbH
+                nh = topo%hbatHl(1,k)
+                rihl(k) = sum((xyz(1:3,nh)-xi(:))**2)
+                ibnd(k) = .false.
+                if (iTri <= neigh%numctr) ibnd(k) = neigh%bpair(i,nh,iTri) == 1
+              end do
+              hfilled = .true.
+            end if
             if (iTrDum <= neigh%numctr.and.iTrDum > 0) then
               ijnonbond = neigh%bpair(j,i,iTrDum) /= 1
             else
@@ -647,7 +652,7 @@ contains  !> MODULE PROCEDURES START HERE
 
     integer :: i,j,k,nh,ix
     integer :: iTri,iTrj,iTrDum
-    logical :: ijnonbond
+    logical :: ijnonbond,hfilled
     real(wp) :: rab,rih,rjh,xi(3),xj(3)
     real(wp),allocatable :: rihl(:)
     logical,allocatable :: ibnd(:)
@@ -660,7 +665,7 @@ contains  !> MODULE PROCEDURES START HERE
     !$omp reduction(+:nhb1, nhb2, nxb) &
     !$omp shared(topo, neigh, xyz, hbthr1, hbthr2) &
     !$omp private(iTri, iTrj, iTrDum, ix, i, j, k, nh, rab, rih, rjh, ijnonbond) &
-    !$omp private(xi, xj, rihl, ibnd)
+    !$omp private(xi, xj, rihl, ibnd, hfilled)
 
     !>-- the A-B scan needs a hydrogen to find anything
     if (topo%nathbH > 0) then
@@ -673,14 +678,7 @@ contains  !> MODULE PROCEDURES START HERE
         j = topo%hbatABl(2,ix)
         do iTri = 1,neigh%nTrans ! go through i shifts
           xi(:) = xyz(1:3,i)+neigh%transVec(1:3,iTri)
-          !>-- A...H distance and A-H bond flag are independent of the j
-          !>   shift, so build them once per i shift instead of nTrans times
-          do k = 1,topo%nathbH
-            nh = topo%hbatHl(1,k)
-            rihl(k) = sum((xyz(1:3,nh)-xi(:))**2)
-            ibnd(k) = .false.
-            if (iTri <= neigh%numctr) ibnd(k) = neigh%bpair(i,nh,iTri) == 1
-          end do
+          hfilled = .false.
           do iTrj = 1,neigh%nTrans ! go through j shifts
             xj(:) = xyz(1:3,j)+neigh%transVec(1:3,iTrj)
             rab = sum((xi(:)-xj(:))**2)
@@ -688,6 +686,18 @@ contains  !> MODULE PROCEDURES START HERE
             ! combined shift for neigh% distances/bpair of the two shifted atoms
             iTrDum = neigh%fTrSum(neigh%iTrNeg(iTri),iTrj)
             if (iTrDum > neigh%nTrans.or.iTrDum < -1.or.iTrDum == 0) cycle
+            !>-- A...H distance and A-H bond flag are independent of the j
+            !>   shift, so build them once per i shift instead of nTrans times,
+            !>   but only once a j shift is in range: most A-B pairs never are
+            if (.not.hfilled) then
+              do k = 1,topo%nathbH
+                nh = topo%hbatHl(1,k)
+                rihl(k) = sum((xyz(1:3,nh)-xi(:))**2)
+                ibnd(k) = .false.
+                if (iTri <= neigh%numctr) ibnd(k) = neigh%bpair(i,nh,iTri) == 1
+              end do
+              hfilled = .true.
+            end if
             if (iTrDum <= neigh%numctr.and.iTrDum > 0) then
               ijnonbond = neigh%bpair(j,i,iTrDum) /= 1
             else

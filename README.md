@@ -91,8 +91,8 @@ see [docs/library.md](docs/library.md).
 ![GFN-FF benchmark](assets/benchmark.png)
 
 Caffeine clusters from 24 to 1536 atoms on 8 cores.
-Energy and gradient are 1.3–1.6x faster than the pre-refactor code from 192 atoms upwards,
-and the analytic Hessian is 27x (24 atoms) to 67x (768 atoms) faster than finite differences.
+Energy and gradient are 1.2–1.6x faster than the pre-refactor code from 192 atoms upwards,
+and the analytic Hessian is 28x (24 atoms) to 59x (768 atoms) faster than finite differences.
 Hessian speed depends mainly on the BLAS backend; details are in
 [docs/performance.md](docs/performance.md).
 
