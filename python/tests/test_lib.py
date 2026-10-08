@@ -249,7 +249,9 @@ class TestVersion:
         for spec in ("harmonic2020", -1, Version.harmonic2020):
             with GFNFFCalculator(numbers, positions, version=spec) as calc:
                 energies.append(calc.singlepoint(numbers, positions)[0])
-        assert energies[0] == energies[1] == energies[2]
+        # not bit-exact: the threaded sums are not order-stable between calls
+        assert energies[1] == pytest.approx(energies[0], abs=1e-12)
+        assert energies[2] == pytest.approx(energies[0], abs=1e-12)
 
     def test_unknown_name_rejected(self, caffeine):
         numbers, positions = caffeine

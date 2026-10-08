@@ -44,9 +44,39 @@ cmake.args = ["-DPYTHON_BINDINGS=ON", "-DWITH_TESTS=OFF"]
 # python/gfnff/ is the importable package; scikit-build-core includes it in
 # the wheel alongside any files placed there by the CMake install step.
 wheel.packages = ["python/gfnff"]
+# The bindings are pure ctypes, there is no CPython extension module. One
+# py3-none-<platform> wheel per platform therefore serves every Python version.
+wheel.py-api = "py3"
 
 [tool.scikit-build.cmake.define]
 WITH_OpenMP = "ON"
+
+# Wheel builds. Kept here rather than in the workflow so that a local
+# `cibuildwheel --only cp313-manylinux_x86_64` does exactly what CI does.
+[tool.cibuildwheel]
+# The wheel is built once per platform (see wheel.py-api) and reused; listing
+# two interpreters runs the test suite on the oldest and a recent Python.
+build = ["cp39-*", "cp313-*"]
+skip = ["*-musllinux*"]
+# Only the tests and the parameter files are copied next to the installed
+# wheel, so `import gfnff` cannot pick up the source tree instead of it.
+test-sources = ["python/tests", "param"]
+test-extras = ["test"]
+test-command = [
+  # the TOML tests skip without toml-f, so require it explicitly
+  'python -c "from gfnff._lib import toml_available; assert toml_available()"',
+  "pytest python/tests",
+]
+
+[tool.cibuildwheel.linux]
+# Default manylinux_2_28 image (AlmaLinux 8, glibc 2.28). It ships gfortran,
+# and current NumPy has no wheels for anything older, so the tests need it.
+before-all = "dnf install -y openblas-devel"
+environment = { FC = "gfortran", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+[tool.cibuildwheel.macos]
+environment = { FC = "gfortran", MACOSX_DEPLOYMENT_TARGET = "14.0", CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}"
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]

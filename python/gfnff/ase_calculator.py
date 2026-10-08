@@ -18,6 +18,8 @@ For non-periodic systems sigma is zero, so stress is reported as a zero
 six-vector.  For periodic systems the stress is sigma / cell_volume.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 from ase.calculators.calculator import Calculator, all_changes

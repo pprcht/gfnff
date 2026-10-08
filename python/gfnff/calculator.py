@@ -9,6 +9,8 @@ All quantities use the native C API units:
   - gradient            : Eh / Bohr
 """
 
+from __future__ import annotations
+
 import ctypes
 import os
 from enum import IntEnum
