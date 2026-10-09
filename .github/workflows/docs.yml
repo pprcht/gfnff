@@ -1,0 +1,69 @@
+# This file is part of gfnff.
+# SPDX-Identifier: LGPL-3.0-or-later
+#
+# Build the Sphinx documentation and deploy it to GitHub Pages.
+# The repository's Pages source must be set to "GitHub Actions".
+#
+# autodoc imports the package, which loads the compiled library, so the
+# package is built and installed first.
+
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install compiler and BLAS/LAPACK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libopenblas-dev
+
+      - name: Install package and documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install '.[docs]'
+
+      - name: Build documentation
+        # -W: a warning (broken link, failed import) fails the build
+        run: make -C docs html SPHINXOPTS="-W --keep-going"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build-docs
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

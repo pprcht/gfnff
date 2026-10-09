@@ -20,7 +20,8 @@ _HARTREE_TO_EV = 27.211386245988   # matches ase.units.Hartree
 _BOHR_TO_ANG = 0.529177210903       # matches ase.units.Bohr
 
 
-def _parse_args(argv=None):
+def _build_parser():
+    """Return the argument parser; also read by the documentation build."""
     parser = argparse.ArgumentParser(
         prog="gfnff",
         description=(
@@ -98,7 +99,11 @@ def _parse_args(argv=None):
         help="Alias for --alpb.",
     )
 
-    return parser.parse_args(argv)
+    return parser
+
+
+def _parse_args(argv=None):
+    return _build_parser().parse_args(argv)
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +175,13 @@ def _print_singlepoint_results(atoms):
 # ---------------------------------------------------------------------------
 
 def main(argv=None):
+    """Entry point of the ``gfnff`` command.
+
+    Parameters
+    ----------
+    argv : list of str, optional
+        Command-line arguments; ``sys.argv[1:]`` if omitted.
+    """
     args = _parse_args(argv)
     solvent = args.alpb or args.solv or ""
 

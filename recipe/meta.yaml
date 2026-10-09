@@ -11,7 +11,10 @@ source:
 
 build:
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  # Force the Ninja generator: conda-build defaults CMAKE_GENERATOR to
+  # "Unix Makefiles", which makes scikit-build-core skip Ninja detection and
+  # never set CMAKE_MAKE_PROGRAM (there is no `make` in the build image).
+  script: CMAKE_GENERATOR=Ninja {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
   skip: true  # [win]
 
 requirements:
@@ -22,6 +25,8 @@ requirements:
     - {{ stdlib('c') }}
     - cmake
     - ninja
+    - libgomp      # [linux]
+    - llvm-openmp  # [osx]
   host:
     - python
     - pip
@@ -29,6 +34,9 @@ requirements:
     - numpy
     - libblas
     - liblapack
+    # conda-forge builds have no network access, so CMake cannot fetch toml-f;
+    # with this installed, find_package picks it up instead
+    - toml-f-devel
   run:
     - python
     - numpy
@@ -36,8 +44,13 @@ requirements:
 test:
   imports:
     - gfnff
+  requires:
+    - pip
   commands:
+    - pip check
     - gfnff --help
+    # the library must have been built with TOML parameter file support
+    - python -c "from gfnff._lib import toml_available; assert toml_available()"
 
 about:
   home: https://github.com/pprcht/gfnff

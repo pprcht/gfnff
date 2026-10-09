@@ -62,10 +62,53 @@ if(NOT TARGET "test-drive::test-drive" AND WITH_TESTS)
    find_package("test-drive" REQUIRED)
 endif()
 
+# TOML parameter file support via toml-f.
+#
+# Optional, like the meson build: without it the library still builds and the
+# reader/writer report that support was not compiled in.  It is ON by default
+# here because the shared library built from this file is what the Python
+# bindings load, and a Python caller passing parametrisation="...toml" to a
+# library built without toml-f gets a runtime failure with no way to fix it.
+# An already-present toml-f (e.g. from a parent project) is used as-is;
+# otherwise it is fetched at the same revision the meson wrap pins.
+option(WITH_TOMLF "TOML parameter file support via toml-f" ON)
+set(GFNFF_TOMLF_REV "28f4601fe0992ed17a6b97e230a61289f56bcd8e"
+    CACHE STRING "toml-f revision to fetch; keep in step with subprojects/toml-f.wrap")
+set(tomlf-dep)
+if(WITH_TOMLF)
+  if(NOT TARGET "toml-f::toml-f" AND NOT TARGET "toml-f")
+    find_package("toml-f" QUIET)
+    if(NOT toml-f_FOUND)
+      include(FetchContent)
+      set(WITH_TESTS_SAVED "${WITH_TESTS}")
+      set(WITH_TESTS OFF CACHE BOOL "" FORCE)  # do not build toml-f's own tests
+      FetchContent_Declare(
+        "toml-f"
+        GIT_REPOSITORY "https://github.com/toml-f/toml-f"
+        GIT_TAG "${GFNFF_TOMLF_REV}"
+        GIT_SHALLOW FALSE  # a pinned SHA cannot be fetched shallowly
+      )
+      FetchContent_MakeAvailable("toml-f")
+      set(WITH_TESTS "${WITH_TESTS_SAVED}" CACHE BOOL "" FORCE)
+    endif()
+  endif()
+  if(TARGET "toml-f::toml-f")
+    set(tomlf-dep "toml-f::toml-f")
+  elseif(TARGET "toml-f-lib")
+    set(tomlf-dep "toml-f-lib")
+  elseif(TARGET "toml-f")
+    set(tomlf-dep "toml-f")
+  else()
+    message(FATAL_ERROR "WITH_TOMLF=ON but no toml-f target was produced")
+  endif()
+  add_compile_definitions(WITH_TOMLF)
+endif()
+
 set(
   lib-deps
   "OpenMP::OpenMP_Fortran"
   "LAPACK::LAPACK"
+  "${tomlf-dep}"
   "$<$<VERSION_LESS:${CMAKE_VERSION},3.20>:BLAS::BLAS>"
 )
 

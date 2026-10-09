@@ -67,6 +67,20 @@ _at_type = npct.ndpointer(dtype=np.int32, ndim=1, flags="C_CONTIGUOUS")
 # double lattice[3][3]
 _lattice_type = npct.ndpointer(dtype=np.float64, ndim=2, flags="C_CONTIGUOUS")
 
+#: iostat value returned when a Hessian is requested for a periodic system.
+#: Distinct from the library's own codes, which are 0 and +/-1.
+PBC_UNSUPPORTED = -2
+_hessian_type = npct.ndpointer(dtype=np.float64, ndim=2, flags="C_CONTIGUOUS")
+
+#: iostat value returned when charges are requested before any singlepoint.
+NO_CHARGES = -3
+
+# double charges[nat]
+_charges_type = npct.ndpointer(dtype=np.float64, ndim=1, flags="C_CONTIGUOUS")
+
+#: Passed as ``version`` to mean "use whatever the library defaults to".
+VERSION_DEFAULT = 0
+
 
 # ---------------------------------------------------------------------------
 # Function prototypes
@@ -106,7 +120,11 @@ _lib.c_gfnff_calculator_init_pbc.argtypes = [
 #     double (*lattice)[3],  // or NULL -> non-periodic
 #     int npbc,
 #     int *fraglist,         // or NULL -> automatic fragmentation
-#     double *refq);         // or NULL -> no reference charges
+#     double *refq,          // or NULL -> no reference charges
+#     double accuracy,       // <= 0 -> library default
+#     int version,           // 0 -> library default
+#     const char *parametrisation,   // NULL/"" -> internal parameter set
+#     const int *bondmat);           // NULL -> perceive bonds from geometry
 _lib.c_gfnff_calculator_init_ex.restype = _CGFNFFCalculator
 _lib.c_gfnff_calculator_init_ex.argtypes = [
     ctypes.c_int,    # nat
@@ -119,7 +137,24 @@ _lib.c_gfnff_calculator_init_ex.argtypes = [
     ctypes.c_int,    # npbc
     ctypes.c_void_p, # fraglist[nat] or NULL
     ctypes.c_void_p, # refq[nat] or NULL
+    ctypes.c_double, # accuracy (<= 0 -> library default)
+    ctypes.c_int,    # version (0 -> library default)
+    ctypes.c_char_p, # parametrisation path or NULL
+    ctypes.c_void_p, # bondmat[nat*nat] or NULL
 ]
+
+# int c_gfnff_version_from_name(const char *name);
+_lib.c_gfnff_version_from_name.restype = ctypes.c_int
+_lib.c_gfnff_version_from_name.argtypes = [ctypes.c_char_p]
+
+# int c_gfnff_toml_available(void);
+_lib.c_gfnff_toml_available.restype = ctypes.c_int
+_lib.c_gfnff_toml_available.argtypes = []
+
+
+def toml_available() -> bool:
+    """Whether the loaded library can read TOML parameter files."""
+    return bool(_lib.c_gfnff_toml_available())
 
 # void c_gfnff_calculator_singlepoint(
 #     c_gfnff_calculator *calculator,
@@ -138,6 +173,39 @@ _lib.c_gfnff_calculator_singlepoint.argtypes = [
     _xyz_type,                           # gradient[nat][3] (out)
     _lattice_type,                       # sigma[3][3] (out); zero for non-PBC
     ctypes.c_void_p,                     # lattice[3][3] or NULL
+    ctypes.POINTER(ctypes.c_int),        # iostat (out)
+]
+
+# void c_gfnff_calculator_hessian(
+#     c_gfnff_calculator *calculator,
+#     int nat, int *at, double (*xyz)[3],
+#     double *hessian,          // caller-owned, 3*nat by 3*nat
+#     double *energy,           // NULL to skip
+#     double (*gradient)[3],    // NULL to skip
+#     double step,              // <= 0 -> library default
+#     int *iostat);
+_lib.c_gfnff_calculator_hessian.restype = None
+_lib.c_gfnff_calculator_hessian.argtypes = [
+    ctypes.POINTER(_CGFNFFCalculator),  # calculator
+    ctypes.c_int,                        # nat
+    _at_type,                            # at[nat]
+    _xyz_type,                           # xyz[nat][3]
+    _hessian_type,                       # hessian[3*nat][3*nat] (out)
+    ctypes.c_void_p,                     # energy (out) or NULL
+    ctypes.c_void_p,                     # gradient[nat][3] (out) or NULL
+    ctypes.c_double,                     # step
+    ctypes.POINTER(ctypes.c_int),        # iostat (out)
+]
+
+# void c_gfnff_calculator_charges(
+#     c_gfnff_calculator *calculator,
+#     int nat, double *charges,  // caller-owned, nat doubles
+#     int *iostat);
+_lib.c_gfnff_calculator_charges.restype = None
+_lib.c_gfnff_calculator_charges.argtypes = [
+    ctypes.POINTER(_CGFNFFCalculator),  # calculator
+    ctypes.c_int,                        # nat
+    _charges_type,                       # charges[nat] (out)
     ctypes.POINTER(ctypes.c_int),        # iostat (out)
 ]
 

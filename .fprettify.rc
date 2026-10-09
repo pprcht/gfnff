@@ -1,0 +1,38 @@
+# This file is part of gfnff.
+# SPDX-Identifier: LGPL-3.0-or-later
+#
+# fprettify settings matching the style the sources already use:
+#   spaces around assignment and relational operators,
+#   none around arithmetic or logical ones (a*b+c, x.and.y),
+#   two-space indent, comments left alone.
+#
+# The sources carry !&< / !&> markers around blocks that must not be
+# reformatted (parameter tables, OpenMP clause lists). fprettify honours them.
+#
+#   fprettify -c .fprettify.rc src/**/*.f90
+#
+[fprettify]
+indent = 2
+line-length = 100
+
+# do not reflow existing continuation lines; the physics expressions are
+# broken by hand where the breaks carry meaning
+strict-indent = false
+enable-replacements = false
+c-relations = false
+
+whitespace-comma = false
+whitespace-assignment = true
+whitespace-decl = false
+whitespace-relational = true
+whitespace-logical = false
+whitespace-plusminus = false
+whitespace-multdiv = false
+whitespace-print = true
+whitespace-type = false
+whitespace-intrinsics = true
+
+# leave comment text and case alone; CLAUDE.md defines the comment styles and
+# a case pass would churn every line for no gain
+strip-comments = false
+disable-indent-mod = false

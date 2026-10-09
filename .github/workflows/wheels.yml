@@ -1,11 +1,20 @@
 # This file is part of gfnff.
 # SPDX-Identifier: LGPL-3.0-or-later
 #
-# Build binary wheels for PyPI using cibuildwheel.
+# Build binary wheels and an sdist for PyPI.
 # Triggered on version tags (v*) or manually via workflow_dispatch.
 #
+# The cibuildwheel settings (interpreters, container setup, test command) live
+# in pyproject.toml under [tool.cibuildwheel], so a local cibuildwheel run
+# builds and tests exactly what this workflow does.
+#
+# Every wheel is installed into a clean environment and run against
+# python/tests before anything is uploaded; a test failure blocks the release.
+#
+# The bindings are pure ctypes, so there is one py3-none wheel per platform.
+#
 # Platform coverage:
-#   Linux  x86_64   : ubuntu-latest runner, manylinux2014
+#   Linux  x86_64   : ubuntu-latest runner, manylinux_2_28
 #   Linux  aarch64  : ubuntu-24.04-arm runner (native, no QEMU)
 #   macOS  arm64    : macos-14 runner (Apple Silicon, Homebrew gfortran)
 #   Windows         : not yet supported (requires mingw-w64 gfortran in CI)
@@ -36,6 +45,9 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build_wheels:
@@ -69,43 +81,54 @@ jobs:
           echo "Using Fortran compiler: $GFORTRAN_BIN"
           ln -sf "$GFORTRAN_BIN" "$(brew --prefix)/bin/gfortran"
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.19
+      - name: Build and test wheels
+        uses: pypa/cibuildwheel@v4.3.0
         env:
-          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux*"
           CIBW_ARCHS: ${{ matrix.archs }}
-
-          # Install gfortran and BLAS/LAPACK inside the manylinux container.
-          # openblas-devel is only in EPEL for x86_64; use the reference
-          # lapack-devel + blas-devel (CentOS 7 base, all archs) for aarch64.
-          CIBW_BEFORE_ALL_LINUX: |
-            yum install -y gcc-gfortran
-            if [ "$(uname -m)" = "x86_64" ]; then
-              yum install -y openblas-devel
-            else
-              yum install -y lapack-devel blas-devel
-            fi
-
-          CIBW_ENVIRONMENT_LINUX: >
-            FC=gfortran
-            CMAKE_BUILD_PARALLEL_LEVEL=4
-
-          CIBW_ENVIRONMENT_MACOS: >
-            FC=gfortran
-            MACOSX_DEPLOYMENT_TARGET=14.0
-            CMAKE_BUILD_PARALLEL_LEVEL=4
-
-          # auditwheel repair runs automatically on Linux; delocate on macOS.
-          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
-            delocate-wheel --require-archs {delocate_archs}
-            -w {dest_dir} -v {wheel}
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: wheels-${{ matrix.os }}
+          name: dist-wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Source distribution: built, then installed from the tarball and tested, so
+  # that `pip install --no-binary gfnff` is known to work before it is uploaded
+  # ---------------------------------------------------------------------------
+  build_sdist:
+    name: Build and test sdist
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install compiler and BLAS/LAPACK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libopenblas-dev
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - name: Install from sdist and test
+        run: |
+          python -m venv venv
+          venv/bin/pip install "$(ls dist/*.tar.gz)[test]"
+          # run the tests from a copy, away from the source tree, so that
+          # `import gfnff` resolves to the installed package
+          mkdir sdist-test
+          cp -r --parents python/tests param sdist-test/
+          cd sdist-test
+          ../venv/bin/python -c "from gfnff._lib import toml_available; assert toml_available()"
+          ../venv/bin/pytest python/tests
+
+      - name: Upload sdist artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
@@ -113,7 +136,7 @@ jobs:
   # ---------------------------------------------------------------------------
   upload_testpypi:
     name: Upload to TestPyPI
-    needs: build_wheels
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch'
     environment:
@@ -125,20 +148,22 @@ jobs:
     steps:
       - uses: actions/download-artifact@v5
         with:
-          pattern: wheels-*
+          pattern: dist-*
           path: dist
           merge-multiple: true
 
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
+          # a dry run may be repeated for the same version
+          skip-existing: true
 
   # ---------------------------------------------------------------------------
-  # Collect all wheels and upload to PyPI on tagged releases
+  # Collect all wheels and the sdist and upload to PyPI on tagged releases
   # ---------------------------------------------------------------------------
   upload_pypi:
     name: Upload to PyPI
-    needs: build_wheels
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     environment:
@@ -151,7 +176,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v5
         with:
-          pattern: wheels-*
+          pattern: dist-*
           path: dist
           merge-multiple: true
 
@@ -162,4 +187,4 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create ${{ github.ref_name }} dist/*.whl --generate-notes --repo ${{ github.repository }}
+        run: gh release create ${{ github.ref_name }} dist/* --generate-notes --repo ${{ github.repository }}

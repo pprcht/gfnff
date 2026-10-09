@@ -50,3 +50,10 @@ option('tests',
   value   : true,
   description : 'Build unit tests',
 )
+
+option('toml-f',
+  type    : 'feature',
+  value   : 'auto',
+  yield   : true,
+  description : 'TOML parameter file support via toml-f',
+)

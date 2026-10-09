@@ -9,9 +9,13 @@ set(
   "sio2.f90"
   "timer.f90"
   "main.f90"
-  "test_gfnff.F90"
+  "test_gfnff.f90"
   "test_pbc_ini.f90"
   "test_pbc_sp.f90"
+  "test_hessian.f90"
+  "test_solvation.f90"
+  "test_pbc_kernels.f90"
+  "test_param_io.f90"
 )
 
 add_executable(
@@ -36,6 +40,9 @@ add_dependencies("${PROJECT_NAME}-tester" "${PROJECT_NAME}-lib")
 add_test("${PROJECT_NAME}/gfnff"   "${PROJECT_NAME}-tester" "gfnff")
 add_test("${PROJECT_NAME}/pbc-ini" "${PROJECT_NAME}-tester" "pbc-ini")
 add_test("${PROJECT_NAME}/pbc-sp"  "${PROJECT_NAME}-tester" "pbc-sp")
+add_test("${PROJECT_NAME}/pbc-kernels" "${PROJECT_NAME}-tester" "pbc-kernels")
+add_test("${PROJECT_NAME}/hessian" "${PROJECT_NAME}-tester" "hessian")
+add_test("${PROJECT_NAME}/solvation" "${PROJECT_NAME}-tester" "solvation")
 
 
 ###########################################################################

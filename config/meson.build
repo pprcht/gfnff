@@ -88,6 +88,16 @@ if static_build
   if fc_id == 'gcc'
     add_project_link_arguments('-static', language : 'fortran')
     add_project_link_arguments('-static', language : 'c')
+    # A C or C++ main that links libgfortran.a statically also needs
+    # libquadmath: gfortran's formatted write pulls in quadmath_snprintf.
+    # Meson contributes -lgfortran through the dependency but not the library
+    # that libgfortran itself depends on, so the C API tests fail to link
+    # with undefined references. No-op where libquadmath is absent.
+    _quadmath = fc.find_library('quadmath', required : false)
+    if _quadmath.found()
+      add_project_link_arguments('-lquadmath', language : 'c')
+      add_project_link_arguments('-lquadmath', language : 'cpp')
+    endif
   elif fc_id == 'intel'
     add_project_link_arguments('-static-intel', '-qopenmp-link=static', language : 'fortran')
   elif fc_id == 'intel-llvm'
