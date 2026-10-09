@@ -28,7 +28,7 @@ calc = GFNFFCalculator(numbers, positions, parametrisation="my-set.toml")
 
 A `.toml` parameter file is an **overlay**: it need only name the keys it
 changes, and the rest keep the internal values for the selected version. See
-[`param/README.md`](../param/README.md) for the format and for how to dump the
+[`param/README.md`](https://github.com/pprcht/gfnff/blob/master/param/README.md) for the format and for how to dump the
 current set as a starting point. TOML support needs a build with toml-f
 (`gfnff._lib.toml_available()`).
 

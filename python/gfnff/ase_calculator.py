@@ -5,7 +5,7 @@ ASE Calculator interface for GFN-FF.
 
 Unit conventions
 ----------------
-ASE uses Angstrom and eV throughout.  The conversions applied here are:
+ASE uses Angstrom and eV throughout.  The conversions applied here are::
 
   positions   : Angstrom  →  Bohr       (divide by ase.units.Bohr)
   lattice     : Angstrom  →  Bohr       (divide by ase.units.Bohr)

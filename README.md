@@ -52,7 +52,7 @@ gfnff molecule.xyz --opt --alpb h2o
 | Python: installation, command-line tool, `GFNFFCalculator`, ASE calculator, Hessians | [docs/python.md](docs/python.md) |
 | Force-field versions, `conformer2020`, custom parameter files, user-supplied molecular graphs | [docs/parametrisation.md](docs/parametrisation.md) |
 | Benchmarks and choice of BLAS backend | [docs/performance.md](docs/performance.md) |
-| TOML parameter file format | [param/README.md](param/README.md) |
+| TOML parameter file format | [param/README.md](https://github.com/pprcht/gfnff/blob/master/param/README.md) |
 
 ## Building from source
 
@@ -113,4 +113,4 @@ Hessian speed depends mainly on the BLAS backend; details are in
 ## License
 
 This project is licensed (as the original `xtb` code) under the **GNU Lesser General Public License v3** or later.
-See [`LICENSE`](LICENSE) for details.
+See [`LICENSE`](https://github.com/pprcht/gfnff/blob/master/LICENSE) for details.

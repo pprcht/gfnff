@@ -32,6 +32,7 @@ Repository ="https://github.com/pprcht/gfnff"
 [project.optional-dependencies]
 ase = ["ase>=3.22"]
 test = ["pytest>=7", "ase>=3.22"]
+docs = ["sphinx>=8.2.3", "shibuya", "myst-parser", "sphinx-argparse", "ase>=3.22"]
 
 [project.scripts]
 gfnff = "gfnff.cli:main"
