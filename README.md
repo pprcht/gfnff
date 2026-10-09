@@ -3,7 +3,10 @@
 <h1>GFN-FF</h1>
 <h3>A general force field for elements <i>Z</i> = 1–103</h3>
 
-![build status](https://github.com/pprcht/gfnff/actions/workflows/build-and-test.yml/badge.svg)
+[![build status](https://github.com/pprcht/gfnff/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/pprcht/gfnff/actions/workflows/build-and-test.yml)
+[![PyPI version](https://img.shields.io/pypi/v/gfnff.svg)](https://pypi.org/project/gfnff/)
+[![conda-forge version](https://img.shields.io/conda/vn/conda-forge/gfnff.svg)](https://anaconda.org/conda-forge/gfnff)
+[![Documentation](https://img.shields.io/badge/docs-pprcht.github.io%2Fgfnff-blue.svg)](https://pprcht.github.io/gfnff/)
 [![License: LGPL v3](https://img.shields.io/badge/license-LGPL_v3-coral.svg)](https://www.gnu.org/licenses/lgpl-3.0)
 
 </div>
@@ -46,6 +49,9 @@ gfnff molecule.xyz --opt --alpb h2o
 
 ## Documentation
 
+The documentation is hosted at <https://pprcht.github.io/gfnff/>.
+It contains the guides listed below and a Python API reference generated from the docstrings.
+
 | Topic | Page |
 |---|---|
 | Fortran, C and C++ interfaces, periodic systems, use as a CMake or Meson subproject | [docs/library.md](docs/library.md) |
@@ -53,6 +59,7 @@ gfnff molecule.xyz --opt --alpb h2o
 | Force-field versions, `conformer2020`, custom parameter files, user-supplied molecular graphs | [docs/parametrisation.md](docs/parametrisation.md) |
 | Benchmarks and choice of BLAS backend | [docs/performance.md](docs/performance.md) |
 | TOML parameter file format | [param/README.md](https://github.com/pprcht/gfnff/blob/master/param/README.md) |
+| Python API reference | [pprcht.github.io/gfnff](https://pprcht.github.io/gfnff/package_reference.html) |
 
 ## Building from source
 
