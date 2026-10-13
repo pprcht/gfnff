@@ -398,6 +398,40 @@ class TestBondMatrix:
             supplied = calc.singlepoint(numbers, positions)[0]
         assert abs(supplied - default) < 1e-12
 
+    @pytest.mark.parametrize("version", [None, "harmonic2020"])
+    def test_graph_reproduces_perception_metallocene(self, version):
+        """The same invariant through a metal, whose eta carbons are typed apart."""
+        numbers, positions, bm = self._ferrocene()
+        with GFNFFCalculator(numbers, positions, version=version) as calc:
+            default = calc.singlepoint(numbers, positions)[0]
+        with GFNFFCalculator(
+            numbers, positions, version=version, bond_matrix=bm
+        ) as calc:
+            supplied = calc.singlepoint(numbers, positions)[0]
+        assert abs(supplied - default) < 1e-12
+
+    @staticmethod
+    def _ferrocene():
+        """Eclipsed ferrocene (Bohr) and its graph: Fe-C x10, the two C5 rings, C-H."""
+        numbers, xyz, bonds = [26], [[0.0, 0.0, 0.0]], []
+        for side in (1.0, -1.0):
+            ring = []
+            for k in range(5):
+                t = 2.0 * np.pi * k / 5.0
+                c, h = len(numbers), len(numbers) + 1
+                numbers += [6, 1]
+                xyz += [
+                    [1.21 * np.cos(t), 1.21 * np.sin(t), 1.66 * side],
+                    [2.29 * np.cos(t), 2.29 * np.sin(t), 1.70 * side],
+                ]
+                bonds += [(0, c), (c, h)]
+                ring.append(c)
+            bonds += list(zip(ring, ring[1:] + ring[:1]))
+        bm = np.zeros((len(numbers), len(numbers)), dtype=np.int32)
+        for i, j in bonds:
+            bm[i, j] = bm[j, i] = 1
+        return np.array(numbers, dtype=np.int32), np.array(xyz) / 0.52917721092, bm
+
     def test_bond_orders_are_not_consumed(self, caffeine):
         """Only the zero/nonzero pattern has an effect, as documented."""
         numbers, positions = caffeine
