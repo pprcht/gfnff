@@ -152,16 +152,18 @@ contains  !> MODULE PROCEDURES START HERE
     real(wp),allocatable :: dist(:,:,:)
     integer :: i,j,iTr
 
-    !> A host-supplied graph replaces the distance criterion outright, and all
-    !> three neighbour lists become that graph. The filters fillnb applies for
-    !> icase 2 and 3 (hypercoordination, metals) exist to undo the distance
-    !> perception's own over-perception; there is nothing here to correct.
+    allocate (dist(nat,nat,self%numctr),source=0.0_wp)
+
+    !> A host-supplied graph replaces the distance criterion: its bonded pairs are put
+    !> at ~0 and all others out of reach, and fillnb filters that like perceived bonds.
+    !> The filters are typing, not repair: eta coordination, hybridisation and rings
+    !> are read from the metal-free list nbm.
     if (allocated(self%user_bondmat)) then
-      call fillnb_from_graph(self,nat,icase)
+      dist(:,:,1) = merge(1.0e-6_wp,huge(1.0_wp),self%user_bondmat .ne. 0)
+      call fillnb(self,nat,at,rtmp,dist,mchar,icase,f_in,f2_in,param)
       return
     end if
 
-    allocate (dist(nat,nat,self%numctr),source=0.0_wp)
     !$omp parallel do collapse(3) default(none) shared(dist,nat,at,xyz,cell,self) &
     !$omp private(iTr,i,j)
     do iTr = 1,self%numctr
@@ -439,57 +441,6 @@ contains  !> MODULE PROCEDURES START HERE
                +self%trVecInt(3,id)*cell%lattice(:,3)
     end if
   end function id2v
-
-  subroutine fillnb_from_graph(self,n,icase)
-    !***********************************************************************
-    !* Fill one neighbour list from the host-supplied molecular graph instead
-    !* of from interatomic distances. Same packing as fillnb: entries 1..nn
-    !* hold the neighbour indices and entry numnb holds their count.
-    !*
-    !* Only the zero/nonzero pattern of the matrix is read; the bond orders
-    !* it carries have no consumer yet. Bonds go into the central cell only,
-    !* which is why the graph is restricted to molecular systems.
-    !* Input:
-    !*   n     - number of atoms
-    !*   icase - which list to fill, 1 = nbf, 2 = nb, 3 = nbm
-    !***********************************************************************
-    implicit none
-    type(TNeigh),intent(inout) :: self
-    integer,intent(in) :: n,icase
-    integer :: i,j,nn
-
-    select case (icase)
-    case (1)
-      if (.not.allocated(self%nbf)) allocate (self%nbf(self%numnb,n,self%numctr))
-      self%nbf = 0
-    case (2)
-      if (.not.allocated(self%nb)) allocate (self%nb(self%numnb,n,self%numctr))
-      self%nb = 0
-    case (3)
-      if (.not.allocated(self%nbm)) allocate (self%nbm(self%numnb,n,self%numctr))
-      self%nbm = 0
-    end select
-
-    do i = 1,n
-      nn = 0
-      do j = 1,n
-        if (j .eq. i) cycle
-        if (self%user_bondmat(j,i) .eq. 0) cycle
-        nn = nn+1
-        select case (icase)
-        case (1); self%nbf(nn,i,1) = j
-        case (2); self%nb(nn,i,1) = j
-        case (3); self%nbm(nn,i,1) = j
-        end select
-      end do
-      select case (icase)
-      case (1); self%nbf(self%numnb,i,1) = nn
-      case (2); self%nb(self%numnb,i,1) = nn
-      case (3); self%nbm(self%numnb,i,1) = nn
-      end select
-    end do
-
-  end subroutine fillnb_from_graph
 
   ! is a modified "getnb" from topo/neighborlist.f90
   subroutine fillnb(self,n,at,rad,dist,mchar,icase,f,f2,param)
