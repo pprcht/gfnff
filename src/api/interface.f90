@@ -486,7 +486,7 @@ contains  !> MODULE PROCEDURES START HERE
     if (allocated(dat%userinput)) then
       if (allocated(dat%userinput%bondmat)) then
         call check_bondmat(nat,dat%userinput%bondmat,dat%cell%npbc, &
-           & dat%neigh%numnb,mylevel,myunit,io)
+           & dat%neigh%numnb,mylevel,myunit,io,dat%neigh%user_fraglist)
         if (io /= 0) then
           if (present(iostat)) iostat = io
           return
@@ -598,7 +598,7 @@ contains  !> MODULE PROCEDURES START HERE
     end if
   end subroutine gfnff_initialize
 
-  subroutine check_bondmat(nat,bondmat,npbc,numnb,printlevel,myunit,io)
+  subroutine check_bondmat(nat,bondmat,npbc,numnb,printlevel,myunit,io,fraglist)
     !*************************************************************
     !* Validate a host-supplied molecular graph.
     !*
@@ -614,6 +614,7 @@ contains  !> MODULE PROCEDURES START HERE
     !*   npbc      - number of periodic dimensions
     !*   numnb     - neighbour list width; degree must stay below it
     !*   printlevel/myunit - reporting
+    !*   fraglist  - optional user fragmentation; no bond may cross it
     !* OUTPUT:
     !*   io        - 0 on success, 1 on any violation
     !*************************************************************
@@ -622,7 +623,8 @@ contains  !> MODULE PROCEDURES START HERE
     integer,intent(in) :: nat,npbc,numnb,printlevel,myunit
     integer,intent(in) :: bondmat(:,:)
     integer,intent(out) :: io
-    integer :: i,deg
+    integer,intent(in),optional :: fraglist(:)
+    integer :: i,j,deg
 
     io = 0
     if (size(bondmat,1) /= nat.or.size(bondmat,2) /= nat) then
@@ -656,6 +658,19 @@ contains  !> MODULE PROCEDURES START HERE
         return
       end if
     end do
+    !> fillnb would drop such a bond, so the graph and the fragments disagree
+    if (present(fraglist)) then
+      if (size(fraglist) == nat) then
+        do i = 1,nat
+          do j = 1,i-1
+            if (bondmat(j,i) /= 0.and.fraglist(i) /= fraglist(j)) then
+              call fail('molecular graph has a bond between two user fragments')
+              return
+            end if
+          end do
+        end do
+      end if
+    end if
 
   contains
     subroutine fail(msg)
