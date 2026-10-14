@@ -455,6 +455,16 @@ class TestBondMatrix:
         with pytest.raises(RuntimeError):
             GFNFFCalculator(numbers, positions, bond_matrix=bm)
 
+    def test_bond_across_fragments_rejected(self, caffeine):
+        """A graph bond between two declared fragments is a contradiction."""
+        numbers, positions = caffeine
+        bm = self._graph(positions)
+        i, j = np.argwhere(bm)[0]
+        fragments = np.zeros(len(numbers), dtype=np.int32)
+        fragments[j] = 1
+        with pytest.raises(RuntimeError):
+            GFNFFCalculator(numbers, positions, bond_matrix=bm, fragments=fragments)
+
     def test_self_bond_rejected(self, caffeine):
         numbers, positions = caffeine
         bm = self._graph(positions)
