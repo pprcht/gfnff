@@ -163,7 +163,9 @@ contains  !> MODULE PROCEDURES START HERE
     !>   list back); tmpp remembers them for restoration below.
     tmpp = 0 ! tmpp_usage
     nt = 0     ! tmpp_usage
-    nbr = nb
+    ! Compact retained reciprocal contacts into a fresh list. Removing
+    ! several entries by repeatedly copying from nb loses unrelated contacts.
+    nbr = 0
     do i = 1,n
       do iTr = 1,neigh%numctr
         do j = 1,nb(neigh%numnb,i,iTr)
@@ -171,20 +173,17 @@ contains  !> MODULE PROCEDURES START HERE
           hasnb = .false.
           do iTr2 = 1,neigh%numctr
             do l = 1,nb(neigh%numnb,k,iTr2)
-              if (nb(l,k,iTr2) .eq. i) then
-                hasnb = .true.
-              end if
+              if (nb(l,k,iTr2) .eq. i) hasnb = .true.
             end do
           end do
-          if (.not.hasnb) then
-            do l = j,neigh%numnb-2 ! fails if an atom has numnb-1 neighbors !
-              nbr(l,i,iTr) = nb(l+1,i,iTr)
-            end do
-            nbr(numnb,i,iTr) = nbr(numnb,i,iTr)-1
-            nt = nt+1       ! tmpp_usage
-            tmpp(1,nt) = k    ! tmpp_usage
-            tmpp(2,nt) = i    ! tmpp_usage
-            tmpp(3,nt) = iTr  ! tmpp_usage
+          if (hasnb) then
+            nbr(numnb,i,iTr) = nbr(numnb,i,iTr)+1
+            nbr(nbr(numnb,i,iTr),i,iTr) = k
+          else
+            nt = nt+1
+            tmpp(1,nt) = k
+            tmpp(2,nt) = i
+            tmpp(3,nt) = iTr
           end if
         end do
       end do

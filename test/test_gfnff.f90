@@ -39,6 +39,7 @@ contains  !> Unit tests for PV calculations
     new_unittest("conformer2020 numerical gradient",test_conformer_numgrad), &
     new_unittest("harmonic2020 bond term is live ",test_harmonic_bonds), &
     new_unittest("supplied graph reproduces setup",test_graph_roundtrip), &
+    new_unittest("reciprocal metal exclusions",test_metal_exclusions), &
     new_unittest("supplied graph rebuilds a soup ",test_graph_soup), &
     new_unittest("malformed graphs are rejected  ",test_graph_validation) &
     ]
@@ -807,6 +808,49 @@ contains  !> Unit tests for PV calculations
   end subroutine test_harmonic_bonds
 
 !========================================================================================!
+
+  !> Two one-sided contacts must not remove a later reciprocal metal bond.
+  subroutine test_metal_exclusions(error)
+    use iso_fortran_env,only:int8
+    use gfnff_neighbor,only:TNeigh
+    use gfnff_topo_bondmat,only:nbondmat_pbc
+    type(error_type),allocatable,intent(out) :: error
+    integer,parameter :: n=4,numnb=5
+    integer :: original(numnb,n,1),nb(numnb,n,1)
+    integer :: pass,i,j,order(n),inverse(n)
+    integer(int8),allocatable :: pair(:,:,:)
+    type(TNeigh) :: neigh
+
+    neigh%numnb=numnb
+    neigh%numctr=1
+    neigh%iTrNeg=[1]
+    original=0
+    original(1:3,1,1)=[2,3,4]
+    original(numnb,1,1)=3
+    original(1,4,1)=1
+    original(numnb,4,1)=1
+    do pass=1,2
+      order=[(i,i=1,n)]
+      if(pass==2) order=order(n:1:-1)
+      inverse(order)=[(i,i=1,n)]
+      nb=0
+      do i=1,n
+        nb(numnb,i,1)=original(numnb,order(i),1)
+        do j=1,nb(numnb,i,1)
+          nb(j,i,1)=inverse(original(j,order(i),1))
+        enddo
+      enddo
+      call nbondmat_pbc(n,numnb,1,nb,neigh,pair)
+      call check(error,all(pair(:,:,1)==transpose(pair(:,:,1))))
+      if(allocated(error)) return
+      do i=2,n
+        call check(error,int(pair(inverse(1),inverse(i),1)),1)
+        if(allocated(error)) return
+        call check(error,int(pair(inverse(i),inverse(1),1)),1)
+        if(allocated(error)) return
+      enddo
+    enddo
+  end subroutine test_metal_exclusions
 
   subroutine test_graph_roundtrip(error)
     !> Handing GFN-FF back the graph it perceived must change nothing. This is
