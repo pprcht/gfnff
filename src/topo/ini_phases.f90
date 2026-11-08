@@ -145,7 +145,7 @@ contains  !> MODULE PROCEDURES START HERE
       ! get first nb, iTr expected to be irrelevant since same in each cell
       call neigh%jth_nb(nat,xyz,nn,1,i,iTr)          !  R - N/C/O - H  ! terminal  H
       if (nn .le. 0) cycle  ! cycle if there is no nb
-      topo%hbaci(i) = param%xhaci(at(i))   ! only first neighbor of interest
+      ! Base acidities were initialized above; retain earlier amide-H factors.
       if (amideH(nat,at,topo%hyb,neigh%numnb,neigh%numctr,neigh%nb,piadr2,i,neigh)) &
               &topo%hbaci(nn) = topo%hbaci(nn)*0.80
     end do
