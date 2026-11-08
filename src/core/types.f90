@@ -144,6 +144,8 @@ module gfnff_data_types
     integer  :: natxbAB
     integer  :: nbatm
     integer  :: nfrag
+    !> No explicit fragment charges were supplied; choose a canonical default.
+    logical :: default_fragment_charges = .false.
     integer  :: maxsystem   ! max. number of fragmentsfor hessian
     integer  :: bond_hb_nr  ! number of unique AH...B HB/bond terms
     integer  :: b_max      ! number of B atoms per unique AH bond

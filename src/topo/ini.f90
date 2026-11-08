@@ -37,7 +37,7 @@ module gfnff_topo_ini
   use gfnff_topo_predicates,only:pilist,nofs,amide,amideH
   use gfnff_cn,only:gfnff_dlogcoord,getCoordinationNumber
   use gfnff_geometry,only:lin,omegaPBC
-  use gfnff_fragments,only:mrecgffPBC
+  use gfnff_fragments,only:mrecgffPBC,canonical_charge_fragment
   !> (type,external) and not the bare form: bare leaves a call to an undeclared
   !> subroutine legal, which surfaces only at link time. With external the
   !> compiler names the file and line instead.
@@ -559,6 +559,7 @@ if (ati .eq. 8.and.nn .eq. 1.and.ip .ne. 0.and.at(ji) .eq. 7.and.piadr2(ji) .ne.
                 & "Rejecting external charges input due to missmatch",source
             else
               topo%qfrag = dnint(qtmp)
+              topo%default_fragment_charges = .false.
          if (printlevel >= 2) write (myunit,'(10x,"fragment charges from <",a,"> :",10(1x,F7.3))') &
                      & trim(topo%refcharges),topo%qfrag(1:topo%nfrag)
             end if
@@ -582,10 +583,25 @@ if (ati .eq. 8.and.nn .eq. 1.and.ip .ne. 0.and.at(ji) .eq. 7.and.piadr2(ji) .ne.
                 & "Reference charges do not sum to total charge, ignoring them",source
             else
               topo%qfrag(1:topo%nfrag) = dnint(qtmp(1:topo%nfrag))
+              topo%default_fragment_charges = .false.
               if (printlevel >= 2) write (myunit,'(10x,"fragment charges from reference charges :",10(1x,F7.3))') &
                 & topo%qfrag(1:topo%nfrag)
             end if
           end if
+        end if
+        if (topo%default_fragment_charges) then
+          if (ichrg /= 0.and.topo%nfrag > 1) then
+            ifrag = canonical_charge_fragment(nat,at,topo%nfrag,topo%fraglist)
+            if (ifrag == 0) then
+              if (printlevel >= 1) write(myunit,'(a)') &
+                'Ambiguous default fragment charge: provide explicit fragment reference charges.'
+              io = -1
+              return
+            end if
+            topo%qfrag(1:topo%nfrag) = 0.0_wp
+            topo%qfrag(ifrag) = real(ichrg,wp)
+          end if
+          topo%default_fragment_charges = .false.
         end if
         if (nat .lt. 100.and.topo%nfrag .gt. 2.and.ichrg .ne. 0.and.sum(topo%qfrag(2:topo%nfrag)) .gt. 999) then
           itmp = 0

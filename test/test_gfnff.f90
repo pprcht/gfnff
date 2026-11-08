@@ -40,12 +40,96 @@ contains  !> Unit tests for PV calculations
     new_unittest("harmonic2020 bond term is live ",test_harmonic_bonds), &
     new_unittest("supplied graph reproduces setup",test_graph_roundtrip), &
     new_unittest("supplied graph rebuilds a soup ",test_graph_soup), &
+    new_unittest("canonical fragment selection   ",test_canonical_selection), &
+    new_unittest("default fragment charges       ",test_default_fragment_charges), &
     new_unittest("malformed graphs are rejected  ",test_graph_validation) &
     ]
 !&>
   end subroutine collect_gfnff
 
 !========================================================================================!
+
+  subroutine test_canonical_selection(error)
+    use gfnff_fragments,only:canonical_charge_fragment
+    type(error_type),allocatable,intent(out) :: error
+    integer :: selected
+
+    ! Largest fragment wins even if a smaller fragment contains heavier atoms.
+    selected=canonical_charge_fragment(5,[6,1,1,8,1],2,[1,1,1,2,2])
+    call check(error,selected,1)
+    if(allocated(error)) return
+    ! Equal sizes: high-Z composition breaks the tie, independent of labels.
+    selected=canonical_charge_fragment(4,[6,1,8,1],2,[1,1,2,2])
+    call check(error,selected,2)
+    if(allocated(error)) return
+    selected=canonical_charge_fragment(4,[1,8,1,6],2,[1,1,2,2])
+    call check(error,selected,1)
+    if(allocated(error)) return
+    ! Equal compositions cannot be ranked by input order.
+    selected=canonical_charge_fragment(4,[8,1,1,8],2,[1,1,2,2])
+    call check(error,selected,0)
+  end subroutine test_canonical_selection
+
+  subroutine test_default_fragment_charges(error)
+    type(error_type),allocatable,intent(out) :: error
+    integer,parameter :: nat=8,at(nat)=[6,1,1,1,1,8,1,1]
+    real(wp),parameter :: xyz(3,nat)=reshape([ &
+      0.0_wp,0.0_wp,0.0_wp, &
+      1.186_wp,1.186_wp,1.186_wp, &
+      1.186_wp,-1.186_wp,-1.186_wp, &
+      -1.186_wp,1.186_wp,-1.186_wp, &
+      -1.186_wp,-1.186_wp,1.186_wp, &
+      12.0_wp,0.0_wp,0.0_wp, &
+      13.43_wp,1.11_wp,0.0_wp, &
+      13.43_wp,-1.11_wp,0.0_wp], [3,nat])
+    type(gfnff_data) :: calc
+    integer :: order(nat),i,k,io,carbon,oxygen
+    real(wp) :: refq(nat)
+
+    do k=1,4
+      order=[(i,i=1,nat)]
+      if(mod(k,2)==0) order=order(nat:1:-1)
+      carbon=findloc(order,1,dim=1)
+      oxygen=findloc(order,6,dim=1)
+      ! Explicit atomic reference charges must override the canonical default.
+      if(k>2) then
+        refq=0.0_wp
+        refq(6)=1.0_wp
+        allocate(calc%userinput)
+        calc%userinput%refq=refq(order)
+      endif
+      call gfnff_initialize(nat,at(order),xyz(:,order),calc,ichrg=1,iostat=io,printlevel=0)
+      call check(error,io,0)
+      if(allocated(error)) return
+      call check(error,calc%topo%nfrag,2)
+      if(allocated(error)) return
+      call check(error,calc%topo%qfrag(calc%topo%fraglist(carbon)), &
+        real(merge(1,0,k<=2),wp),thr=1.e-12_wp)
+      if(allocated(error)) return
+      call check(error,calc%topo%qfrag(calc%topo%fraglist(oxygen)), &
+        real(merge(0,1,k<=2),wp),thr=1.e-12_wp)
+      if(allocated(error)) return
+      call calc%deallocate()
+      if(allocated(calc%userinput)) deallocate(calc%userinput)
+    enddo
+    ! Two identical waters: neutral remains valid, charged needs explicit input.
+    block
+      integer,parameter :: wat(6)=[8,1,1,8,1,1]
+      real(wp) :: water(3,6)
+      water(:,1:3)=xyz(:,6:8)
+      water(:,4:6)=xyz(:,6:8)
+      water(1,4:6)=water(1,4:6)+12.0_wp
+      call gfnff_initialize(6,wat,water,calc,ichrg=0,iostat=io,printlevel=0)
+      call check(error,io,0)
+      if(allocated(error)) return
+      call check(error,sum(abs(calc%topo%qfrag)),0.0_wp,thr=1.e-12_wp)
+      if(allocated(error)) return
+      call calc%deallocate()
+      call gfnff_initialize(6,wat,water,calc,ichrg=1,iostat=io,printlevel=0)
+      call check(error,io/=0)
+      call calc%deallocate()
+    end block
+  end subroutine test_default_fragment_charges
 
   subroutine test_gfnff_sp(error)
     use coffeine

@@ -179,6 +179,7 @@ contains   !> MODULE PROCEDURES START HERE
 !    else
     topo%qfrag(1) = ichrg
     topo%qfrag(2:nat) = 0
+    topo%default_fragment_charges = .true.
 !    end if
 
   end subroutine gfnff_input

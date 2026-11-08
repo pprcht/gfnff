@@ -75,3 +75,16 @@ target_link_libraries(my_target PRIVATE gfnff)
 ```meson
 gfnff_dep = dependency('gfnff', fallback: ['gfnff', 'gfnff_dep'])
 ```
+
+## Default fragment charges
+
+Without explicit atomic reference charges, a nonzero total charge is assigned to
+the largest detected EEQ fragment (atom count). Equal sizes are ranked by elemental
+composition: compare counts from the highest atomic number downward. This rule
+does not depend on input atom order or fragment numbering. An unresolved tie
+returns a setup error; supply atomic reference charges in that case. Neutral
+systems retain zero net charge on every fragment.
+
+This is a deterministic fallback, not a prediction of chemical charge localization.
+For ionic mixtures, supply chemically appropriate reference charges through
+`calc%userinput%refq` or `calc%refcharges`; these take precedence over the default.
