@@ -685,6 +685,10 @@ contains
     xyz = xyz*aa
     x0 = xyz
 
+    ! This fixture is azide anion plus neutral water: specify its charge location.
+    allocate(calc%userinput)
+    allocate(calc%userinput%refq(nat),source=0.0_wp)
+    calc%userinput%refq(1)=-1.0_wp
     call gfnff_initialize(nat,at,xyz,calc,ichrg=-1,iostat=io,printlevel=0)
     call check(error,io,0)
     if (allocated(error)) return

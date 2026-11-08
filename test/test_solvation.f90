@@ -439,6 +439,12 @@ contains
     allocate (h2(ndof,ndof),h3(ndof,ndof))
     efield = 0.0_wp
 
+    ! Equal-composition water fragments need an explicit charge location.
+    if(ichrg/=0) then
+      allocate(calc%userinput)
+      allocate(calc%userinput%refq(nat),source=0.0_wp)
+      calc%userinput%refq(1)=real(ichrg,wp)
+    endif
     call calc%init(nat,at,xyz,ichrg=ichrg,solvent='water',iostat=io, &
        & printlevel=0)
     call check(error,io,0)
