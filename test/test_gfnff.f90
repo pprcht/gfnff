@@ -29,6 +29,7 @@ contains  !> Unit tests for PV calculations
 !    new_unittest("GFN-FF OpenMP parallel SP      ",test_gfnff_openmp), &
     new_unittest("GFN-FF numerical gradient      ",test_gfnff_numgrad), &
     new_unittest("GFN-FF net force vanishes      ",test_gfnff_netforce), &
+    new_unittest("amide-H acidity atom order     ",test_hb_acidity_atom_order), &
     new_unittest("GFN-FF translation invariance  ",test_gfnff_translation), &
     new_unittest("GFN-FF energy decomposition    ",test_gfnff_edecomp), &
     new_unittest("GFN-FF energy components       ",test_gfnff_components), &
@@ -264,6 +265,46 @@ contains  !> Unit tests for PV calculations
   end subroutine test_gfnff_alpb
 
 !========================================================================================!
+
+
+!> The amide-H correction must survive whether H precedes or follows N.
+  subroutine test_hb_acidity_atom_order(error)
+    type(error_type),allocatable,intent(out) :: error
+    integer,parameter :: nat=12
+    integer,parameter :: at(nat)=[6,6,8,7,6,1,1,1,1,1,1,1]
+    real(wp),parameter :: xyz(3,nat)=reshape([ &
+     & 3.622312140781_wp, 0.584150709785_wp, 0.403823853883_wp, &
+     & 0.841690132958_wp, 0.709612631882_wp, 0.875537937257_wp, &
+     & 0.001690216911_wp, 2.103743880637_wp, 2.615851423658_wp, &
+     & -0.857946784445_wp, -0.712426316667_wp, -0.678850260895_wp, &
+     & -3.584295528389_wp, -0.636030709585_wp, -0.295866267463_wp, &
+     & 4.066614256909_wp, 1.536668293196_wp, -1.411023959546_wp, &
+     & 4.677338535329_wp, 1.531874376674_wp, 1.951448115885_wp, &
+     & 4.231725963854_wp, -1.420334469809_wp, 0.299405229455_wp, &
+     & -0.129625612682_wp, -1.837950193426_wp, -2.128976201128_wp, &
+     & -4.051091096309_wp, -1.315129049540_wp, 1.633832596409_wp, &
+     & -4.536218537284_wp, -1.872131986606_wp, -1.699163157357_wp, &
+     & -4.282193687633_wp, 1.327952833458_wp, -0.537763562819_wp], [3,nat])
+    integer :: pass,i,order(nat),io
+    do pass=1,2
+      order=[(i,i=1,nat)]
+      if(pass==2) order=order(nat:1:-1)
+      block
+        type(gfnff_data) :: calc
+        call gfnff_initialize(nat,at(order),xyz(:,order),calc,iostat=io)
+        call check(error,io,0)
+        if(allocated(error)) return
+        do i=1,nat
+          if(order(i)/=4) cycle
+          ! Legacy parameter literals have default-real precision.
+          call check(error,calc%topo%hbaci(i),1.28_wp,thr=1e-7_wp)
+          if(allocated(error)) return
+        enddo
+        call calc%deallocate()
+      end block
+    enddo
+  end subroutine test_hb_acidity_atom_order
+
 
   subroutine test_gfnff_netforce(error)
     !***********************************************
