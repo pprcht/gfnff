@@ -8,9 +8,10 @@ jobs:
   # ── CMake ────────────────────────────────────────────────────────────────────
   cmake:
     name: CMake (gcc-${{ matrix.compiler_version }}, ${{ matrix.build_type }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
+      fail-fast: false
       matrix:
         compiler_version: [12, 13]
         build_type: [Debug, RelWithDebInfo]
@@ -21,7 +22,6 @@ jobs:
 
       - name: Install compilers and dependencies
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
           sudo apt-get install -y \
             gcc-${{ matrix.compiler_version }} \
@@ -53,9 +53,10 @@ jobs:
   # ── Meson ────────────────────────────────────────────────────────────────────
   meson:
     name: Meson (gcc-${{ matrix.compiler_version }}, ${{ matrix.build_type }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     strategy:
+      fail-fast: false
       matrix:
         compiler_version: [12, 13]
         build_type: [debug, debugoptimized]
@@ -66,7 +67,6 @@ jobs:
 
       - name: Install compilers and dependencies
         run: |
-          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
           sudo apt-get update
           sudo apt-get install -y \
             gcc-${{ matrix.compiler_version }} \
