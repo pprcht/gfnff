@@ -325,8 +325,10 @@ contains  !> MODULE PROCEDURES START HERE
         ghb = 0.0d0
       end if
 
+      qtmp = 0.0_wp
       do i = 1,n
-        qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
+        if (cn(i) .le. 0.0_wp) cycle
+        qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i)))
       end do
 
       call gemv(dcn,qtmp,g,alpha=-1.0_wp,beta=1.0_wp)
@@ -352,8 +354,10 @@ contains  !> MODULE PROCEDURES START HERE
       end if
 
       !>-- qtmp = q * dX/dCN, where X is the right-hand side
+      qtmp = 0.0_wp
       do i = 1,n
-        qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i))+1.d-16)
+        if (cn(i) .le. 0.0_wp) cycle
+        qtmp(i) = nlist%q(i)*param%cnf(at(i))/(2.0d0*sqrt(cn(i)))
       end do
 
       call gemv(dcn,qtmp,g,alpha=-mcf_ees,beta=1.0_wp)

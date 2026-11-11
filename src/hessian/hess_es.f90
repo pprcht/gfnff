@@ -38,8 +38,6 @@ module gfnff_hess_es
 
   real(wp),parameter :: sqrtpi = 1.77245385091_wp
   real(wp),parameter :: tsqrt2pi = 0.797884560802866_wp
-  !> same regulariser as the energy code's 1/(2 sqrt(CN)), so the Hessian matches that gradient
-  real(wp),parameter :: cnreg = 1.0e-16_wp
 
 contains  !> MODULE PROCEDURES START HERE
 
@@ -117,12 +115,13 @@ contains  !> MODULE PROCEDURES START HERE
 
     !>-- 2. CN part -q^T d2 x and CN half of rho. x_i is nonlinear in CN:
     !>   d2 x_i = cnf_i/(2 sqrt CN_i) d2 CN_i - cnf_i/(4 CN_i^3/2) dCN (x) dCN
-    allocate (w(n),rone(n))
+    allocate (w(n),rone(n),source=0.0_wp)
     do iat = 1,n
-      dxdcn = param%cnf(at(iat))/(2.0_wp*sqrt(cn(iat))+cnreg)
+      if (cn(iat) .le. 0.0_wp) cycle
+      dxdcn = param%cnf(at(iat))/(2.0_wp*sqrt(cn(iat)))
       ai = q(iat)*dxdcn
       w(iat) = -ai
-      rone(iat) = ai/(2.0_wp*cn(iat)+cnreg)
+      rone(iat) = ai/(2.0_wp*cn(iat))
       rmat(iat,:) = rmat(iat,:)-dxdcn*dcn(:,iat)
     end do
 

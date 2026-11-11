@@ -151,6 +151,21 @@ class TestHessian:
         fd = ((gplus - gminus) / (2.0 * delta)).reshape(-1)
         assert np.abs(fd - hess[:, 0]).max() < 1.0e-5
 
+    def test_isolated_ion_matches_finite_difference(self):
+        """F- whose CN has rounded to 0 while its CN derivative has not."""
+        numbers = np.array([10, 9], dtype=np.int32)
+        positions = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 5.9]])
+        calc = GFNFFCalculator(numbers, positions, charge=-1, ref_charges=[0.0, -1.0])
+        hess, _, gradient = calc.hessian(numbers, positions)
+
+        delta = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 1.0e-4]])
+        e_fwd, g_fwd, _ = calc.singlepoint(numbers, positions + delta)
+        e_bwd, g_bwd, _ = calc.singlepoint(numbers, positions - delta)
+
+        assert abs((e_fwd - e_bwd) / 2.0e-4 - gradient[1, 2]) < 1.0e-6
+        fd = ((g_fwd - g_bwd) / 2.0e-4).reshape(-1)
+        assert np.abs(fd - hess[:, 5]).max() < 1.0e-5
+
     def test_rejects_periodic(self, sio2):
         numbers, positions, lattice, npbc = sio2
         calc = GFNFFCalculator(numbers, positions, lattice=lattice, npbc=npbc)
